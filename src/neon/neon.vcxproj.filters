@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Graphics\Render.cpp" />
+    <ClCompile Include="Graphics\GpuResource.cpp" />
+    <ClCompile Include="Graphics\DescriptorTable.cpp" />
+    <ClCompile Include="Graphics\DeviceResources.cpp" />
+    <ClCompile Include="Graphics\Graphics.cpp" />
+    <ClCompile Include="Logging.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="Widechar.cpp" />
+    <ClCompile Include="imgui_local.cpp" />
+    <ClCompile Include="Graphics\ShaderCompiler.cpp" />
+    <ClCompile Include="Graphics\CommandQueue.cpp" />
+    <ClCompile Include="Graphics\Texture.cpp" />
+    <ClCompile Include="Graphics\UploadBuffer.cpp" />
+    <ClCompile Include="RmlUI.cpp" />
+    <ClCompile Include="RmlUi_Platform_SDL.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Graphics\GpuResource.h" />
+    <ClInclude Include="neon.h" />
+    <ClInclude Include="Graphics\neon-graphics.h" />
+    <ClInclude Include="Graphics\Descriptor.h" />
+    <ClInclude Include="Graphics\CommandContext.h" />
+    <ClInclude Include="Graphics\CommandQueue.h" />
+    <ClInclude Include="neon-math.h" />
+    <ClInclude Include="Graphics\DescriptorTable.h" />
+    <ClInclude Include="vfs\VirtualFileSystem.h" />
+    <ClInclude Include="Graphics\Image.h" />
+    <ClInclude Include="Graphics\DeviceResources.h" />
+    <ClInclude Include="Graphics\Graphics.h" />
+    <ClInclude Include="Logging.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="PlatformHelpers.h" />
+    <ClInclude Include="neon-types.h" />
+    <ClInclude Include="Widechar.h" />
+    <ClInclude Include="imgui_local.h" />
+    <ClInclude Include="Shell.h" />
+    <ClInclude Include="Graphics\ShaderTypes.h" />
+    <ClInclude Include="Graphics\ShaderCompiler.h" />
+    <ClInclude Include="shaders\imgui.h" />
+    <ClInclude Include="Graphics\UploadBuffer.h" />
+    <ClInclude Include="Graphics\Texture.h" />
+    <ClInclude Include="shaders\compose.h" />
+    <ClInclude Include="RmlUI.h" />
+    <ClInclude Include="RmlUi_Platform_SDL.h" />
+    <ClInclude Include="shaders\rmlui.h" />
+    <ClInclude Include="shaders\neon-shaders.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\imgui.hlsl" />
+    <None Include="shaders\compose.hlsl" />
+    <None Include="shaders\rmlui.hlsl" />
+  </ItemGroup>
+</Project>

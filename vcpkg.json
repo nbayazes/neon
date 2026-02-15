@@ -1,0 +1,57 @@
+{
+  "name": "neon",
+  "version": "0.1.0",
+  "description": "neon framework",
+  "vcpkg-configuration": {
+    "default-registry": {
+      "kind": "builtin",
+      "baseline": "01be99fec01f777c4113ceea192a45115c69cdb7"
+    }
+  },
+  "dependencies": [
+    {
+      "name": "fmt",
+      "version>=": "10.1.1"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.12.0"
+    },
+    {
+      "name": "ryml"
+    },
+    {
+      "name": "rmlui"
+    },
+    {
+      "name": "lodepng",
+      "version>=": "2021-12-04#1"
+    },
+    {
+      "name": "magic-enum",
+      "version>=": "0.9.2"
+    },
+    {
+      "name": "directxtk12",
+      "version>=": "2023-06-13"
+    },
+    {
+      "name": "sdl3",
+      "version>=": "3.2.0"
+    },
+    {
+      "name": "directxtex",
+      "features": [ "dx12" ]
+    },
+    {
+      "name": "d3d12-memory-allocator",
+      "version>=": "3.0.1#0"
+    }
+  ],
+  "overrides": [
+    {
+      "name": "ryml",
+      "version": "0.7.2"
+    }
+  ]
+}
