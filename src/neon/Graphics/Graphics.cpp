@@ -16,6 +16,7 @@
 #include "DescriptorTable.h"
 #include "imgui.h"
 #include "imgui_local.h"
+#include "Rml/RmlUI.h"
 #include "shaders/compose.h"
 #include "shaders/neon-shaders.h"
 #include "Shell.h"
@@ -23,18 +24,6 @@
 
 namespace neon::gfx {
     namespace {
-        //ComPtr<IDXGIFactory4> m_dxgiFactory;
-        //ComPtr<IDXGISwapChain3> m_swapChain;
-        //ComPtr<ID3D12Device> m_d3dDevice;
-
-        //Ptr<CommandQueue> m_CommandQueue;
-        //Ptr<DescriptorHeap> _shaderVisibleHeap;
-        //Ptr<DescriptorHeap> _renderTargetHeap;
-        //Ptr<DescriptorHeap> _depthStencilHeap;
-
-        UploadBuffer<shaders::imgui::Vertex> VertexBuffer = { 3, "triangle vertices" };
-        UploadBuffer<uint16> IndexBuffer = { 3, "triangle indices" };
-
         //bool _typedUAVLoadSupport_R11G11B10_FLOAT = false;
         float _renderScale = 1;
         //ComPtr<D3D12MA::Allocator> _allocator;
@@ -368,6 +357,21 @@ namespace neon::gfx {
         resources.renderTargetDescriptors = make_unique<LinearDescriptorRange>(resources.renderTargetHeap.get());
         resources.depthStencilDescriptors = make_unique<LinearDescriptorRange>(resources.depthStencilHeap.get());
 
+        resources.textureCopyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "texture copy queue");
+        resources.textureCopyContext = std::make_unique<CommandContext>(device, resources.textureCopyQueue.get(), "texture upload context");
+
+        {
+            // create white texture
+            Image image;
+            std::array data = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+            image.Load<uint32>(data, 2, 2);
+
+            // todo: this should not be mixed with the other textures
+            auto handle = CreateTexture(image, "white");
+            resources.whiteTexture = GetTexture(handle);
+            resources.reservedDescriptors->AddSRV(*resources.whiteTexture);
+        }
+
         neon::imgui::InitializeGraphics(_backBufferCount);
     }
 
@@ -429,7 +433,7 @@ namespace neon::gfx {
 
             // Create a descriptor for the swap chain.
             DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {
-                
+
                 .Width = backBufferWidth,
                 .Height = backBufferHeight,
                 .Format = backBufferFormat,
@@ -486,7 +490,7 @@ namespace neon::gfx {
         _backBufferIndex = sizedResources.swapChain->GetCurrentBackBufferIndex();
 
         sizedResources.uiRenderTarget = make_unique<RenderTarget>();
-        sizedResources.uiRenderTarget->Create("ui render target", width, height, pipelines::imgui.format);
+        sizedResources.uiRenderTarget->Create("ui render target", width, height, pipelines::imgui.format, Color(0, 0, 0, 0));
         resources.renderTargetDescriptors->AddRTV(*sizedResources.uiRenderTarget);
         resources.sizedDescriptors->AddSRV(*sizedResources.uiRenderTarget);
     }
@@ -555,39 +559,8 @@ namespace neon::gfx {
         return sizedResources.backBuffers[_backBufferIndex];
     }
 
-    void DrawTriangle(ID3D12GraphicsCommandList* cmdList) {
-        shaders::imgui::Vertex triangleVertices[] = {
-            { .position = { 10.0f, 10.0f }, .uv = { 0, 0 }, .color = 0xff0000 },
-            { .position = { -10.0f, -10.0f }, .uv = { 0, 0 }, .color = 0x00ff00 },
-            { .position = { -10.0f, 10.0f }, .uv = { 0, 0 }, .color = 0x0000ff }
-        };
-
-        VertexBuffer.Begin();
-        VertexBuffer.Copy(triangleVertices);
-        VertexBuffer.End();
-
-        uint16 indices[] = { 0, 1, 2 };
-        IndexBuffer.Begin();
-        IndexBuffer.Copy(indices);
-        IndexBuffer.End();
-
-
-        D3D12_VERTEX_BUFFER_VIEW vbv{};
-        vbv.BufferLocation = VertexBuffer.GetGPUVirtualAddress();
-        vbv.SizeInBytes = VertexBuffer.GetSizeInBytes();
-        vbv.StrideInBytes = VertexBuffer.GetStride();
-        cmdList->IASetVertexBuffers(0, 1, &vbv);
-
-        cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        //cmdList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-        cmdList->DrawInstanced(3, 1, 0, 0);
-    }
-
     void Render(GraphicsContext& context) {
         context.Reset();
-        Color clearColor(0.05f, 0.05f, 0.05f);
-        context.SetPipelineState(pipelines::imgui);
-        context.SetViewportAndScissor({ shell::width, shell::height });
 
         auto cmdList = context.GetCommandList();
 
@@ -595,10 +568,14 @@ namespace neon::gfx {
         cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
 
         context.SetRenderTarget(*sizedResources.uiRenderTarget);
+        context.ClearRenderTarget(*sizedResources.uiRenderTarget, nullptr);
 
+        neon::rml::Draw();
         neon::imgui::Draw();
 
-        context.ClearColor(GetBackBuffer(), nullptr, &clearColor);
+        context.SetViewportAndScissor({ shell::width, shell::height });
+        Color clearColor(0.05f, 0.05f, 0.05f);
+        context.ClearRenderTarget(GetBackBuffer(), nullptr, &clearColor);
         context.SetRenderTarget(GetBackBuffer());
 
         sizedResources.uiRenderTarget->Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
@@ -659,5 +636,28 @@ namespace neon::gfx {
         //}
 
         //Render::Allocator->SetCurrentFrameIndex(m_backBufferIndex);
+    }
+
+    unsigned int CreateTexture(const Image& image, std::string_view name) {
+        auto index = resources.textures.size();
+        auto& texture = resources.textures.emplace_back();
+        resources.textureCopyContext->Reset();
+        auto intermediate = texture.Create(resources.textureCopyContext->GetCommandList(), image, name);
+        resources.textureCopyContext->Execute();
+        resources.textureCopyContext->WaitForIdle();
+
+        resources.textureDescriptors->AddSRV(texture).ptr;
+        return (uint)index;
+    }
+
+    Texture* GetTexture(unsigned int index) {
+        if (index >= resources.textures.size()) return nullptr;
+        return &resources.textures[index];
+    }
+
+    void FreeTexture(unsigned int index) {
+        // todo: this should queue and free between frames
+        if (index >= resources.textures.size()) return;
+        resources.textures[index] = {};
     }
 }

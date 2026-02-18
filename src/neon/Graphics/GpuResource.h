@@ -60,11 +60,6 @@ namespace neon::gfx {
         const D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const { return _rtv.GetCpuHandle(); }
         const D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const { return _dsv.GetCpuHandle(); }
 
-        virtual D3D12_RENDER_TARGET_VIEW_DESC GetRtvDesc() { throw NotSupportedException(); }
-        virtual D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() { throw NotSupportedException(); }
-        virtual D3D12_UNORDERED_ACCESS_VIEW_DESC GetUavDesc() { throw NotSupportedException(); }
-        virtual D3D12_DEPTH_STENCIL_VIEW_DESC GetDsvDesc() { throw NotSupportedException(); }
-
         string_view GetName() const { return _name; }
 
         // Returns the original state
@@ -98,6 +93,11 @@ namespace neon::gfx {
         }
 
     protected:
+        virtual D3D12_RENDER_TARGET_VIEW_DESC GetRtvDesc() { throw NotSupportedException(); }
+        virtual D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() { throw NotSupportedException(); }
+        virtual D3D12_UNORDERED_ACCESS_VIEW_DESC GetUavDesc() { throw NotSupportedException(); }
+        virtual D3D12_DEPTH_STENCIL_VIEW_DESC GetDsvDesc() { throw NotSupportedException(); }
+
         void CreateOnUploadHeap(string_view name, const D3D12_CLEAR_VALUE* clearValue = nullptr, bool forceComitted = false) {
             Create(D3D12_HEAP_TYPE_UPLOAD, name, clearValue, forceComitted);
         }
@@ -420,8 +420,9 @@ namespace neon::gfx {
 
     // Generic render target
     class RenderTarget : public PixelBuffer {
+        Color _clearColor;
     public:
-        Color ClearColor;
+        Color& GetClearColor() { return _clearColor; }
 
         D3D12_RENDER_TARGET_VIEW_DESC GetRtvDesc() override {
             return {
@@ -443,7 +444,7 @@ namespace neon::gfx {
 
         // Creates a general purpose render target
         void Create(string_view name, UINT width, UINT height, DXGI_FORMAT format, const Color& clearColor = { 0, 0, 0 }, UINT samples = 1) {
-            ClearColor = clearColor;
+            _clearColor = clearColor;
 
             _desc = CD3DX12_RESOURCE_DESC::Tex2D(
                 format,
@@ -465,7 +466,9 @@ namespace neon::gfx {
         }
 
         // Creates a render target for a swap chain
-        void CreateBackBuffer(string_view name, IDXGISwapChain* swapChain, UINT buffer) {
+        void CreateBackBuffer(string_view name, IDXGISwapChain* swapChain, UINT buffer, const Color& clearColor = { 0, 0, 0 }) {
+            _clearColor = clearColor;
+
             ThrowIfFailed(swapChain->GetBuffer(buffer, IID_PPV_ARGS(_resource.ReleaseAndGetAddressOf())));
             _desc = _resource->GetDesc();
             SetName(_resource, name);

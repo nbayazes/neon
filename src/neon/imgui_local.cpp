@@ -5,7 +5,9 @@
 #include <DirectXTK12/SimpleMath.h>
 #include <imgui_internal.h>
 #include <wrl/client.h>
+#include "Graphics/DeviceResources.h"
 #include "Graphics/UploadBuffer.h"
+#include "Graphics/Graphics.h"
 #include "imgui_impl_sdl3.h"
 #include "shaders/imgui.h"
 #include "Shell.h"
@@ -190,7 +192,6 @@ namespace neon::imgui {
 
         UINT FrameIndex = UINT_MAX;
         std::vector<FrameResources> Resources;
-        Texture font;
 
         ImGuiViewportData(int backBufferCount) :
             Resources(backBufferCount) {}
@@ -206,33 +207,34 @@ namespace neon::imgui {
     };
 
     // Build texture atlas
-    Texture CreateFontTexture() {
+    void CreateFontTexture() {
         ImGuiIO& io = ImGui::GetIO();
         unsigned char* pixels;
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        auto device = GetDevice();
-        auto copyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "imgui upload queue");
-        auto copyContext = std::make_unique<CommandContext>(device, copyQueue.get(), "imgui upload context");
-
         Image fontImage;
         fontImage.Load(std::span<const unsigned char>{ pixels, (UINT)width * (UINT)height }, width, height);
 
-        Texture fontTexture;
-        auto& resources = GetDeviceResources();
-        copyContext->Reset();
-        auto intermediate = fontTexture.Create(copyContext->GetCommandList(), fontImage, "imgui font");
-        copyContext->Execute();
-        copyContext->WaitForIdle();
+        //auto device = GetDevice();
+        //auto copyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "imgui upload queue");
+        //auto copyContext = std::make_unique<CommandContext>(device, copyQueue.get(), "imgui upload context");
+
+        //Texture fontTexture;
+        //auto& resources = GetDeviceResources();
+        //copyContext->Reset();
+        //auto intermediate = fontTexture.Create(copyContext->GetCommandList(), fontImage, "imgui font");
+        //copyContext->Execute();
+        //copyContext->WaitForIdle();
+
+        auto handle = gfx::CreateTexture(fontImage, "imgui font");
 
         //auto descriptors = resources.shaderVisibleHeap.get();
-        auto ptr = resources.reservedDescriptors->AddSRV(fontTexture).ptr;
+        //auto ptr = resources.reservedDescriptors->AddSRV(fontTexture).ptr;
 
-        // Store our identifier
-        static_assert(sizeof(ImTextureID) >= sizeof(ptr), "Can't pack descriptor handle into TexID, 32-bit not supported yet.");
-        io.Fonts->TexID = ptr;
-        return fontTexture;
+        // Store the handle
+        static_assert(sizeof(ImTextureID) >= sizeof(handle), "Can't pack descriptor handle into TexID");
+        io.Fonts->TexID = handle;
     }
 
     void Initialize(SDL_Window* window, float fontSize) {
@@ -308,11 +310,11 @@ namespace neon::imgui {
         io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional) // FIXME-VIEWPORT: Actually unfinished..
 
         auto mainViewport = ImGui::GetMainViewport();
-//#pragma warning(push)
-//#pragma warning(disable: 26409)
+        //#pragma warning(push)
+        //#pragma warning(disable: 26409)
         auto viewportData = IM_NEW(ImGuiViewportData)(backBufferCount);
         mainViewport->RendererUserData = viewportData;
-//#pragma warning(pop)
+        //#pragma warning(pop)
         // Setup back-end capabilities flags
         io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -325,7 +327,7 @@ namespace neon::imgui {
             platformIo.Renderer_DestroyWindow = DestroyWindow;
         }
 
-        viewportData->font = CreateFontTexture();
+        CreateFontTexture();
     }
 
     void FreeGraphics() {
@@ -376,10 +378,10 @@ namespace neon::imgui {
         shaders::imgui::SetProjectionMatrix(cmdList, proj);
         shaders::imgui::SetSampler(cmdList, resources.states->LinearClamp());
 
-        auto& sizedResources = neon::gfx::GetWindowSizeResources();
+        //auto& sizedResources = neon::gfx::GetWindowSizeResources();
         //sizedResources.uiRenderTarget->Transition(cmdList, D3D12_RESOURCE_STATE_COMMON, true);
-        context->SetRenderTarget(sizedResources.uiRenderTarget->GetRTV());
-        context->ClearColor(*sizedResources.uiRenderTarget, nullptr);
+        //context->SetRenderTarget(sizedResources.uiRenderTarget->GetRTV());
+        //context->ClearColor(*sizedResources.uiRenderTarget, nullptr);
 
         // Setup blend factor
         //constexpr float blend_factor[4] = { 1.f, 1.f, 1.f, 1.f };
@@ -447,9 +449,10 @@ namespace neon::imgui {
                     const D3D12_RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
                     cmdList->RSSetScissorRects(1, &r);
 
-                    D3D12_GPU_DESCRIPTOR_HANDLE handle = {};
-                    handle.ptr = pcmd->GetTexID();
-                    shaders::imgui::SetDiffuse(cmdList, handle);
+                    if (auto tex = gfx::GetTexture((uint)pcmd->GetTexID())) {
+                        shaders::imgui::SetDiffuse(cmdList, tex->GetSRV());
+                    }
+
                     cmdList->DrawIndexedInstanced(pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
                 }
             }

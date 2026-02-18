@@ -15,8 +15,11 @@
     <ClCompile Include="Graphics\CommandQueue.cpp" />
     <ClCompile Include="Graphics\Texture.cpp" />
     <ClCompile Include="Graphics\UploadBuffer.cpp" />
-    <ClCompile Include="RmlUI.cpp" />
-    <ClCompile Include="RmlUi_Platform_SDL.cpp" />
+    <ClCompile Include="Rml\RmlUI.cpp" />
+    <ClCompile Include="Rml\RmlUi_Platform_SDL.cpp" />
+    <ClCompile Include="vfs\VirtualFileSystem.cpp" />
+    <ClCompile Include="vfs\FileSystem.cpp" />
+    <ClCompile Include="Graphics\Image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -44,10 +47,12 @@
     <ClInclude Include="Graphics\UploadBuffer.h" />
     <ClInclude Include="Graphics\Texture.h" />
     <ClInclude Include="shaders\compose.h" />
-    <ClInclude Include="RmlUI.h" />
-    <ClInclude Include="RmlUi_Platform_SDL.h" />
+    <ClInclude Include="Rml\RmlUI.h" />
+    <ClInclude Include="Rml\RmlUi_Platform_SDL.h" />
     <ClInclude Include="shaders\rmlui.h" />
     <ClInclude Include="shaders\neon-shaders.h" />
+    <ClInclude Include="vfs\FileSystem.h" />
+    <ClInclude Include="neon-strings.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

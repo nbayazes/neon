@@ -1,7 +1,6 @@
 #pragma once
 #include "neon-graphics.h"
 #include "GpuResource.h"
-#include "directxtk12/DirectXHelpers.h"
 #include "Image.h"
 
 namespace neon::gfx {

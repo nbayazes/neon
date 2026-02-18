@@ -158,4 +158,6 @@ namespace neon::gfx {
             return true;
         }
     };
+
+    Option<Image> ReadImage(string_view name, bool srgb);
 }

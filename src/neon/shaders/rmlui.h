@@ -2,6 +2,7 @@
 
 #include "Graphics/ShaderTypes.h"
 #include "neon-math.h"
+#include <RmlUi/Core.h>
 
 namespace neon::gfx::shaders::rmlui {
     enum RootParameters : uint {
@@ -10,11 +11,13 @@ namespace neon::gfx::shaders::rmlui {
         Sampler,
     };
 
-    struct Vertex {
-        Vector2 position;
-        uint32 color;
-        Vector2 uv;
+    struct Arguments {
+        Matrix ProjectionMatrix;
+        Vector2 translation;
+    };
 
+
+    struct Vertex : Rml::Vertex {
         static constexpr D3D12_INPUT_ELEMENT_DESC layout[] = {
             { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
             { "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -26,8 +29,8 @@ namespace neon::gfx::shaders::rmlui {
         commandList->SetGraphicsRootDescriptorTable(Diffuse, texture);
     }
 
-    constexpr void SetProjectionMatrix(ID3D12GraphicsCommandList* commandList, const Matrix& mvp) {
-        commandList->SetGraphicsRoot32BitConstants(Constants, sizeof(mvp) / 4, &mvp.m, 0);
+    constexpr void SetProjectionMatrix(ID3D12GraphicsCommandList* commandList, const Arguments& args) {
+        commandList->SetGraphicsRoot32BitConstants(Constants, sizeof(args) / 4, &args, 0);
     }
 
     constexpr void SetSampler(ID3D12GraphicsCommandList* commandList, D3D12_GPU_DESCRIPTOR_HANDLE sampler) {
@@ -35,14 +38,14 @@ namespace neon::gfx::shaders::rmlui {
     }
 
     constexpr ShaderInfo info = {
-        .file = "shaders/imgui.hlsl",
+        .file = "shaders/rmlui.hlsl",
         .inputLayout = gfx::CreateLayout(Vertex::layout),
     };
 }
 
 namespace neon::gfx::pipelines {
     inline PipelineInfo rmlui = {
-        .name = "imgui pipeline",
+        .name = "rml pipeline",
         .shader = &shaders::rmlui::info,
         .format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
         .blend = BlendMode::StraightAlpha,

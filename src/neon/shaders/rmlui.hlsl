@@ -1,10 +1,11 @@
 #define RS "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "\
-    "RootConstants(b0, num32BitConstants = 16, visibility=SHADER_VISIBILITY_VERTEX), "\
+    "RootConstants(b0, num32BitConstants = 18, visibility=SHADER_VISIBILITY_VERTEX), "\
     "DescriptorTable(SRV(t0), visibility=SHADER_VISIBILITY_PIXEL), " \
     "DescriptorTable(Sampler(s0), visibility=SHADER_VISIBILITY_PIXEL)"
 
 struct Arguments {
     float4x4 ProjectionMatrix;
+    float2 translation;
 };
 
 ConstantBuffer<Arguments> Args : register(b0);
@@ -26,8 +27,8 @@ struct PS_INPUT {
 [RootSignature(RS)]
 PS_INPUT vsmain(VS_INPUT input) {
     PS_INPUT output;
-    output.pos = mul(Args.ProjectionMatrix, float4(input.pos.xy, 0.f, 1.f));
-    output.col = float4(pow(input.col.rgb, 2.2), input.col.a); // convert imgui colors from SRGB to linear
+    output.pos = mul(Args.ProjectionMatrix, float4(input.pos.xy + Args.translation, 0.f, 1.f));
+    output.col = float4(pow(input.col.rgb, 2.2), input.col.a); // convert colors from SRGB to linear
     output.uv = input.uv;
     return output;
 }
@@ -35,4 +36,5 @@ PS_INPUT vsmain(VS_INPUT input) {
 float4 psmain(PS_INPUT input) : SV_Target {
     float4 tex = texture0.Sample(sampler0, input.uv);
     return input.col * tex;
+    return input.col;
 }

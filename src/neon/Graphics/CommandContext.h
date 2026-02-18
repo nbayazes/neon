@@ -93,13 +93,13 @@ namespace neon::gfx {
             _cmdList->IASetPrimitiveTopology(topology);
         }
 
-        void ClearColor(RenderTarget& target, const D3D12_RECT* rect = nullptr, const Color* color = nullptr) {
+        void ClearRenderTarget(RenderTarget& target, const D3D12_RECT* rect = nullptr, const Color* color = nullptr) {
             target.Transition(_cmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
-            _cmdList->ClearRenderTargetView(target.GetRTV(), color ? *color : target.ClearColor, (rect == nullptr) ? 0 : 1, rect);
+            _cmdList->ClearRenderTargetView(target.GetRTV(), color ? *color : target.GetClearColor(), (rect == nullptr) ? 0 : 1, rect);
             _activeEffect = 0;
         }
 
-        void ClearColor(ColorBuffer& target, const D3D12_RECT* rect = nullptr, const Color* color = nullptr) {
+        void ClearRenderTarget(ColorBuffer& target, const D3D12_RECT* rect = nullptr, const Color* color = nullptr) {
             target.Transition(_cmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
             _cmdList->ClearRenderTargetView(target.GetRTV(), color ? *color : target.ClearColor, (rect == nullptr) ? 0 : 1, rect);
             _activeEffect = 0;
@@ -117,10 +117,7 @@ namespace neon::gfx {
             _activeEffect = 0;
         }
 
-        void SetScissor(const uint2& size) const {
-            D3D12_RECT scissor{};
-            scissor.right = (LONG)size.x;
-            scissor.bottom = (LONG)size.y;
+        void SetScissor(const D3D12_RECT& scissor) const {
             _cmdList->RSSetScissorRects(1, &scissor);
         }
 
@@ -135,7 +132,12 @@ namespace neon::gfx {
 
         void SetViewportAndScissor(const uint2& size) const {
             SetViewport(size);
-            SetScissor(size);
+            SetScissor({
+                .left = 0,
+                .top = 0,
+                .right = (LONG)size.x,
+                .bottom = (LONG)size.y
+            });
         }
 
         void SetConstantsArray(uint rootIndex, uint numConstants, const void* data) const {

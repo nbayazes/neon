@@ -14,7 +14,6 @@ namespace neon::gfx {
     constexpr size_t MAX_BACK_BUFFER_COUNT = 2;
 
     // Resources alive for the duration of the device
-    // NOTE: resources are destroyed in order
     struct DeviceResources {
         Ptr<CommandQueue> commandQueue;
         Ptr<DescriptorHeap> shaderVisibleHeap;
@@ -28,15 +27,18 @@ namespace neon::gfx {
         Ptr<LinearDescriptorRange> depthStencilDescriptors; // DSV descriptors, resets when window size changes
 
         Ptr<DirectX::CommonStates> states;
-
-        ComPtr<D3D12MA::Allocator> memoryAllocator;
-
+        Ptr<CommandQueue> textureCopyQueue;
+        Ptr<CommandContext> textureCopyContext;
+        List<Texture> textures;
         Ptr<GraphicsContext> graphicsContext[MAX_BACK_BUFFER_COUNT];
 
+        Texture* whiteTexture = nullptr;
+
+        // NOTE: the memory allocator, device and factory must be last due to destruction order!
+
+        ComPtr<D3D12MA::Allocator> memoryAllocator;
         ComPtr<ID3D12Device> d3dDevice;
         ComPtr<IDXGIFactory4> dxgiFactory;
-
-        //UploadBuffer<shaders::imgui::Vertex> triangleUploadBuffer = { 3, "triangle upload buffer" };
     };
 
     // Resources that are recreated when the window size changes

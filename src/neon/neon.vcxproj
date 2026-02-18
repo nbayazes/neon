@@ -168,6 +168,7 @@
     <ClCompile Include="Graphics\DeviceResources.cpp" />
     <ClCompile Include="Graphics\GpuResource.cpp" />
     <ClCompile Include="Graphics\Graphics.cpp" />
+    <ClCompile Include="Graphics\Image.cpp" />
     <ClCompile Include="Graphics\Render.cpp" />
     <ClCompile Include="Graphics\ShaderCompiler.cpp" />
     <ClCompile Include="Graphics\Texture.cpp" />
@@ -179,8 +180,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="RmlUI.cpp" />
-    <ClCompile Include="RmlUi_Platform_SDL.cpp" />
+    <ClCompile Include="Rml\RmlUI.cpp" />
+    <ClCompile Include="Rml\RmlUi_Platform_SDL.cpp" />
+    <ClCompile Include="vfs\FileSystem.cpp" />
+    <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -204,13 +207,15 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="PlatformHelpers.h" />
     <ClInclude Include="neon-types.h" />
-    <ClInclude Include="RmlUI.h" />
+    <ClInclude Include="Rml\RmlUI.h" />
     <ClInclude Include="shaders\compose.h" />
     <ClInclude Include="shaders\imgui.h" />
-    <ClInclude Include="RmlUi_Platform_SDL.h" />
+    <ClInclude Include="Rml\RmlUi_Platform_SDL.h" />
     <ClInclude Include="shaders\rmlui.h" />
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="Shell.h" />
+    <ClInclude Include="vfs\FileSystem.h" />
+    <ClInclude Include="neon-strings.h" />
     <ClInclude Include="vfs\VirtualFileSystem.h" />
     <ClInclude Include="Widechar.h" />
   </ItemGroup>

@@ -7,5 +7,5 @@ namespace neon::rml {
 
     void Update();
 
-    void Render();
+    void Draw();
 }
