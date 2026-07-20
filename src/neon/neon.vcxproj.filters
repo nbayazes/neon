@@ -20,6 +20,7 @@
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="Graphics\Image.cpp" />
+    <ClCompile Include="DirectoryWatcher.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -53,6 +54,8 @@
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />
+    <ClInclude Include="WorkerThread.h" />
+    <ClInclude Include="DirectoryWatcher.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />
