@@ -185,22 +185,25 @@ namespace neon::gfx {
         void Free(ChunkHandle index) {
             std::scoped_lock lock(_mutex);
             auto idx = (size_t)index;
-            if (idx >= _allocations.size()) return;
+            if (idx >= _allocations.size())
+                return;
+
             auto& alloc = _allocations[idx];
-            
+
             for (size_t i = 0; i < alloc.chunks; ++i) {
                 _free[alloc.startBlock + i] = true;
             }
 
-            SPDLOG_INFO("Freeing block {}", (size_t)index);
             memset(_mappedData + alloc.startBlock * _blockSize, 0, alloc.size);
 
-            _allocations.erase(_allocations.begin() +  (ptrdiff_t)index);
+            // todo: this is wrong, it causes handles to become invalid
+            _allocations.erase(_allocations.begin() + (ptrdiff_t)index);
+            SPDLOG_INFO("Freeing {} chunks at block {}. Total allocations {}", alloc.chunks, (size_t)index, _allocations.size());
         }
 
         D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress(ChunkHandle index) const {
             auto idx = (size_t)index;
-            if (idx >= _allocations.size()) return{};
+            if (idx >= _allocations.size()) return {};
             auto& alloc = _allocations[idx];
             return _resource->GetGPUVirtualAddress() + alloc.startBlock * _blockSize;
         }
@@ -236,8 +239,6 @@ namespace neon::gfx {
                     _free[i + c] = false;
                 }
 
-                SPDLOG_INFO("Allocating {} chunk(s) at {}. {} bytes", requiredChunks, i, size);
-
                 auto& alloc = _allocations.emplace_back();
 
                 alloc = {
@@ -246,10 +247,182 @@ namespace neon::gfx {
                     .size = size
                 };
 
+                SPDLOG_INFO("Allocating {} chunk(s) at block {}. {} bytes. Total allocations: {}", requiredChunks, i, size, _allocations.size());
+
                 return ChunkHandle(_allocations.size() - 1);
             }
 
             throw Exception("No free chunks in buffer!");
+        }
+    };
+
+    // Generic upload buffer.
+    // Internally splits memory into blocks and allocates chunks based on the requested amount.
+    class GenericBuffer2 {
+        ComPtr<ID3D12Resource> _resource;
+        ubyte* _mappedData = nullptr;
+        DescriptorHandle _srv, _uav;
+        size_t _size; // total size
+        string _name;
+        //List<ubyte> _free; // block freelist
+        std::mutex _mutex;
+
+        struct Block {
+            size_t size = 0; // total bytes
+            size_t offset = 0; // resource buffer offset
+            bool used = false;
+            //Block* next = nullptr;
+            DescriptorHandle handle{};
+        };
+
+        //List<Block> _allocations;
+        std::list<Block> _blocks;
+        std::list<Block*> _free;
+
+        static constexpr size_t Align(size_t n) {
+            return (n + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
+        }
+
+
+        Block* FindBlock(uintptr_t address) {
+            for (auto& block : _blocks) {
+                if ((uintptr_t)&block == address) {
+                    return &block;
+                }
+            }
+
+            return nullptr;
+        }
+
+    public:
+        GenericBuffer2(size_t size, string_view name)
+            : _size(size), _name(name) {
+            CreateUploadHeap(_resource, _size);
+            SetName(_resource, name);
+
+            //ranges::fill(_free, true);
+
+            // leave the buffer mapped
+            ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedData));
+
+            _blocks.push_front({ .size = size });
+            _free.push_back(&*_blocks.begin());
+        }
+
+        // Returns a pointer to the allocation
+        template <class T>
+        uintptr_t Copy(span<const T> src) {
+            std::scoped_lock lock(_mutex);
+            auto size = src.size() * sizeof(T);
+            auto block = Allocate(size);
+            if (!block) return 0;
+
+            memcpy(_mappedData + block->offset, src.data(), size);
+            return (uintptr_t)block;
+        }
+
+        void Free(uintptr_t index) {
+            std::scoped_lock lock(_mutex);
+
+            auto block = _blocks.begin();
+
+            while (block != _blocks.end()) {
+                if ((uintptr_t)&*block == index) {
+                    block->used = false;
+                    _free.push_back(&*block);
+
+                    memset(_mappedData + block->offset, 0, block->size);
+                    SPDLOG_INFO("Freeing block {} of size {}", block->offset, block->size);
+
+                    if (block != _blocks.begin()) {
+                        auto prev = std::prev(block);
+                        if (!prev->used) {
+                            // merge this block into previous
+                            block->offset = prev->offset;
+                            block->size += prev->size;
+                            //prev->size += block->size;
+                            _blocks.erase(prev);
+                            //block = prev;
+                            SPDLOG_INFO("Merging block into previous");
+                        }
+                    }
+
+                    auto next = std::next(block);
+                    if (next != _blocks.end()) {
+                        if (!next->used) {
+                            SPDLOG_INFO("Merging block into next");
+                            block->size += next->size;
+                            _blocks.erase(next);
+                        }
+                    }
+                }
+
+                block++;
+            }
+
+            Validate();
+
+            //for (auto& block : _blocks) {
+            //    if ((uintptr_t)&block == index) {
+            //        block.used = false;
+            //        memset(_mappedData + block.offset, 0, block.size);
+            //        SPDLOG_INFO("Freeing block {} of size {}", block.offset, block.size);
+            //    }
+            //}
+        }
+
+        D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress(uintptr_t address) {
+            auto block = FindBlock(address);
+            ASSERT(block);
+            if (!block) return {};
+
+            return _resource->GetGPUVirtualAddress() + block->offset;
+        }
+
+    private:
+        // Returns the address of the allocated block
+        Block* Allocate(size_t size) {
+            size = Align(size);
+            auto block = _blocks.begin();
+
+            while (block != _blocks.end()) {
+                if (!block->used && block->size >= size) {
+                    auto remaining = block->size - size;
+                    SPDLOG_INFO("Allocating block {} of size {}", block->offset, block->size);
+
+                    // create a new block from the remaining space
+                    if (remaining > 0) {
+                        SPDLOG_INFO("Allocating new block {} of size {}", block->offset + size, remaining);
+                        _blocks.insert(std::next(block), {
+                                           .size = remaining,
+                                           .offset = block->offset + size,
+                                       });
+                    }
+
+                    block->size = size;
+                    block->used = true;
+
+                    Validate();
+                    return &*block;
+                }
+
+                block++;
+            }
+
+            throw Exception("No free memory in buffer!");
+        }
+
+        void Validate() const {
+            size_t offset = 0;
+            size_t total = 0;
+
+            for (auto& block : _blocks) {
+                ASSERT(block.offset == offset);
+                total += block.size;
+                offset += block.size;
+            }
+
+            ASSERT(total == _size);
         }
     };
 }

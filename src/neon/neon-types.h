@@ -4,6 +4,8 @@
 #include <string>
 #include <filesystem>
 #include <unordered_map>
+#include <string_view>
+#include <span>
 
 namespace neon {
     // Typed concept that allows iterating over a range

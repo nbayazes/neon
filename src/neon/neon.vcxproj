@@ -182,11 +182,13 @@
     </ClCompile>
     <ClCompile Include="Rml\RmlUI.cpp" />
     <ClCompile Include="Rml\RmlUi_Platform_SDL.cpp" />
+    <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="Graphics\CommandContext.h" />
     <ClInclude Include="Graphics\CommandQueue.h" />
     <ClInclude Include="Graphics\Descriptor.h" />
@@ -214,6 +216,8 @@
     <ClInclude Include="shaders\rmlui.h" />
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="Shell.h" />
+    <ClInclude Include="ui\menu.h" />
+    <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />
     <ClInclude Include="vfs\VirtualFileSystem.h" />
@@ -237,6 +241,9 @@
       </ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
+    </None>
+    <None Include="ui\menu.html">
+      <DeploymentContent>true</DeploymentContent>
     </None>
   </ItemGroup>
   <ItemGroup>

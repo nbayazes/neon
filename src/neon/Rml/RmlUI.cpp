@@ -4,24 +4,28 @@
 #include "Shell.h"
 #include <RmlUi/Core.h>
 #include <RmlUi/Debugger.h>
+#include "DirectoryWatcher.h"
 #include "Graphics/DeviceResources.h"
 #include "Graphics/Image.h"
 #include "Graphics/UploadBuffer.h"
 #include "shaders/rmlui.h"
 #include "vfs/FileSystem.h"
+#include "vfs/VirtualFileSystem.h"
 
 namespace neon::rml {
     namespace {
         struct FrameResources {
-            gfx::GenericBuffer geometryBuffer = { 512, 1024, "rml geometry buffer" };
+            gfx::GenericBuffer2 geometryBuffer = { 1024 * 4, "rml geometry buffer" };
         };
 
         Ptr<FrameResources> _frameResources;
+        Ptr<DirectoryWatcher> _uiFolderWatcher;
+        Ptr<DirectoryChangeNotifier> _directoryNotifier;
     }
 
     struct GeometryHandle {
-        gfx::ChunkHandle vertexHandle = {};
-        gfx::ChunkHandle indexHandle = {};
+        intptr_t vertexHandle = {};
+        intptr_t indexHandle = {};
         uint indices = 0;
         uint vertices = 0;
     };
@@ -125,7 +129,10 @@ namespace neon::rml {
     }
 
     void RmlRenderInterface::ReleaseGeometry(Rml::CompiledGeometryHandle geometry) {
-        if (geometry >= _geometry.size()) return;
+        geometry--; // correct for offset
+        SPDLOG_INFO("Release geometry {}", geometry);
+        if (geometry >= _geometry.size()) 
+            return;
         _frameResources->geometryBuffer.Free(_geometry[geometry].indexHandle);
         _frameResources->geometryBuffer.Free(_geometry[geometry].vertexHandle);
     }
@@ -164,6 +171,7 @@ namespace neon::rml {
         RmlRenderInterface _renderInterface;
 
         Rml::Context* _context = nullptr;
+        Rml::ElementDocument* _document = nullptr;
 
         struct ApplicationData {
             bool show_text = true;
@@ -172,42 +180,6 @@ namespace neon::rml {
 
         bool _initialized = false;
     }
-
-    constexpr auto TEST_DOCUMENT = R"(
-        <rml>
-        <head>
-        <title>Example Example</title>
-        <style>
-            body
-            {
-                position: absolute;
-                top: 50px;
-                left: 50px;
-                width: 500px;
-                height: 500px;
-                background-color: #666;
-                font-family: Segoe UI;
-                font-size: 2em;
-            }
-            div
-            {
-                display: block;
-                height: 150px;
-                width: 350px;
-                background-color: #444;
-                border: 1px #EEE;
-                margin-left: 100px;
-                margin-top: 100px;
-            }
-        </style>
-        </head>
-        <body>
-            <div>
-                <span id="message"> 🐸 hello froggos 🐸 </span>
-            </div>
-        </body>
-        </rml>
-)";
 
     void Init() {
         Rml::SetRenderInterface(&_renderInterface);
@@ -226,16 +198,20 @@ namespace neon::rml {
         Rml::LoadFontFace(R"(c:\Windows\Fonts\SegoeUI.ttf)", false);
         Rml::LoadFontFace(R"(c:\Windows\Fonts\seguiemj.ttf)", true); // fallback emoji font
 
+
         // Set up data bindings to synchronize application data.
         //if (Rml::DataModelConstructor constructor = _context->CreateDataModel("animals")) {
         //    constructor.Bind("show_text", &_data.show_text);
         //    constructor.Bind("animal", &_data.animal);
         //}
 
+        _context->SetDensityIndependentPixelRatio(shell::dpiScale);
+
         // Now we are ready to load our document.
         //Rml::ElementDocument* document = _context->LoadDocument("hello_world.rml");
-        auto document = _context->LoadDocumentFromMemory(TEST_DOCUMENT);
-        document->Show();
+        auto menu = neon::fs::ReadAllText("ui/menu.html");
+        _document = _context->LoadDocumentFromMemory(menu);
+        if (_document) _document->Show();
 
         // Replace and style some text in the loaded document.
         //if(auto element = document->GetElementById("message"))
@@ -243,11 +219,16 @@ namespace neon::rml {
 
         //element->SetProperty("font-size", "1.5em");
 
+        //_uiFolderWatcher = make_unique<DirectoryWatcher>("ui");
+        _directoryNotifier = make_unique<DirectoryChangeNotifier>("ui", 1024);
+        _directoryNotifier->AddFileToWatch("menu.html");
         _initialized = true;
     }
 
     void Shutdown() {
         if (!_initialized) return;
+        _uiFolderWatcher.reset();
+        _directoryNotifier.reset();
         Rml::Shutdown();
         _frameResources.reset(); // free GPU resources after RML shuts down, as it tries to destroy them too
     }
@@ -256,6 +237,17 @@ namespace neon::rml {
         if (!_initialized) return;
         //if (my_input->MouseMoved())
         //    _context->ProcessMouseMove(mouse_pos.x, mouse_pos.y, 0);
+
+        for (auto& file : _directoryNotifier->GetChangedFiles()) {
+            if (file == "menu.html") {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // hack for file locks
+                if (_document) _document->Close();
+                SPDLOG_INFO("Reloading: {}", file.string());
+                auto menu = neon::fs::ReadAllText("ui/menu.html");
+                _document = _context->LoadDocumentFromMemory(menu);
+                _document->Show();
+            }
+        }
 
         _context->Update();
     }
