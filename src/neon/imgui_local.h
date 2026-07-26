@@ -8,21 +8,21 @@
 struct SDL_Window;
 
 namespace ImGui {
-    // Copy of Selectable() with a border when selected
-    //bool ToggleButton(const char* label, bool selected, ImGuiSelectableFlags flags, const ImVec2& size_arg, float borderSize = 1);
+// Copy of Selectable() with a border when selected
+//bool ToggleButton(const char* label, bool selected, ImGuiSelectableFlags flags, const ImVec2& size_arg, float borderSize = 1);
 
-    void SeparatorVertical();
+void SeparatorVertical();
 }
 
 namespace neon::imgui {
-    void Initialize(SDL_Window* window, float fontSize = 24);
+void Initialize(SDL_Window* window, float fontSize = 24);
 
-    void InitializeGraphics(UINT backBufferCount);
+void InitializeGraphics(UINT backBufferCount);
 
-    void FreeGraphics();
+void FreeGraphics();
 
-    // Draws previously recorded commands
-    void Draw();
+// Draws previously recorded commands
+void Draw();
 }
 
 //#pragma warning(pop)

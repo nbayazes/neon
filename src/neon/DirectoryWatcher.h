@@ -4,7 +4,6 @@
 #include <unordered_set>
 
 namespace neon {
-
 class DirectoryWatcher {
     std::filesystem::path _directory;
     std::thread _worker;
@@ -33,6 +32,7 @@ private:
     void Worker();
 };
 
+
 class DirectoryChangeNotifier {
     HANDLE _watcherHandle{};
     OVERLAPPED _overlapped{};
@@ -59,5 +59,4 @@ public:
 
     std::unordered_set<std::filesystem::path> GetChangedFiles();
 };
-
 }
