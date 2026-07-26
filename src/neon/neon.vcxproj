@@ -163,6 +163,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="d3\OutrageModel.cpp" />
     <ClCompile Include="Graphics\CommandQueue.cpp" />
     <ClCompile Include="Graphics\DescriptorTable.cpp" />
     <ClCompile Include="Graphics\DeviceResources.cpp" />
@@ -188,6 +189,9 @@
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="d3\Hog2.h" />
+    <ClInclude Include="d3\OutrageModel.h" />
+    <ClInclude Include="scoped-enum.h" />
     <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="Graphics\CommandContext.h" />
     <ClInclude Include="Graphics\CommandQueue.h" />
@@ -216,7 +220,9 @@
     <ClInclude Include="shaders\rmlui.h" />
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="Shell.h" />
+    <ClInclude Include="Streams.h" />
     <ClInclude Include="ui\menu.h" />
+    <ClInclude Include="Utility.h" />
     <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />

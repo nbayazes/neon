@@ -4,14 +4,14 @@
 #include "neon-graphics.h"
 
 namespace neon::gfx {
-    void InitShaderCompiler(ID3D12Device* device);
+void InitShaderCompiler(ID3D12Device* device);
 
-    // Frees all shader compiler resources, including shaders
-    void FreeShaderCompiler();
+// Frees all shader compiler resources, including shaders
+void FreeShaderCompiler();
 
-    // Compiles a graphics pipeline and caches it
-    void CompileGraphicsPipeline(PipelineInfo& info);
+// Compiles a graphics pipeline and caches it
+void CompileGraphicsPipeline(PipelineInfo& info);
 
-    // Frees any compiled shaders
-    void ClearShaderCache();
+// Frees any compiled shaders
+void ClearShaderCache();
 }

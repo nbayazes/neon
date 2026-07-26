@@ -41,7 +41,7 @@ namespace neon::rml {
         void EnableScissorRegion(bool enable) override;
         void SetScissorRegion(Rml::Rectanglei region) override;
 
-        void SetTransform(const Rml::Matrix4f* transform) override {}
+        void SetTransform(const Rml::Matrix4f* /*transform*/) override {}
 
     private:
         bool _enableScissor = false;

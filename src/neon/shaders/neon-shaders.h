@@ -6,9 +6,9 @@
 #include "rmlui.h"
 
 namespace neon::gfx::shaders {
-    inline void Compile() {
-        CompileGraphicsPipeline(pipelines::imgui);
-        CompileGraphicsPipeline(pipelines::rmlui);
-        CompileGraphicsPipeline(pipelines::compose);
-    }
+inline void Compile() {
+    CompileGraphicsPipeline(pipelines::imgui);
+    CompileGraphicsPipeline(pipelines::rmlui);
+    CompileGraphicsPipeline(pipelines::compose);
+}
 }

@@ -21,6 +21,7 @@
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="Graphics\Image.cpp" />
     <ClCompile Include="DirectoryWatcher.cpp" />
+    <ClCompile Include="d3\OutrageModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -57,6 +58,11 @@
     <ClInclude Include="ui\menu.h" />
     <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="DirectoryWatcher.h" />
+    <ClInclude Include="d3\OutrageModel.h" />
+    <ClInclude Include="scoped-enum.h" />
+    <ClInclude Include="Streams.h" />
+    <ClInclude Include="Utility.h" />
+    <ClInclude Include="d3\Hog2.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />
