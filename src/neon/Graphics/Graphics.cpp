@@ -1,26 +1,23 @@
 #include "pch.h"
-
-#include "neon-graphics.h"
-#include "neon-types.h"
-
 #include "Graphics.h"
-#include <dxgi1_6.h>
-#include <spdlog/common.h>
 #include <D3D12MemAlloc.h>
-#include "Logging.h"
-#include "Widechar.h"
-#include "DeviceResources.h"
+#include <dxgi1_6.h>
 #include <dxgidebug.h>
+#include <spdlog/common.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
+#include "DeviceResources.h"
 #include "imgui.h"
 #include "imgui_local.h"
+#include "Logging.h"
+#include "neon-graphics.h"
+#include "neon-types.h"
 #include "Rml/RmlUI.h"
 #include "shaders/compose.h"
 #include "shaders/neon-shaders.h"
 #include "Shell.h"
-#include "UploadBuffer.h"
+#include "Widechar.h"
 
 namespace neon::gfx {
     namespace {
@@ -541,6 +538,11 @@ namespace neon::gfx {
         gfx::shaders::Compile();
 
         resources.states = make_unique<DirectX::CommonStates>(GetDevice());
+
+        D3D12MA::Budget videoMemBudget = {};
+        resources.memoryAllocator->GetBudget(&videoMemBudget, nullptr);
+        
+        SPDLOG_INFO("GPU Memory usage {} / {} MB", videoMemBudget.UsageBytes / 1024 / 1024, videoMemBudget.BudgetBytes / 1024 / 1024);
     }
 
     void ScreenSizeChanged(unsigned int width, unsigned int height) {
@@ -580,6 +582,7 @@ namespace neon::gfx {
 
         sizedResources.uiRenderTarget->Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         context.SetPipelineState(pipelines::compose);
+        context.SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         shaders::compose::SetSampler(cmdList, resources.states->PointClamp());
         shaders::compose::SetSource(cmdList, sizedResources.uiRenderTarget->GetSRV());
         cmdList->DrawInstanced(3, 1, 0, 0);
@@ -638,7 +641,7 @@ namespace neon::gfx {
         //Render::Allocator->SetCurrentFrameIndex(m_backBufferIndex);
     }
 
-    unsigned int CreateTexture(const Image& image, std::string_view name) {
+    TexHandle CreateTexture(const Image& image, std::string_view name) {
         auto index = resources.textures.size();
         auto& texture = resources.textures.emplace_back();
         resources.textureCopyContext->Reset();
@@ -647,15 +650,15 @@ namespace neon::gfx {
         resources.textureCopyContext->WaitForIdle();
 
         resources.textureDescriptors->AddSRV(texture).ptr;
-        return (uint)index;
+        return (TexHandle)index;
     }
 
-    Texture* GetTexture(unsigned int index) {
+    Texture* GetTexture(TexHandle index) {
         if (index >= resources.textures.size()) return nullptr;
         return &resources.textures[index];
     }
 
-    void FreeTexture(unsigned int index) {
+    void FreeTexture(TexHandle index) {
         // todo: this should queue and free between frames
         if (index >= resources.textures.size()) return;
         resources.textures[index] = {};

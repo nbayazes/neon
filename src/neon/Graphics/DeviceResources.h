@@ -9,52 +9,55 @@
 //#include "UploadBuffer.h"
 
 namespace neon::gfx {
-    using Microsoft::WRL::ComPtr;
 
-    constexpr size_t MAX_BACK_BUFFER_COUNT = 2;
+using Microsoft::WRL::ComPtr;
 
-    // Resources alive for the duration of the device
-    struct DeviceResources {
-        Ptr<CommandQueue> commandQueue;
-        Ptr<DescriptorHeap> shaderVisibleHeap;
-        Ptr<DescriptorHeap> renderTargetHeap;
-        Ptr<DescriptorHeap> depthStencilHeap;
+constexpr size_t MAX_BACK_BUFFER_COUNT = 2;
 
-        Ptr<LinearDescriptorRange> reservedDescriptors; // Descriptors that are manually managed and live for the duration of the app
-        Ptr<LinearDescriptorRange> textureDescriptors; // Descriptors for long lived textures
-        Ptr<LinearDescriptorRange> sizedDescriptors; // Descriptors for resources that reset when window size changes
-        Ptr<LinearDescriptorRange> renderTargetDescriptors; // RTV descriptors, resets when window size changes
-        Ptr<LinearDescriptorRange> depthStencilDescriptors; // DSV descriptors, resets when window size changes
+// Resources alive for the duration of the device
+struct DeviceResources {
+    Ptr<CommandQueue> commandQueue;
+    Ptr<DescriptorHeap> shaderVisibleHeap;
+    Ptr<DescriptorHeap> renderTargetHeap;
+    Ptr<DescriptorHeap> depthStencilHeap;
 
-        Ptr<DirectX::CommonStates> states;
-        Ptr<CommandQueue> textureCopyQueue;
-        Ptr<CommandContext> textureCopyContext;
-        List<Texture> textures;
-        Ptr<GraphicsContext> graphicsContext[MAX_BACK_BUFFER_COUNT];
+    Ptr<LinearDescriptorRange> reservedDescriptors; // Descriptors that are manually managed and live for the duration of the app
+    Ptr<LinearDescriptorRange> textureDescriptors; // Descriptors for long lived textures
+    Ptr<LinearDescriptorRange> sizedDescriptors; // Descriptors for resources that reset when window size changes
+    Ptr<LinearDescriptorRange> renderTargetDescriptors; // RTV descriptors, resets when window size changes
+    Ptr<LinearDescriptorRange> depthStencilDescriptors; // DSV descriptors, resets when window size changes
 
-        Texture* whiteTexture = nullptr;
+    Ptr<DirectX::CommonStates> states;
+    Ptr<CommandQueue> textureCopyQueue;
+    Ptr<CommandContext> textureCopyContext;
+    List<Texture> textures;
+    Ptr<GraphicsContext> graphicsContext[MAX_BACK_BUFFER_COUNT];
 
-        // NOTE: the memory allocator, device and factory must be last due to destruction order!
+    Texture* whiteTexture = nullptr;
 
-        ComPtr<D3D12MA::Allocator> memoryAllocator;
-        ComPtr<ID3D12Device> d3dDevice;
-        ComPtr<IDXGIFactory4> dxgiFactory;
-    };
+    // NOTE: the memory allocator, device and factory must be last due to destruction order!
 
-    // Resources that are recreated when the window size changes
-    struct WindowSizeResources {
-        ComPtr<IDXGISwapChain3> swapChain;
+    ComPtr<D3D12MA::Allocator> memoryAllocator;
+    ComPtr<ID3D12Device> d3dDevice;
+    ComPtr<IDXGIFactory4> dxgiFactory;
+};
 
-        Ptr<RenderTarget> uiRenderTarget;
-        RenderTarget backBuffers[MAX_BACK_BUFFER_COUNT];
-        // frame buffers
-    };
+// Resources that are recreated when the window size changes
+struct WindowSizeResources {
+    ComPtr<IDXGISwapChain3> swapChain;
+
+    Ptr<RenderTarget> uiRenderTarget;
+    RenderTarget backBuffers[MAX_BACK_BUFFER_COUNT];
+    // frame buffers
+};
 
 
-    // Gets the graphics context for the current frame
-    D3D12MA::Allocator* GetMemoryAllocator();
-    GraphicsContext* GetGraphicsContext();
-    ID3D12Device* GetDevice();
-    DeviceResources& GetDeviceResources();
-    WindowSizeResources& GetWindowSizeResources();
+D3D12MA::Allocator* GetMemoryAllocator();
+
+// Gets the graphics context for the current frame
+GraphicsContext* GetGraphicsContext();
+ID3D12Device* GetDevice();
+DeviceResources& GetDeviceResources();
+WindowSizeResources& GetWindowSizeResources();
+
 }

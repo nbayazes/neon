@@ -2,33 +2,38 @@
 #include "Texture.h"
 
 namespace neon::gfx {
-    class Image;
 
-    struct DeviceCreationOptions {
-        bool enableDebugging = false;
-        bool allowTearing = false; // VRR support
-        bool enableHdr = false;
-        bool useVsync = false; // overrides VRR support
-    };
+class Image;
 
-    void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOptions& options);
+struct DeviceCreationOptions {
+    bool enableDebugging = false;
+    bool allowTearing = false; // VRR support
+    bool enableHdr = false;
+    bool useVsync = false; // overrides VRR support
+};
 
-    void ScreenSizeChanged(unsigned int width, unsigned int height);
+void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOptions& options);
 
-    //void CreateDevice(DeviceCreationOptions& options);
-    void Shutdown();
+void ScreenSizeChanged(unsigned int width, unsigned int height);
 
-    // Waits for the GPU to become idle
-    void WaitForGpu();
+//void CreateDevice(DeviceCreationOptions& options);
+void Shutdown();
 
-    // Presents to the screen
-    void Present();
+// Waits for the GPU to become idle
+void WaitForGpu();
 
-    unsigned int CreateTexture(const Image& image, std::string_view name);
+// Presents to the screen
+void Present();
 
-    Texture* GetTexture(unsigned int index);
+using TexHandle = unsigned int;
 
-    Texture* GetWhiteTexture();
+// Returns the handle of the texture. Used later to free or retrieve it
+TexHandle CreateTexture(const Image& image, std::string_view name);
 
-    void FreeTexture(unsigned int index);
+Texture* GetTexture(TexHandle index);
+
+Texture* GetWhiteTexture();
+
+void FreeTexture(TexHandle index);
+
 }

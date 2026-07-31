@@ -7,6 +7,7 @@
 #include <set>
 #include "neon-math.h"
 #include "neon-types.h"
+#include "neon-strings.h"
 
 namespace neon {
 // Creates a four character code to identify file formats
@@ -25,6 +26,7 @@ consteval uint32 MakeFourCC(const char cc[4]) {
 //    return cc;
 //}
 
+// Equivalent to hlsl smoothstep
 constexpr float SmoothStep(float a, float b, float x) {
     x = std::clamp((x - a) / (b - a), 0.0f, 1.0f);
     return x * x * (3.0f - 2.0f * x);
@@ -37,8 +39,22 @@ constexpr float SmoothMin(float a, float b, float k) {
     return SmoothStep(a, b, h) - k * h * (1.0f - h);
 }
 
-constexpr bool IsPowerOfTwo(int v) {
+constexpr bool IsPowerOfTwo(std::unsigned_integral auto v) {
     return v != 0 && (v & (v - 1)) == 0;
+}
+
+// Aligns an offset to a power of two
+constexpr uint32 AlignTo(uint32 offset, uint32 alignment) {
+    ASSERT(IsPowerOfTwo(alignment));
+    //return (offset + alignment - 1) / alignment * alignment;
+    return (offset + (alignment - 1)) & ~(alignment - 1);
+}
+
+// Aligns an offset to a power of two
+constexpr uint64 AlignTo(uint64 offset, uint64 alignment) {
+    ASSERT(IsPowerOfTwo(alignment));
+    //return (offset + alignment - 1) / alignment * alignment;
+    return (offset + (alignment - 1)) & ~(alignment - 1);
 }
 
 // Returns a random value between 0 and 1

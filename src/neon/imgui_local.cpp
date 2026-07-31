@@ -416,6 +416,7 @@ namespace neon::imgui {
         // Setup desired DX state
         auto cmdList = context->GetCommandList();
         context->SetPipelineState(pipelines::imgui);
+        context->SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         SetRenderState(drawData, cmdList, fr);
 
         // Render command lists

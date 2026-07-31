@@ -163,10 +163,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="d3\OutrageBitmap.cpp" />
     <ClCompile Include="d3\OutrageModel.cpp" />
+    <ClCompile Include="d3\OutrageTable.cpp" />
     <ClCompile Include="Graphics\CommandQueue.cpp" />
     <ClCompile Include="Graphics\DescriptorTable.cpp" />
     <ClCompile Include="Graphics\DeviceResources.cpp" />
+    <ClCompile Include="Graphics\GpuBuffer.cpp" />
     <ClCompile Include="Graphics\GpuResource.cpp" />
     <ClCompile Include="Graphics\Graphics.cpp" />
     <ClCompile Include="Graphics\Image.cpp" />
@@ -189,8 +193,14 @@
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application.h" />
     <ClInclude Include="d3\Hog2.h" />
+    <ClInclude Include="d3\OutrageBitmap.h" />
     <ClInclude Include="d3\OutrageModel.h" />
+    <ClInclude Include="d3\OutrageTable.h" />
+    <ClInclude Include="Graphics\GpuBuffer.h" />
+    <ClInclude Include="Graphics\ObjectMesh.h" />
+    <ClInclude Include="Graphics\PackedBuffer.h" />
     <ClInclude Include="scoped-enum.h" />
     <ClInclude Include="DirectoryWatcher.h" />
     <ClInclude Include="Graphics\CommandContext.h" />
@@ -217,6 +227,9 @@
     <ClInclude Include="shaders\compose.h" />
     <ClInclude Include="shaders\imgui.h" />
     <ClInclude Include="Rml\RmlUi_Platform_SDL.h" />
+    <ClInclude Include="shaders\ModelPrepass.h" />
+    <ClInclude Include="shaders\Model.h" />
+    <ClInclude Include="shaders\ModelVertex.h" />
     <ClInclude Include="shaders\rmlui.h" />
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="Shell.h" />
@@ -235,6 +248,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Graphics\architecture.md">
+      <SubType>
+      </SubType>
+    </None>
+    <None Include="shaders\Common.hlsli">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="shaders\imgui.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
@@ -247,6 +267,9 @@
       </ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
+    </None>
+    <None Include="shaders\ObjectVertex.hlsli">
+      <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="ui\menu.html">
       <DeploymentContent>true</DeploymentContent>
@@ -280,6 +303,24 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\Model.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </None>
+    <None Include="shaders\ModelPrepass.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
     </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

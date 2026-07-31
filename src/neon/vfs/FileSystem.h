@@ -7,7 +7,7 @@ namespace neon::fs {
 
 // Reads the file at the given path. Throws an exception if not found.
 std::vector<ubyte> ReadAllBytes(const std::filesystem::path& path);
-void WriteAllBytes(const std::filesystem::path& path, std::span<ubyte> data);
+//void WriteAllBytes(const std::filesystem::path& path, std::span<ubyte> data);
 std::string ReadAllText(const filesystem::path& path);
 std::vector<std::string> ReadLines(const filesystem::path& path);
 }

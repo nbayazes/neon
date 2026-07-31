@@ -22,6 +22,10 @@
     <ClCompile Include="Graphics\Image.cpp" />
     <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="d3\OutrageModel.cpp" />
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Graphics\GpuBuffer.cpp" />
+    <ClCompile Include="d3\OutrageBitmap.cpp" />
+    <ClCompile Include="d3\OutrageTable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -63,11 +67,25 @@
     <ClInclude Include="Streams.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="d3\Hog2.h" />
+    <ClInclude Include="shaders\Model.h" />
+    <ClInclude Include="shaders\ModelPrepass.h" />
+    <ClInclude Include="shaders\ModelVertex.h" />
+    <ClInclude Include="Graphics\ObjectMesh.h" />
+    <ClInclude Include="Graphics\PackedBuffer.h" />
+    <ClInclude Include="Application.h" />
+    <ClInclude Include="Graphics\GpuBuffer.h" />
+    <ClInclude Include="d3\OutrageBitmap.h" />
+    <ClInclude Include="d3\OutrageTable.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />
     <None Include="shaders\compose.hlsl" />
     <None Include="shaders\rmlui.hlsl" />
     <None Include="ui\menu.html" />
+    <None Include="shaders\Model.hlsl" />
+    <None Include="shaders\ModelPrepass.hlsl" />
+    <None Include="shaders\ObjectVertex.hlsli" />
+    <None Include="shaders\Common.hlsli" />
+    <None Include="Graphics\architecture.md" />
   </ItemGroup>
 </Project>

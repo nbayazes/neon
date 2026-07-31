@@ -1,22 +1,26 @@
 #include "pch.h"
 #define SDL_MAIN_USE_CALLBACKS
 
-#include <RmlUi/Core/Core.h>
+//#include <RmlUi/Core/Core.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <string>
+#include "Application.h"
 #include "Graphics/Graphics.h"
 #include "imgui_local.h"
 #include "imgui_impl_sdl3.h"
+#include "imgui_internal.h"
 #include "Logging.h"
 #include "neon-types.h"
-#include "Rml/RmlUI.h"
+//#include "Rml/RmlUI.h"
 #include "Shell.h"
 #include "Rml/RmlUi_Platform_SDL.h"
 
 namespace {
-    SDL_Window* _window = nullptr;
-    neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
+
+SDL_Window* _window = nullptr;
+neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
+
 }
 
 void ParseCommandLine(int argc, char* argv[]) {
@@ -27,7 +31,6 @@ void ParseCommandLine(int argc, char* argv[]) {
         if (arg == "-editor") {}
     }
 }
-
 
 void UpdateWindowSize() {
     int w, h;
@@ -63,9 +66,11 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
     neon::imgui::Initialize(_window);
     neon::gfx::Init(hwnd, neon::shell::width, neon::shell::height, options);
 
-    rmlSystemInterface = std::make_unique<SystemInterface_SDL>(_window);
-    Rml::SetSystemInterface(rmlSystemInterface.get());
-    neon::rml::Init();
+    //rmlSystemInterface = std::make_unique<SystemInterface_SDL>(_window);
+    //Rml::SetSystemInterface(rmlSystemInterface.get());
+    //neon::rml::Init();
+
+    neon::app::Init();
 
     return SDL_APP_CONTINUE;
 }
@@ -75,9 +80,13 @@ SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     ImGui::ShowDemoWindow();
+
+    neon::app::TextureDebugWindow();
+
     ImGui::Render(); // this doesn't actually call any graphics commands, it populates draw data
 
-    neon::rml::Update();
+    //neon::rml::Update();
+    neon::app::Update();
 
     neon::gfx::Present();
     return SDL_APP_CONTINUE;
@@ -91,10 +100,10 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
 
     ImGui_ImplSDL3_ProcessEvent(event);
 
-     // Handle input and window events.
-     //running = Backend::ProcessEvents(context, &Shell::ProcessKeyDownShortcuts, true);
+    // Handle input and window events.
+    //running = Backend::ProcessEvents(context, &Shell::ProcessKeyDownShortcuts, true);
 
-    
+
     if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         UpdateWindowSize();
         neon::gfx::ScreenSizeChanged(neon::shell::width, neon::shell::height);
@@ -111,6 +120,6 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
 // Called once on termination
 void SDL_AppQuit(void* /*appstate*/, SDL_AppResult /*result*/) {
     SPDLOG_INFO("NEON SHUTDOWN");
-    neon::rml::Shutdown();
+    //neon::rml::Shutdown();
     neon::gfx::Shutdown();
 }

@@ -7,6 +7,7 @@
 #include "Utility.h"
 
 namespace neon::d3 {
+
 constexpr auto MAX_MODEL_TEXTURES = 35;
 
 string ReadModelString(StreamReader& r) {
@@ -55,13 +56,13 @@ std::pair<Vector3, float> GetCentroid(span<Vector3> src) {
 }
 
 void ParseSubmodelProperties(Submodel& sm) {
-    const auto& props = sm.Props;
+    const auto& props = sm.props;
     const auto len = props.length();
 
     if (len < 3)
         return;
 
-    auto i = Seq::indexOf(sm.Props, '=').value_or(len);
+    auto i = Seq::indexOf(sm.props, '=').value_or(len);
 
     auto command = String::Trim(String::ToLower(props.substr(0, i + 1)));
     auto data = i == len ? "" : String::Trim(props.substr(i + 1));
@@ -207,7 +208,7 @@ Model Model::Read(StreamReader& r) {
             case MakeFourCC("OHDR"): // POF file header
             {
                 auto submodels = r.ReadInt32Checked(1000, "bad submodel count");
-                pm.Submodels.reserve(submodels);
+                pm.submodels.reserve(submodels);
                 pm.radius = r.ReadFloat();
                 pm.min = r.ReadVector3();
                 pm.max = r.ReadVector3();
@@ -232,9 +233,9 @@ Model Model::Read(StreamReader& r) {
 
             case MakeFourCC("SOBJ"): // Subobject header
             {
-                auto& sm = pm.Submodels.emplace_back();
+                auto& sm = pm.submodels.emplace_back();
 
-                r.ReadInt32Checked((int)pm.Submodels.size(), "too many submodels");
+                r.ReadInt32Checked((int)pm.submodels.size(), "too many submodels");
                 sm.parent = r.ReadInt32();
                 sm.normal = r.ReadVector3();
 
@@ -250,14 +251,14 @@ Model Model::Read(StreamReader& r) {
                 if (pm.version > 1805)
                     sm.geometricCenter = r.ReadVector3();
 
-                sm.Name = ReadModelString(r);
-                sm.Props = ReadModelString(r);
+                sm.name = ReadModelString(r);
+                sm.props = ReadModelString(r);
 
                 try {
                     ParseSubmodelProperties(sm);
                 }
                 catch (const std::exception&) {
-                    throw Exception(fmt::format("Error parsing submodel props: {}", sm.Props));
+                    throw Exception(fmt::format("Error parsing submodel props: {}", sm.props));
                 }
 
                 sm.movementType = r.ReadInt32();
@@ -353,7 +354,7 @@ Model Model::Read(StreamReader& r) {
             {
                 int nframes = timed ? 0 : r.ReadInt32();
 
-                for (auto& sm : pm.Submodels) {
+                for (auto& sm : pm.submodels) {
                     if (timed) {
                         sm.numKeyPos = r.ReadInt32();
                         sm.posTrackMin = r.ReadInt32();
@@ -397,7 +398,7 @@ Model Model::Read(StreamReader& r) {
                     // pm.num key angles = nframes
                 }
 
-                for (auto& sm : pm.Submodels) {
+                for (auto& sm : pm.submodels) {
                     if (timed) {
                         sm.numKeyAngles = r.ReadInt32();
                         sm.rotTrackMin = r.ReadInt32();
@@ -506,7 +507,7 @@ Model Model::Read(StreamReader& r) {
         r.Seek(chunkStart + len); // seek to next chunk (prevents read errors due to individual chunks)
     }
 
-    for (auto& submodel : pm.Submodels) {
+    for (auto& submodel : pm.submodels) {
         UpdateMinMax(submodel);
         Postprocess(submodel);
     }

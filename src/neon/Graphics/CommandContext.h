@@ -36,6 +36,39 @@ namespace neon::gfx {
         ID3D12GraphicsCommandList* GetCommandList() const { return _cmdList.Get(); }
         ID3D12CommandQueue* GetCommandQueue() const { return _queue->Get(); }
 
+        void ExecuteIndirect(ID3D12Device* device) {
+            struct IndirectCommand : D3D12_DRAW_INDEXED_ARGUMENTS {
+                // D3D12_DRAW_INDEXED_ARGUMENTS drawArguments; // 20 bytes
+                // optional: root constants, CBV addresses, VB/IB bindings, etc.
+            };
+
+            D3D12_INDIRECT_ARGUMENT_DESC args[1] = {};
+            args[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+            args[0].Constant.RootParameterIndex = 2;
+            
+            //D3D12_INDIRECT_ARGUMENT_TYPE Args[4] = {};
+            //Args[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+            //Args[0].Constant.RootParameterIndex = 2;
+            //Args[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+            //Args[1].Constant.RootParameterIndex = 6;
+            //Args[2].Type = D3D12_INDIRECT_ARGUMENT_TYPE_VERTEX_BUFFER;
+            //Args[2].VertexBuffer.VBSlot = 3;
+            //Args[3].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INSTANCED;
+
+            D3D12_COMMAND_SIGNATURE_DESC sigDesc = {};
+            sigDesc.ByteStride = sizeof(IndirectCommand); // must be 4-byte aligned
+            sigDesc.NumArgumentDescs = 1;
+            sigDesc.pArgumentDescs = args;
+
+            ComPtr<ID3D12CommandSignature> commandSignature;
+
+            ThrowIfFailed(device->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&commandSignature)));
+
+            //auto cmdList = GetCommandList();
+            //cmdList->ExecuteIndirect(commandSignature.Get(), 2, pArgs, 0, nullptr, 0);
+
+        }
+
         // Resets the context so new commands can be recorded
         void Reset() const {
             ThrowIfFailed(_allocator->Reset());

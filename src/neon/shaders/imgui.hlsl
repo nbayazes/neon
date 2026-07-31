@@ -27,7 +27,8 @@ struct PS_INPUT {
 PS_INPUT vsmain(VS_INPUT input) {
     PS_INPUT output;
     output.pos = mul(Args.ProjectionMatrix, float4(input.pos.xy, 0.f, 1.f));
-    output.col = float4(pow(input.col.rgb, 2.2), input.col.a); // convert imgui colors from SRGB to linear
+    //output.col = float4(pow(input.col.rgb, 2.2), input.col.a); // convert imgui colors from SRGB to linear
+    output.col = input.col; // convert imgui colors from SRGB to linear
     output.uv = input.uv;
     return output;
 }

@@ -16,6 +16,8 @@ namespace neon::rml {
     namespace {
         struct FrameResources {
             gfx::GenericBuffer2 geometryBuffer = { 1024 * 4, "rml geometry buffer" };
+            //Ptr<gfx::GpuUploadBuffer> uploadBuffer;
+            //Ptr<gfx::GpuBuffer> geometryBuffer;
         };
 
         Ptr<FrameResources> _frameResources;
@@ -173,10 +175,10 @@ namespace neon::rml {
         Rml::Context* _context = nullptr;
         Rml::ElementDocument* _document = nullptr;
 
-        struct ApplicationData {
-            bool show_text = true;
-            Rml::String animal = "dog";
-        } _data;
+        //struct ApplicationData {
+        //    bool show_text = true;
+        //    Rml::String animal = "dog";
+        //} _data;
 
         bool _initialized = false;
     }
@@ -231,6 +233,7 @@ namespace neon::rml {
         _directoryNotifier.reset();
         Rml::Shutdown();
         _frameResources.reset(); // free GPU resources after RML shuts down, as it tries to destroy them too
+        
     }
 
     void Update() {
@@ -257,6 +260,7 @@ namespace neon::rml {
 
         if (!_frameResources) {
             _frameResources = make_unique<FrameResources>();
+            //auto allocator = gfx::GetMemoryAllocator();
         }
 
         _context->Render();

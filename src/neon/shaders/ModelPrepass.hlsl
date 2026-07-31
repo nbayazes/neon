@@ -1,0 +1,60 @@
+#include "Common.hlsli"
+#include "ObjectVertex.hlsli"
+
+#define RS \
+    "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "\
+    "CBV(b0),"\
+    "DescriptorTable(SRV(t0, space = 1, numDescriptors = unbounded, flags = DESCRIPTORS_VOLATILE), visibility=SHADER_VISIBILITY_PIXEL), " \
+    "CBV(b1), " \
+    "DescriptorTable(SRV(t0), visibility=SHADER_VISIBILITY_PIXEL), " \
+    "DescriptorTable(SRV(t1), visibility=SHADER_VISIBILITY_PIXEL), " \
+    "DescriptorTable(Sampler(s0), visibility=SHADER_VISIBILITY_PIXEL), "
+
+struct ObjectArgs {
+    float4x4 world;
+    float dissolve;
+    float timeOffset;
+};
+
+ConstantBuffer<FrameConstants> Frame : register(b0);
+ConstantBuffer<ObjectArgs> Object : register(b1);
+Texture2D DissolveTexture : register(t0); // texture used for the dissolve effect
+SamplerState Sampler : register(s0);
+Texture2D TextureTable[] : register(t0, space1);
+StructuredBuffer<VClip> VClips : register(t1);
+
+struct PS_INPUT {
+    centroid float4 position : SV_Position;
+    float2 uv : TEXCOORD0;
+};
+
+[RootSignature(RS)]
+PS_INPUT vsmain(ObjectVertex input) {
+    float4x4 wvp = mul(Frame.viewProj, Object.world);
+    PS_INPUT output;
+    output.position = mul(wvp, float4(input.position, 1));
+    output.uv = input.uv;
+    return output;
+}
+
+float psmain(PS_INPUT input) : SV_Target {
+    //if (Object.dissolve > 0)
+    //{
+    //    float dissolveTex = 1 - Sample2D(DissolveTexture, input.uv + float2(Object.timeOffset, Object.timeOffset), Sampler, Frame.FilterMode).r;
+    //    clip(Object.dissolve - dissolveTex);
+    //}
+
+    //int texid = input.texid;
+    //if (texid > VCLIP_RANGE)
+    //{
+    //    texid = VClips[texid - VCLIP_RANGE].GetFrame(Frame.Time + Object.TimeOffset);
+    //}
+
+    //float alpha = Sample2D(TextureTable[texid * 5], input.uv, Sampler, Frame.FilterMode).a;
+
+    // Use <= 0 to use cutout edge AA, but it introduces artifacts. < 1 causes aliasing.
+    //if (alpha < 1)
+    //    discard;
+
+    return LinearizeDepth(Frame.NearClip, Frame.FarClip, input.position.z);
+}

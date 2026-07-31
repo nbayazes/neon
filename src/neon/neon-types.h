@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string_view>
 #include <span>
+#include <array>
 
 namespace neon {
 // Typed concept that allows iterating over a range
@@ -103,8 +104,8 @@ using Option = std::optional<T>;
 //template <class T, class TPr = std::less<T>, class TAlloc = std::allocator<T>>
 //using Set = std::set<T, TPr, TAlloc>;
 
-//template<class T, class U>
-//using Tuple = std::pair<T, U>;
+template<class T, class U>
+using Tuple = std::pair<T, U>;
 
 //template<class T>
 //using Stack = std::stack<T>;

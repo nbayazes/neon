@@ -1,0 +1,81 @@
+
+[*.{appxmanifest,axaml,axml,blockshader,c,c++,c++m,cc,ccm,cginc,compute,config,cp,cpp,cppm,csproj,cu,cuh,cxx,cxxm,dbml,discomap,dtd,fx,fxh,h,h++,hh,hlsl,hlsli,hlslinc,hp,hpp,hxx,icc,inc,inl,ino,ipp,ixx,jsproj,lsproj,mpp,mq4,mq5,mqh,mxx,njsproj,nuspec,paml,proj,props,pssl,pssli,resw,resx,shaderFoundry,StyleCop,targets,tasks,tcc,tpp,urtshader,usf,ush,vbproj,xaml,xamlx,xml,xoml,xsd}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+[*]
+
+# ReSharper properties
+resharper_align_multiline_binary_expressions_chain = true
+resharper_align_multiple_declaration = false
+resharper_align_ternary = none
+resharper_anonymous_method_declaration_braces = end_of_line
+resharper_case_block_braces = end_of_line
+resharper_cpp_int_align_fix_in_adjacent = false
+resharper_cpp_wrap_lines = false
+resharper_empty_block_style = together_same_line
+resharper_enforce_line_ending_style = true
+resharper_indent_aligned_ternary = false
+resharper_indent_switch_labels = true
+resharper_invocable_declaration_braces = end_of_line
+resharper_linkage_specification_indentation = all
+resharper_namespace_declaration_braces = end_of_line
+resharper_namespace_indentation = inner
+resharper_other_braces = end_of_line
+resharper_outdent_dots = true
+resharper_remove_blank_lines_near_braces_in_declarations = false
+resharper_requires_expression_braces = end_of_line
+resharper_space_within_initializer_braces = true
+resharper_type_declaration_braces = end_of_line
+resharper_wrap_enumeration_style = wrap_if_long
+
+# ReSharper inspection severities
+resharper_comment_typo_highlighting = none
+resharper_cpp_clang_tidy_bugprone_branch_clone_highlighting = none
+resharper_cpp_clang_tidy_bugprone_implicit_widening_of_multiplication_result_highlighting = none
+resharper_cpp_clang_tidy_bugprone_narrowing_conversions_highlighting = none
+resharper_cpp_clang_tidy_clang_diagnostic_dangling_else_highlighting = none
+resharper_cpp_clang_tidy_clang_diagnostic_language_extension_token_highlighting = none
+resharper_cpp_clang_tidy_clang_diagnostic_padded_highlighting = none
+resharper_cpp_clang_tidy_clang_diagnostic_sign_conversion_highlighting = warning
+resharper_cpp_clang_tidy_cppcoreguidelines_narrowing_conversions_highlighting = none
+resharper_cpp_clang_tidy_hicpp_multiway_paths_covered_highlighting = hint
+resharper_cpp_clang_tidy_misc_use_internal_linkage_highlighting = none
+resharper_cpp_clang_tidy_modernize_use_equals_default_highlighting = none
+resharper_cpp_clang_tidy_modernize_use_nodiscard_highlighting = none
+resharper_cpp_clang_tidy_modernize_use_std_numbers_highlighting = none
+resharper_cpp_clang_tidy_performance_enum_size_highlighting = none
+resharper_cpp_clang_tidy_performance_no_int_to_ptr_highlighting = none
+resharper_cpp_clang_tidy_readability_avoid_unconditional_preprocessor_if_highlighting = none
+resharper_cpp_clang_tidy_readability_enum_initial_value_highlighting = none
+resharper_cpp_clang_tidy_readability_use_std_min_max_highlighting = hint
+resharper_cpp_const_value_function_return_type_highlighting = none
+resharper_cpp_c_style_cast_highlighting = none
+resharper_cpp_declaration_hides_uncaptured_local_highlighting = none
+resharper_cpp_default_case_not_handled_in_switch_statement_highlighting = none
+resharper_cpp_discarded_postfix_operator_result_highlighting = none
+resharper_cpp_functional_style_cast_highlighting = none
+resharper_cpp_if_can_be_replaced_by_constexpr_if_highlighting = none
+resharper_cpp_incomplete_switch_statement_highlighting = none
+resharper_cpp_inconsistent_naming_highlighting = none
+resharper_cpp_initialized_value_is_always_rewritten_highlighting = none
+resharper_cpp_join_declaration_and_assignment_highlighting = hint
+resharper_cpp_local_variable_may_be_const_highlighting = none
+resharper_cpp_multi_character_literal_highlighting = none
+resharper_cpp_non_explicit_conversion_operator_highlighting = none
+resharper_cpp_non_explicit_converting_constructor_highlighting = none
+resharper_cpp_parameter_may_be_const_highlighting = none
+resharper_cpp_possibly_unintended_object_slicing_highlighting = none
+resharper_cpp_redundant_elaborated_type_specifier_highlighting = none
+resharper_cpp_redundant_else_keyword_highlighting = none
+resharper_cpp_redundant_else_keyword_inside_compound_statement_highlighting = none
+resharper_cpp_redundant_qualifier_highlighting = none
+resharper_cpp_too_wide_scope_highlighting = none
+resharper_cpp_too_wide_scope_init_statement_highlighting = none
+resharper_cpp_unsigned_zero_comparison_highlighting = none
+resharper_cpp_use_structured_binding_highlighting = none
+resharper_identifier_typo_highlighting = none
+resharper_string_literal_typo_highlighting = none
+resharper_unreal_header_tool_error_highlighting = none
+resharper_unreal_header_tool_warning_highlighting = none

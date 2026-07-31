@@ -2,13 +2,13 @@
 
 #include "neon-types.h"
 #include "neon-math.h"
-#include "scoped-enum.h"
 
 namespace neon {
 class StreamReader;
 }
 
 namespace neon::d3 {
+
 constexpr auto MIN_OBJFILE_VERSION = 1807;
 constexpr auto OBJFILE_VERSION = 2300;
 
@@ -73,7 +73,6 @@ struct Submodel {
         int angle; // The destination angles for each key frame
         Vector3 position;
         int rotStartTime, posStartTime;
-        // todo: convert to Matrix3 
         // the combined rotation matrices up to frame n
         Matrix3x3 transform;
     };
@@ -94,7 +93,7 @@ struct Submodel {
     int treeOffset, dataOffset;
     Vector3 geometricCenter;
 
-    string Name, Props;
+    string name, props;
     int movementType, movementAxis;
     float rotation; // Fixed speed rotation along ? axis
 
@@ -112,7 +111,7 @@ struct Model {
     int majorVersion;
     float radius;
     Vector3 min, max;
-    List<Submodel> Submodels;
+    List<Submodel> submodels;
     List<string> textures;
     List<int> textureHandles;
 
@@ -132,15 +131,10 @@ struct Model {
 
     struct WeaponBattery {
         // Static Data  (Add to robot generic page)
-        //unsigned short num_gps;
-        //ubyte gp_index[MAX_WB_GUNPOINTS];
         List<ubyte> gunpoints;
 
         // Turrets are listed from most important (greatest mobility) to least important
         List<ushort> turrets;
-
-        //ubyte num_turrets;
-        //unsigned short turret_index[MAX_WB_TURRETS];
     };
 
     List<WeaponBattery> weaponBatteries;

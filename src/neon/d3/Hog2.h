@@ -4,7 +4,8 @@
 #include "neon-types.h"
 #include "Streams.h"
 
-namespace neon {
+namespace neon::d3 {
+
 // Descent 3 HOG2 file
 class Hog2 {
     Dictionary<string, int> _table;
@@ -60,24 +61,23 @@ public:
         return hog;
     }
 
-    List<ubyte> ReadEntry(int index) {
+    List<ubyte> ReadEntry(int index) const {
         if (!Seq::inRange(entries, index))
             throw Exception("Invalid entry index");
 
         StreamReader r(path);
-        const auto& entry = entries[index];
+        const auto& entry = entries.at(index);
         r.Seek(entry.offset);
         List<ubyte> data(entry.len);
         r.ReadBytes(data);
         return data;
     }
 
-    Option<List<ubyte>> ReadEntry(string name) {
-        name = String::ToLower(name);
-        if (!_table.contains(name))
-            return {};
-
-        return ReadEntry(_table[name]);
+    Option<List<ubyte>> ReadEntry(string_view name) const {
+        auto lname = String::ToLower(name);
+        auto find = _table.find(lname);
+        if (find == _table.end()) return {};
+        else return ReadEntry(find->second);
     }
 };
 }

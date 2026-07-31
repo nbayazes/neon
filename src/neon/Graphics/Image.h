@@ -91,6 +91,7 @@ namespace neon::gfx {
             return SUCCEEDED(DirectX::GenerateMipMaps(*srcImage, flags, levels, *this));
         }
 
+
         bool Resize(bool wrapu, bool wrapv, uint8 width, uint8 height) {
             using namespace DirectX;
             auto flags = TEX_FILTER_DEFAULT;
@@ -109,13 +110,27 @@ namespace neon::gfx {
 
         // loads raw data into an image
         template <class TData>
-        bool Load(neon::span<const TData> data, size_t width, size_t height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) {
+        bool Load(span<const TData> data, size_t width, size_t height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) {
             size_t rowPitch, slicePitch;
             if (FAILED(DirectX::ComputePitch(format, width, height, rowPitch, slicePitch)))
                 return false;
 
             DirectX::Image image(width, height, format, rowPitch, slicePitch, (uint8*)data.data());
             return SUCCEEDED(InitializeFromImage(image));
+        }
+
+        template <class TData>
+        bool LoadMipmapped(span<std::vector<TData>> mipData, size_t width, size_t height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) {
+            if (FAILED(Initialize2D(format, width, height, 1, mipData.size())))
+                return false;
+
+            // Fill each level
+            for (size_t mip = 0; mip < mipData.size(); ++mip) {
+                const auto img = GetImage(mip, 0, 0);
+                memcpy(img->pixels, mipData[mip].data(), img->slicePitch);
+            }
+
+            return true;
         }
 
         // SRGB indicates whether to treat the source image as SRGB or linear
