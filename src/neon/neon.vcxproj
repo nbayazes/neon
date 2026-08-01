@@ -194,6 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />
     <ClInclude Include="d3\OutrageBitmap.h" />
     <ClInclude Include="d3\OutrageModel.h" />
@@ -236,6 +237,7 @@
     <ClInclude Include="Streams.h" />
     <ClInclude Include="ui\menu.h" />
     <ClInclude Include="Utility.h" />
+    <ClInclude Include="VClip.h" />
     <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />

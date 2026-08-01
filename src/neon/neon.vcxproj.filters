@@ -76,6 +76,8 @@
     <ClInclude Include="Graphics\GpuBuffer.h" />
     <ClInclude Include="d3\OutrageBitmap.h" />
     <ClInclude Include="d3\OutrageTable.h" />
+    <ClInclude Include="VClip.h" />
+    <ClInclude Include="SystemClock.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

@@ -15,6 +15,7 @@
 //#include "Rml/RmlUI.h"
 #include "Shell.h"
 #include "Rml/RmlUi_Platform_SDL.h"
+#include "SystemClock.h"
 
 namespace {
 
@@ -77,6 +78,8 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
 
 // called as frequently as possible
 SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
+    neon::Clock.Update();
+
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     ImGui::ShowDemoWindow();

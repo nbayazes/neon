@@ -182,10 +182,6 @@ namespace neon::imgui {
     // Helper structure we store in the void* RenderUserData field of each ImGuiViewport to easily retrieve our backend data.
     struct ImGuiViewportData {
         ComPtr<ID3D12CommandQueue> CommandQueue;
-        ComPtr<ID3D12GraphicsCommandList> CommandList;
-        ComPtr<ID3D12DescriptorHeap> RtvDescHeap;
-        ComPtr<IDXGISwapChain3> SwapChain;
-
         ComPtr<ID3D12Fence> Fence;
         UINT64 FenceSignaledValue = 0;
         HANDLE FenceEvent = nullptr;

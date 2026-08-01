@@ -71,23 +71,23 @@ Bitmap Bitmap::Read(StreamReader& r) {
         throw Exception("Unknown image type");
 
     Bitmap ogf{};
-    ogf.Type = imageType;
+    ogf.type = imageType;
 
     constexpr int BITMAP_NAME_LEN = 35;
 
-    ogf.Name = r.ReadCString(BITMAP_NAME_LEN);
+    ogf.name = r.ReadCString(BITMAP_NAME_LEN);
     auto mipLevels = r.ReadByte();
     if (mipLevels > 20) throw Exception("Invalid mip levels");
-    ogf.Mips.resize(mipLevels);
+    ogf.mips.resize(mipLevels);
 
     for (int i = 0; i < 9; i++)
         r.ReadByte();
 
-    ogf.Width = r.ReadInt16();
-    ogf.Height = r.ReadInt16();
-    ogf.BitsPerPixel = r.ReadByte();
+    ogf.width = r.ReadInt16();
+    ogf.height = r.ReadInt16();
+    ogf.bitsPerPixel = r.ReadByte();
 
-    if (ogf.BitsPerPixel != 32 && ogf.BitsPerPixel != 24)
+    if (ogf.bitsPerPixel != 32 && ogf.bitsPerPixel != 24)
         throw Exception("Invalid BitsPerPixel");
 
     int descriptor = r.ReadByte();
@@ -98,10 +98,10 @@ Bitmap Bitmap::Read(StreamReader& r) {
         r.ReadByte();
 
     int mipLevel = 0;
-    for (auto& mip : ogf.Mips) {
+    for (auto& mip : ogf.mips) {
         auto sz = 1 << mipLevel++;
-        auto width = ogf.Width / sz;
-        auto height = ogf.Height / sz;
+        auto width = ogf.width / sz;
+        auto height = ogf.height / sz;
 
         List<uint16> data(width * height);
 
@@ -123,7 +123,7 @@ Bitmap Bitmap::Read(StreamReader& r) {
             }
         }
 
-        mip = Decompress(data, width, height, (ImageType)ogf.Type);
+        mip = Decompress(data, width, height, (ImageType)ogf.type);
     }
 
     return ogf;
@@ -135,21 +135,21 @@ VClip VClip::Read(StreamReader& r) {
 
     if (start_val != 127) {
         if (start_val > 100) throw Exception("Too many frames in OAF");
-        vc.Frames.resize(start_val);
+        vc.frames.resize(start_val);
         r.ReadFloat();
-        vc.FrameTime = r.ReadFloat();
+        vc.frameTime = r.ReadFloat();
         r.ReadInt32();
         r.ReadFloat();
     }
     else {
-        vc.Version = r.ReadByte();
+        vc.version = r.ReadByte();
         auto frames = r.ReadByte();
         if (frames > 100) throw Exception("Too many frames in OAF");
-        vc.Frames.resize(frames);
-        vc.FrameTime = r.ReadFloat();
+        vc.frames.resize(frames);
+        vc.frameTime = r.ReadFloat();
     }
 
-    for (auto& frame : vc.Frames) {
+    for (auto& frame : vc.frames) {
         frame = Bitmap::Read(r);
     }
 

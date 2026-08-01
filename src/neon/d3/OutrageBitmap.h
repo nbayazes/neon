@@ -8,24 +8,29 @@ class StreamReader;
 namespace neon::d3 {
 // Descent 3 Outrage Graphics File (OGF)
 struct Bitmap {
-    int Width = 0, Height = 0;
-    int Type = 0;
-    List<List<uint>> Mips;
-    int BitsPerPixel = 0;
-    string Name;
+    int width = 0, height = 0;
+    int type = 0;
+    List<List<uint>> mips;
+    int bitsPerPixel = 0;
+    string name;
 
     static Bitmap Read(StreamReader& r); // Read OGF
 };
 
 // Descent 3 Outrage Animation File (OAF). VClips are OGFs with an extra header.
 struct VClip {
-    List<Bitmap> Frames;
-    float FrameTime{};
-    int Version{};
-    bool PingPong{};
-    string FileName;
+    List<Bitmap> frames;
+    float frameTime{};
+    int version{};
+    bool pingPong{}; // animation reverses instead of looping
+    string fileName; // the name of the file this vclip was loaded from
 
-    static VClip Read(StreamReader& r);
+    uint GetFrame(double time) const {
+        // todo: pingpong
+        return (uint)floor(abs(time) / frameTime) % (uint)frames.size();
+    }
+
+    static VClip Read(StreamReader& r); // Read OAF
 };
 
 }

@@ -28,18 +28,15 @@ struct FrameConstants {
 };
 
 struct VClip {
-    float PlayTime; // total time (in seconds) of clip
-    int NumFrames; // Valid frames in Frames
-    float FrameTime; // time (in seconds) of each frame
-    int pad0;
-    int Frames[30];
-    int pad1, pad2;
+    float frameTime; // time (in seconds) of each frame
+    int numFrames; // Valid frames in Frames
+    int frames[30];
 
     // Returns the frame for the vclip based on elapsed time
     int GetFrame(float time) {
         //if (NumFrames == 0) return 0;
-        int frame = (int)floor(abs(time) / FrameTime) % NumFrames;
-        return Frames[frame];
+        int frame = (int) floor(abs(time) / frameTime) % numFrames;
+        return frames[frame];
     }
 };
 
