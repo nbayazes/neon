@@ -104,66 +104,66 @@ enum class WaterProceduralType : uint8 {
 
 // Procedural texture info
 struct ProceduralInfo {
-    float EvalTime = 1 / 30.0f; // Delay in seconds between updates
+    float evalTime = 1 / 30.0f; // Delay in seconds between updates
 
     // (Fire) Palette encodes 255 colors in RGBA5551 format
-    uint16 Palette[255]{};
-    uint8 Heat = 0; // (Fire) Higher heat causes slower decay 
+    uint16 palette[255]{};
+    uint8 heat = 0; // (Fire) Higher heat causes slower decay 
 
     // (Water) Lighting strength applied. Valid range is 0-31.
     // 0 will disable lighting and use a simpler distortion method. Otherwise lower values give a stronger strength of lighting.
-    uint8 Light = 0;
+    uint8 light = 0;
 
     // (Water) Thickness of the fluid. Valid range is 0-31.
     // Higher thickness values will cause ripples to decay slower. Lower values will cause them to decay faster.
-    uint8 Thickness = 0;
-    float OscillateTime = 0; // (Water) Oscillates the value of thickness over time when not 0
-    uint8 OscillateValue = 0; // (Water) Oscillates the value of thickness over time
+    uint8 thickness = 0;
+    float oscillateTime = 0; // (Water) Oscillates the value of thickness over time when not 0
+    uint8 oscillateValue = 0; // (Water) Oscillates the value of thickness over time
 
     bool IsWater = false; // Copied from parent texture info for convenience
 
     struct Element {
         union {
-            int8 Type; // Determine type based on flags in TextureInfo
-            WaterProceduralType WaterType;
-            FireProceduralType FireType;
+            int8 type; // Determine type based on flags in TextureInfo
+            WaterProceduralType waterType;
+            FireProceduralType fireType;
         };
 
-        int16 Speed; // How quickly certain effects animate. Actually a uint8 but this is reused for water calcs which are negative.
-        uint8 Frequency; // Frames to wait between creating effect
-        uint8 Size;
-        uint8 X1, Y1; // Center point of effect
-        uint8 X2, Y2; // Only used by the end point of line lightning
+        int16 speed; // How quickly certain effects animate. Actually a uint8 but this is reused for water calcs which are negative.
+        uint8 frequency; // Frames to wait between creating effect
+        uint8 size;
+        uint8 x1, y1; // Center point of effect
+        uint8 x2, y2; // Only used by the end point of line lightning
     };
 
-    List<Element> Elements;
+    List<Element> elements;
 };
 
 struct TextureInfo {
-    string Name; // Entry in tablefile
-    string FileName; // File name in hog or on disk
-    Color Color;
-    Vector2 Slide;
-    float Speed; // Total time of animation. Used by vclips on non-explosions.
-    float Reflectivity; // For radiosity calcs 
-    TextureFlag Flags;
-    int8 Corona;
-    int Damage;
-    ProceduralInfo Procedural;
-    string Sound;
+    string name; // Entry in tablefile
+    string fileName; // File name in hog or on disk
+    Color color;
+    Vector2 slide;
+    float speed; // Total time of animation. Used by vclips on non-explosions.
+    float reflectivity; // For radiosity calcs 
+    TextureFlag flags;
+    int8 corona;
+    int damage;
+    ProceduralInfo procedural;
+    string sound;
 
-    constexpr bool Saturate() const { return bool(Flags & TextureFlag::Saturate); }
-    constexpr bool Alpha() const { return bool(Flags & TextureFlag::Alpha); }
-    constexpr bool Animated() const { return bool(Flags & TextureFlag::Animated); }
-    constexpr bool IsProcedural() const { return bool(Flags & TextureFlag::Procedural); }
-    constexpr bool IsWaterProcedural() const { return bool(Flags & TextureFlag::WaterProcedural); }
+    constexpr bool Saturate() const { return bool(flags & TextureFlag::Saturate); }
+    constexpr bool Alpha() const { return bool(flags & TextureFlag::Alpha); }
+    constexpr bool Animated() const { return bool(flags & TextureFlag::Animated); }
+    constexpr bool IsProcedural() const { return bool(flags & TextureFlag::Procedural); }
+    constexpr bool IsWaterProcedural() const { return bool(flags & TextureFlag::WaterProcedural); }
 
     uint16 GetSize() const {
-        if (HasFlag(Flags, d3::TextureFlag::Texture32))
+        if (HasFlag(flags, d3::TextureFlag::Texture32))
             return 32u;
-        else if (HasFlag(Flags, d3::TextureFlag::Texture64))
+        else if (HasFlag(flags, d3::TextureFlag::Texture64))
             return 64u;
-        else if (HasFlag(Flags, d3::TextureFlag::Texture256))
+        else if (HasFlag(flags, d3::TextureFlag::Texture256))
             return 256u;
 
         return 128u;
@@ -171,55 +171,55 @@ struct TextureInfo {
 };
 
 struct SoundInfo {
-    string Name; // Entry in tablefile
-    string FileName; // File name in hog or on disk
-    int Flags;
-    int LoopStart, LoopEnd;
-    float OuterConeVolume;
-    int InnerConeAngle, OuterConeAngle;
-    float MinDistance, MaxDistance;
-    float ImportVolume;
+    string name; // Entry in tablefile
+    string fileName; // File name in hog or on disk
+    int flags;
+    int loopStart, loopEnd;
+    float outerConeVolume;
+    int innerConeAngle, outerConeAngle;
+    float minDistance, maxDistance;
+    float importVolume;
 };
 
 struct AnimElem {
-    int16 From;
-    int16 To;
-    float Speed;
+    int16 from;
+    int16 to;
+    float speed;
 };
 
 struct AnimClasses {
-    std::array<AnimElem, NUM_ANIMS_PER_CLASS> Elems;
+    std::array<AnimElem, NUM_ANIMS_PER_CLASS> elems;
 };
 
 struct PhysicsInfo {
-    Vector3 Velocity;
-    Vector3 RotVel;
-    int NumBounces;
-    float CoeffRestitution;
-    float Mass;
-    float Drag;
-    float RotDrag;
-    float FullThrust;
-    float FullRotThrust;
-    float MaxTurnrollRate;
-    float TurnrollRatio;
-    float WiggleAmplitude;
-    float WigglesPerSec;
-    float HitDieDot;
-    uint Flags;
+    Vector3 velocity;
+    Vector3 rotVel;
+    int numBounces;
+    float coeffRestitution;
+    float mass;
+    float drag;
+    float rotDrag;
+    float fullThrust;
+    float fullRotThrust;
+    float maxTurnrollRate;
+    float turnrollRatio;
+    float wiggleAmplitude;
+    float wigglesPerSec;
+    float hitDieDot;
+    uint flags;
 };
 
 struct LightInfo {
-    int Flags;
-    float LightDistance;
-    Color Color1;
-    Color Color2;
-    float TimeInterval;
-    float FlickerDistance;
-    float DirectionalDot;
-    int TimeBits;
-    ubyte Angle;
-    ubyte LightingRenderType;
+    int flags;
+    float lightDistance;
+    Color color1;
+    Color color2;
+    float timeInterval;
+    float flickerDistance;
+    float directionalDot;
+    int timeBits;
+    ubyte angle;
+    ubyte lightingRenderType;
 };
 
 enum class AINotifyFlag : uint32 {
@@ -295,98 +295,96 @@ enum class AIFlag : uint32 {
 };
 
 struct AIInfo {
-    ubyte AIClass;
-    ubyte AIType;
+    ubyte aiClass;
+    ubyte aiType;
 
-    float MaxVelocity;
-    float MaxDeltaVelocity;
-    float MaxTurnRate;
-    float MaxDeltaTurnRate;
+    float maxVelocity;
+    float maxDeltaVelocity;
+    float maxTurnRate;
+    float maxDeltaTurnRate;
 
-    float AttackVelPercent;
-    float FleeVelPercent;
-    float DodgeVelPercent;
+    float attackVelPercent;
+    float fleeVelPercent;
+    float dodgeVelPercent;
 
-    float CircleDistance;
-    float DodgePercent;
+    float circleDistance;
+    float dodgePercent;
 
-    Array<float, 2> MeleeDamage;
-    Array<float, 2> MeleeLatency;
+    Array<float, 2> meleeDamage;
+    Array<float, 2> meleeLatency;
 
-    Array<int, MAX_AI_SOUNDS> Sound;
+    Array<int, MAX_AI_SOUNDS> sound;
 
-    ubyte MovementType;
-    ubyte MovementSubtype;
+    ubyte movementType;
+    ubyte movementSubtype;
 
-    AIFlag Flags;
-    AINotifyFlag NotifyFlags;
+    AIFlag flags;
+    AINotifyFlag notifyFlags;
 
-    float FOV;
+    float fov;
 
-    float AvoidFriendsDistance;
+    float avoidFriendsDistance;
 
-    float Frustration;
-    float Curiosity;
-    float LifePreservation;
-    float Aggression;
+    float frustration;
+    float curiosity;
+    float lifePreservation;
+    float aggression;
 
-    float FireSpread;
-    float NightVision;
-    float FogVision;
-    float LeadAccuracy;
-    float LeadVariance;
-    float FightTeam;
-    float FightSame;
-    float Hearing;
-    float Roaming;
+    float fireSpread;
+    float nightVision;
+    float fogVision;
+    float leadAccuracy;
+    float leadVariance;
+    float fightTeam;
+    float fightSame;
+    float hearing;
+    float roaming;
 
-    float BiasedFlightImportance;
-    float BiasedFlightMin;
-    float BiasedFlightMax;
-
-    constexpr bool HasFlag(AIFlag flag) const { return (bool)(Flags & flag); }
+    float biasedFlightImportance;
+    float biasedFlightMin;
+    float biasedFlightMax;
 };
 
 struct AnimInfo {
-    Array<AnimClasses, NUM_MOVEMENT_CLASSES> Classes;
+    Array<AnimClasses, NUM_MOVEMENT_CLASSES> classes;
 };
 
 struct WeaponBatteryInfo {
-    Array<uint16, MAX_WB_GUNPOINTS> GPWeaponIndex;
-    Array<uint16, MAX_WB_FIRING_MASKS> FMFireSoundIndex;
-    uint16 AimingGPIndex;
+    Array<uint16, MAX_WB_GUNPOINTS> gpWeaponIndex;
+    Array<uint16, MAX_WB_FIRING_MASKS> fmFireSoundIndex;
+    uint16 aimingGPIndex;
 
-    ubyte NumMasks;
-    Array<ubyte, MAX_WB_FIRING_MASKS> GPFireMasks;
-    Array<float, MAX_WB_FIRING_MASKS> GPFireWait;
+    ubyte numMasks;
+    Array<ubyte, MAX_WB_FIRING_MASKS> gpFireMasks;
+    Array<float, MAX_WB_FIRING_MASKS> gpFireWait;
 
-    ubyte GPQuadFireMask;
+    ubyte gpQuadFireMask;
 
-    ubyte NumLevels;
-    Array<uint16, MAX_WB_UPGRADES> GPLevelWeaponIndex;
-    Array<uint16, MAX_WB_UPGRADES> GPLevelFireSoundIndex;
+    ubyte numLevels;
+    Array<uint16, MAX_WB_UPGRADES> gpLevelWeaponIndex;
+    Array<uint16, MAX_WB_UPGRADES> gpLevelFireSoundIndex;
 
-    ubyte AimingFlags;
-    float Aiming3DDot; // These Can be Reused.
-    float Aiming3DDist;
-    float AimingXZDot;
+    ubyte aimingFlags;
+    float aiming3DDot; // These Can be Reused.
+    float aiming3DDist;
+    float aimingXZDot;
 
-    Array<float, MAX_WB_FIRING_MASKS> AnimStartFrame;
-    Array<float, MAX_WB_FIRING_MASKS> AnimFireFrame;
-    Array<float, MAX_WB_FIRING_MASKS> AnimEndFrame;
-    Array<float, MAX_WB_FIRING_MASKS> AnimTime;
+    Array<float, MAX_WB_FIRING_MASKS> animStartFrame;
+    Array<float, MAX_WB_FIRING_MASKS> animFireFrame;
+    Array<float, MAX_WB_FIRING_MASKS> animEndFrame;
+    Array<float, MAX_WB_FIRING_MASKS> animTime;
 
-    uint16 Flags;
+    uint16 flags;
 
-    float EnergyUsage;
-    float AmmoUsage;
+    float energyUsage;
+    float ammoUsage;
 };
 
 struct DeathInfo {
-    int Flags;
-    float DelayMin;
-    float DelayMax;
-    ubyte Probabilities;
+    int flags;
+    float delayMin;
+    float delayMax;
+    ubyte probabilities;
 };
 
 enum class GenericFlag {
@@ -408,43 +406,41 @@ enum class GenericFlag {
 };
 
 struct GenericInfo {
-    ObjectType Type{};
-    string Name;
-    string ModelName;
-    string MedModelName;
-    string LoModelName;
-    float ImpactSize{};
-    float ImpactTime{};
-    float Damage{};
-    int Score{};
-    int AmmoCount{};
-    string ModuleName;
-    string ScriptNameOverride;
-    string Description;
-    string IconName;
-    float MedLodDistance{};
-    float LoLodDistance{};
-    PhysicsInfo Physics{};
-    float Size{};
-    LightInfo Light{};
-    int HitPoints{};
-    GenericFlag Flags{};
-    AIInfo AI{};
-    ubyte DSpewFlags{};
-    Array<float, MAX_DSPEW_TYPES> DSpewPercent{};
-    Array<int16, MAX_DSPEW_TYPES> DSpewNumber{};
-    Array<string, MAX_DSPEW_TYPES> DSpewGenericNames;
-    AnimInfo Anim;
-    Array<WeaponBatteryInfo, MAX_WBS_PER_OBJ> WeaponBatteries;
-    Array<Array<string, MAX_WB_GUNPOINTS>, MAX_WBS_PER_OBJ> WBWeaponNames;
-    Array<string, MAX_OBJ_SOUNDS> SoundNames;
-    Array<string, MAX_AI_SOUNDS> AISoundNames;
-    Array<Array<string, MAX_WB_GUNPOINTS>, MAX_WBS_PER_OBJ> WBSoundNames;
-    Array<Array<string, NUM_ANIMS_PER_CLASS>, NUM_MOVEMENT_CLASSES> AnimSoundNames;
-    float RespawnScalar{};
-    List<DeathInfo> DeathTypes;
-
-    constexpr bool HasFlag(GenericFlag flag) const { return (bool)(Flags & flag); }
+    ObjectType type{};
+    string name;
+    string modelName;
+    string medModelName;
+    string loModelName;
+    float impactSize{};
+    float impactTime{};
+    float damage{};
+    int score{};
+    int ammoCount{};
+    string moduleName;
+    string scriptNameOverride;
+    string description;
+    string iconName;
+    float medLodDistance{};
+    float loLodDistance{};
+    PhysicsInfo physics{};
+    float size{};
+    LightInfo light{};
+    int hitPoints{};
+    GenericFlag flags{};
+    AIInfo ai{};
+    ubyte dspewFlags{};
+    Array<float, MAX_DSPEW_TYPES> dspewPercent{};
+    Array<int16, MAX_DSPEW_TYPES> dspewNumber{};
+    Array<string, MAX_DSPEW_TYPES> dspewGenericNames;
+    AnimInfo anim;
+    Array<WeaponBatteryInfo, MAX_WBS_PER_OBJ> weaponBatteries;
+    Array<Array<string, MAX_WB_GUNPOINTS>, MAX_WBS_PER_OBJ> wbWeaponNames;
+    Array<string, MAX_OBJ_SOUNDS> soundNames;
+    Array<string, MAX_AI_SOUNDS> aiSoundNames;
+    Array<Array<string, MAX_WB_GUNPOINTS>, MAX_WBS_PER_OBJ> wbSoundNames;
+    Array<Array<string, NUM_ANIMS_PER_CLASS>, NUM_MOVEMENT_CLASSES> animSoundNames;
+    float respawnScalar{};
+    List<DeathInfo> deathTypes;
 };
 
 // Descent 3 Game Table (GAM). Contains metadata for game assets.
@@ -453,24 +449,25 @@ struct GameTable {
         TABLE_FILE_BASE = 0,
         TABLE_FILE_MISSION = 1,
         TABLE_FILE_MODULE = 2
-    } Type{};
+    } type{};
 
-    string Name;
+    string name;
 
-    List<TextureInfo> Textures;
-    List<SoundInfo> Sounds;
-    List<GenericInfo> Generics;
-    List<GenericInfo> Animations; // VClips
+    List<TextureInfo> textures;
+    List<SoundInfo> sounds;
+    List<GenericInfo> generics;
+    List<GenericInfo> animations; // VClips
 
     static GameTable Read(StreamReader&);
 
     TextureInfo* FindTexture(string_view name) {
-        for (auto& tex : Textures) {
-            if (String::EqualsIgnoreCase(tex.Name, name))
+        for (auto& tex : textures) {
+            if (String::EqualsIgnoreCase(tex.name, name))
                 return &tex;
         }
 
         return nullptr;
     }
 };
+
 }

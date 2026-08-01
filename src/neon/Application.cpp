@@ -165,13 +165,13 @@ Option<d3::Bitmap> ReadOutrageBitmap(const d3::Hog2& hog, const string& fileName
 }
 
 void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
-    for (auto& tex : gameTable.Textures) {
+    for (auto& tex : gameTable.textures) {
         if (!tex.Animated()) continue;
-        if (auto data = hog.ReadEntry(tex.FileName)) {
-            auto reader = StreamReader(std::move(*data), tex.FileName);
+        if (auto data = hog.ReadEntry(tex.fileName)) {
+            auto reader = StreamReader(std::move(*data), tex.fileName);
             auto vclip = d3::VClip::Read(reader);
-            vclip.fileName = tex.FileName;
-            vclip.frameTime = tex.Speed / vclip.frames.size();
+            vclip.fileName = tex.fileName;
+            vclip.frameTime = tex.speed / vclip.frames.size();
             _vclips.push_back(vclip);
         }
     }
@@ -179,8 +179,8 @@ void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
 
 
 string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName) {
-    for (auto& tex : gameTable.Textures) {
-        if (HasFlag(tex.Flags, d3::TextureFlag::Animated)) {
+    for (auto& tex : gameTable.textures) {
+        if (HasFlag(tex.flags, d3::TextureFlag::Animated)) {
             for (auto& vclip : _vclips) {
                 for (auto& frame : vclip.frames) {
                     if (String::EqualsIgnoreCase(frame.name, fileName))
@@ -192,10 +192,10 @@ string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName
         }
         else {
             string name;
-            if (String::EqualsIgnoreCase(tex.Name, fileName))
-                return tex.FileName;
-            else if (String::EqualsIgnoreCase(tex.FileName, fileName + ".ogf"))
-                return tex.FileName;
+            if (String::EqualsIgnoreCase(tex.name, fileName))
+                return tex.fileName;
+            else if (String::EqualsIgnoreCase(tex.fileName, fileName + ".ogf"))
+                return tex.fileName;
         }
     }
 
@@ -261,10 +261,10 @@ bool VClipContainsFrame(const d3::VClip& vclip, string_view name) {
 }
 
 int FindTextureEntry(const d3::GameTable& gameTable, string_view name) {
-    for (int i = 0; i < gameTable.Textures.size(); ++i) {
-        auto& entry = gameTable.Textures[i];
-        if (HasFlag(entry.Flags, d3::TextureFlag::Animated)) {
-            auto vclipIndex = FindVClip(entry.FileName);
+    for (int i = 0; i < gameTable.textures.size(); ++i) {
+        auto& entry = gameTable.textures[i];
+        if (HasFlag(entry.flags, d3::TextureFlag::Animated)) {
+            auto vclipIndex = FindVClip(entry.fileName);
             if (vclipIndex == -1) continue;
 
             auto& vclip = _vclips[vclipIndex];
@@ -272,10 +272,10 @@ int FindTextureEntry(const d3::GameTable& gameTable, string_view name) {
                 return i;
         }
         else {
-            if (String::EqualsIgnoreCase(entry.Name, name)) {
+            if (String::EqualsIgnoreCase(entry.name, name)) {
                 return i;
             }
-            else if (String::EqualsIgnoreCase(entry.FileName, name + ".ogf")) {
+            else if (String::EqualsIgnoreCase(entry.fileName, name + ".ogf")) {
                 return i;
             }
         }
@@ -296,15 +296,15 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
             continue;
         }
 
-        auto& entry = gameTable.Textures[index];
-        if (HasFlag(entry.Flags, d3::TextureFlag::Animated)) {
-            auto vclipIndex = FindVClip(entry.FileName);
+        auto& entry = gameTable.textures[index];
+        if (HasFlag(entry.flags, d3::TextureFlag::Animated)) {
+            auto vclipIndex = FindVClip(entry.fileName);
             if (vclipIndex == -1) continue;
 
             auto& vclip = _vclips[vclipIndex];
 
-            if (_textureLookup.contains(entry.FileName)) {
-                SPDLOG_INFO("vclip `{}` is already loaded", entry.FileName);
+            if (_textureLookup.contains(entry.fileName)) {
+                SPDLOG_INFO("vclip `{}` is already loaded", entry.fileName);
                 continue;
             }
 
@@ -331,24 +331,24 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
             }
         }
         else {
-            if (_textureLookup.contains(entry.FileName)) {
-                SPDLOG_INFO("texture {} is already loaded", entry.FileName);
+            if (_textureLookup.contains(entry.fileName)) {
+                SPDLOG_INFO("texture {} is already loaded", entry.fileName);
                 continue;
             }
 
-            if (auto data = hog.ReadEntry(entry.FileName)) {
-                auto reader = StreamReader(std::move(*data), entry.FileName);
+            if (auto data = hog.ReadEntry(entry.fileName)) {
+                auto reader = StreamReader(std::move(*data), entry.fileName);
                 auto bitmap = d3::Bitmap::Read(reader);
 
                 gfx::Image image;
                 image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
 
-                auto handle = gfx::CreateTexture(image, entry.FileName);
+                auto handle = gfx::CreateTexture(image, entry.fileName);
                 //objectTextures[name] = handle;
                 _textures.push_back({ index, (int)_loadedTextures.size() });
-                _textureLookup[entry.FileName] = (LoadedTexHandle)_loadedTextures.size();
+                _textureLookup[entry.fileName] = (LoadedTexHandle)_loadedTextures.size();
                 _loadedTextures.push_back(handle);
-                SPDLOG_INFO("Loaded {}", entry.FileName);
+                SPDLOG_INFO("Loaded {}", entry.fileName);
             }
         }
     }
@@ -579,8 +579,8 @@ void TextureDebugWindow() {
 
         auto texid = _loadedTextures[handle];
 
-        auto& tableEntry = _gameTable.Textures[entry.entry];
-        ImGui::ImageButton(tableEntry.Name.c_str(), { texid }, tileSize, { 0, 0 }, { 1, 1 }, bg);
+        auto& tableEntry = _gameTable.textures[entry.entry];
+        ImGui::ImageButton(tableEntry.name.c_str(), { texid }, tileSize, { 0, 0 }, { 1, 1 }, bg);
 
         float spacing = style.ItemSpacing.x / 2.0f;
         float xLast = ImGui::GetItemRectMax().x;
