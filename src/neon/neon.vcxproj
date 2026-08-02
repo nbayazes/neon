@@ -188,12 +188,17 @@
     <ClCompile Include="Rml\RmlUI.cpp" />
     <ClCompile Include="Rml\RmlUi_Platform_SDL.cpp" />
     <ClCompile Include="DirectoryWatcher.cpp" />
+    <ClCompile Include="SetWindowsTimePeriod.cpp" />
+    <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="SetWindowsTimePeriod.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />
     <ClInclude Include="d3\OutrageBitmap.h" />

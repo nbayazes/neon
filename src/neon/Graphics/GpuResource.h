@@ -93,6 +93,12 @@ public:
         cmdList->CopyResource(Get(), src._resource.Get());
     }
 
+    void CopyRegionTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest, uint64 offset, uint64 destOffset, uint64 numBytes) const {
+        dest.Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
+        //Transition(cmdList, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        cmdList->CopyBufferRegion(dest.Get(), destOffset, _resource.Get(), offset, numBytes);
+    }
+
 protected:
     virtual D3D12_RENDER_TARGET_VIEW_DESC GetRtvDesc() { throw NotSupportedException(); }
     virtual D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() { throw NotSupportedException(); }
@@ -115,9 +121,25 @@ protected:
 // General purpose buffer
 class GpuBuffer : public GpuResource {
     uint _elementCount = 0;
-
+    D3D12MA::VirtualBlock* _block = nullptr;
+    uint _alignment = 0;
 public:
-    void Create(string_view name, uint32 elementSize, uint32 elementCount);
+    void Create(string_view name, uint64 sizeBytes, uint alignment = 4);
+
+    // Allocates a block of memory in the buffer
+    D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size) const {
+        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+        allocDesc.Size = size;
+        allocDesc.Alignment = _alignment;
+
+        D3D12MA::VirtualAllocation alloc;
+        UINT64 allocOffset;
+        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &allocOffset));
+
+        D3D12MA::VIRTUAL_ALLOCATION_INFO info{};
+        _block->GetAllocationInfo(alloc, &info);
+        return info;
+    }
 
 protected:
     D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() override {
@@ -132,15 +154,52 @@ protected:
 };
 
 class GpuUploadBuffer : public GpuResource {
+    bool _inUpdate = false;
+    int64 _offset = 0;
+    ubyte* _mappedPtr = nullptr;
+
+public:
     void Create(string_view name, uint64 size);
 
+    // Copy data and 
     template <typename T>
-    void Upload(std::vector<T>& data) {
-        D3D12_RANGE emptyRange = { .Begin = 0, .End = 0 };
+    void ImmediateCopy(std::vector<T>& data) {
+        constexpr D3D12_RANGE CPU_READ_NONE = {};
         void* mappedPtr;
-        ThrowIfFailed(_resource->Map(0, &emptyRange, &mappedPtr));
+        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, &mappedPtr));
 
         memcpy(mappedPtr, data.data(), data.size());
+        _resource->Unmap(0, nullptr);
+    }
+
+    void BeginCopy() {
+        ASSERT(_resource);
+        if (_inUpdate) throw Exception("Already called Begin");
+
+        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
+        _inUpdate = true;
+    }
+
+    // Copies data into the buffer. Returns the offset.
+    template<typename T>
+    int64 Copy(span<T> src) {
+        if (!_inUpdate)
+            throw Exception("Must call Begin before Copy");
+
+        if (_offset + src.size() > _desc.Width) {
+            throw Exception("Out of space in upload buffer");
+        }
+
+        memcpy(_mappedPtr + _offset, src.data(), src.size());
+        auto offset = _offset;
+        _offset += src.size();
+        return offset;
+        //_buffer.insert(_buffer.end(), src.begin(), src.end());
+    }
+
+    void EndCopy() {
+        _inUpdate = false;
+        _offset = 0;
         _resource->Unmap(0, nullptr);
     }
 

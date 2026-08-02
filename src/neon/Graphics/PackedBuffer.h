@@ -5,8 +5,7 @@
 #include "Utility.h"
 
 namespace neon::gfx {
-    // Packs multiple vertex and index buffers into a single buffer.
-    // Packed buffers use GraphicsResource which automatically upload at end of frame.
+    // Packs multiple sets of data into a single buffer.
     class PackedBuffer {
         uint _index = 0;
         uint _size;
@@ -15,7 +14,7 @@ namespace neon::gfx {
     public:
         PackedBuffer(uint size = 1024 * 1024 * 20)
             : _size(size) {
-            _resource = DirectX::GraphicsMemory::Get().Allocate(size);
+            //_resource = DirectX::GraphicsMemory::Get().Allocate(size);
         }
 
         void ResetIndex() { _index = 0; }

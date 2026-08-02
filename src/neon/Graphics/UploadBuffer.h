@@ -7,7 +7,6 @@
 
 namespace neon::gfx {
 
-constexpr D3D12_RANGE CPU_READ_NONE = {};
 //inline const D3D12_RANGE* CPU_READ_ALL = nullptr;
 
 // Creates a buffer upload heap

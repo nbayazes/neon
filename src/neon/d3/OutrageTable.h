@@ -460,9 +460,9 @@ struct GameTable {
 
     static GameTable Read(StreamReader&);
 
-    TextureInfo* FindTexture(string_view name) {
+    TextureInfo* FindTexture(string_view texture) {
         for (auto& tex : textures) {
-            if (String::EqualsIgnoreCase(tex.name, name))
+            if (String::EqualsIgnoreCase(tex.name, texture))
                 return &tex;
         }
 

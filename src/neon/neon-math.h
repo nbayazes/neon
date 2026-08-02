@@ -1,6 +1,7 @@
 #pragma once
 #include <DirectXMath.h>
 #include <DirectXTK12/SimpleMath.h>
+#include <numbers>
 
 namespace neon {
 using DirectX::SimpleMath::Vector2;
@@ -12,6 +13,12 @@ using DirectX::SimpleMath::Color;
 using DirectX::SimpleMath::Ray;
 using DirectX::SimpleMath::Quaternion;
 using uint3 = DirectX::XMUINT3;
+
+//Some handy constants for interacting with fixed precision values
+constexpr auto F1_0 = 0x10000;
+
+constexpr float DegToRad = (float)std::numbers::pi / 180.0f;
+constexpr float RadToDeg = 180.0f / (float)std::numbers::pi;
 
 struct uint2 : DirectX::XMUINT2 {
     uint2() noexcept : DirectX::XMUINT2(0, 0) {}

@@ -23,6 +23,9 @@ void FreeGraphics();
 
 // Draws previously recorded commands
 void Draw();
+
+void Shutdown();
+
 }
 
 //#pragma warning(pop)

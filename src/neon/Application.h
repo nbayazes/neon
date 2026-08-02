@@ -2,7 +2,7 @@
 
 namespace neon::app {
 
-void Update();
+void Update(float dt);
 void Init();
 void TextureDebugWindow();
 

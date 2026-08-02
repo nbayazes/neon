@@ -1,10 +1,9 @@
 #pragma once
-#include "neon-graphics.h"
 #include <dxgi1_6.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
-#include "shaders/imgui.h"
+#include "neon-graphics.h"
 #include "Texture.h"
 //#include "UploadBuffer.h"
 
@@ -13,6 +12,22 @@ namespace neon::gfx {
 using Microsoft::WRL::ComPtr;
 
 constexpr size_t MAX_BACK_BUFFER_COUNT = 2;
+
+struct GpuSubmesh {
+    D3D12_VERTEX_BUFFER_VIEW vbv{};
+    D3D12_INDEX_BUFFER_VIEW ibv{};
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureView;
+};
+
+// GPU instanced mesh
+struct GpuMesh {
+    GpuBuffer meshData;
+    GpuBuffer textureData;
+    List<GpuSubmesh> submeshes;
+    //GpuBuffer vertexBuffer;
+    //GpuBuffer indexBuffer;
+    //StructuredBuffer textureMap; // buffer containing texture index for each geometry element
+};
 
 // Resources alive for the duration of the device
 struct DeviceResources {
@@ -30,7 +45,10 @@ struct DeviceResources {
     Ptr<DirectX::CommonStates> states;
     Ptr<CommandQueue> textureCopyQueue;
     Ptr<CommandContext> textureCopyContext;
+
+    // todo: split textures and meshes into separate resource groups based on type (menu, UI, level, object)
     List<Texture> textures;
+    List<GpuMesh> meshes;
     Ptr<GraphicsContext> graphicsContext[MAX_BACK_BUFFER_COUNT];
 
     Texture* whiteTexture = nullptr;

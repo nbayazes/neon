@@ -17,4 +17,6 @@ namespace neon::gfx {
     void SetName(auto& comPtr, std::string_view name) {
         comPtr->SetName(Widen(name).c_str());
     }
+
+    constexpr D3D12_RANGE CPU_READ_NONE = {};
 }

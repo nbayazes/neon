@@ -26,6 +26,12 @@ consteval uint32 MakeFourCC(const char cc[4]) {
 //    return cc;
 //}
 
+// Helper to get the size of a vector's elements in bytes
+template <typename T>
+constexpr size_t GetVectorSizeInBytes(const std::vector<T>& v) {
+    return v.size() * sizeof(T);
+}
+
 // Equivalent to hlsl smoothstep
 constexpr float SmoothStep(float a, float b, float x) {
     x = std::clamp((x - a) / (b - a), 0.0f, 1.0f);

@@ -20,7 +20,7 @@
 namespace {
 
 SDL_Window* _window = nullptr;
-neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
+//neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
 
 }
 
@@ -79,6 +79,7 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
 // called as frequently as possible
 SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
     neon::Clock.Update();
+    auto dt = neon::Clock.GetFrameTimeSeconds();
 
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -89,7 +90,7 @@ SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
     ImGui::Render(); // this doesn't actually call any graphics commands, it populates draw data
 
     //neon::rml::Update();
-    neon::app::Update();
+    neon::app::Update(dt);
 
     neon::gfx::Present();
     return SDL_APP_CONTINUE;
@@ -123,6 +124,7 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
 // Called once on termination
 void SDL_AppQuit(void* /*appstate*/, SDL_AppResult /*result*/) {
     SPDLOG_INFO("NEON SHUTDOWN");
+    neon::imgui::Shutdown();
     //neon::rml::Shutdown();
     neon::gfx::Shutdown();
 }

@@ -17,14 +17,12 @@
 #include "shaders/compose.h"
 #include "shaders/neon-shaders.h"
 #include "Shell.h"
+#include "Utility.h"
 #include "Widechar.h"
 
 namespace neon::gfx {
 
 namespace {
-    //bool _typedUAVLoadSupport_R11G11B10_FLOAT = false;
-    float _renderScale = 1;
-    //ComPtr<D3D12MA::Allocator> _allocator;
     HWND _hwnd = nullptr;
     UINT _backBufferIndex = 0;
     UINT _backBufferCount = 2;
@@ -504,7 +502,6 @@ GraphicsContext* GetGraphicsContext() {
 }
 
 void FreeResources() {
-    imgui::FreeGraphics();
     sizedResources = {};
     resources = {};
     ReportLiveObjects();
@@ -516,17 +513,6 @@ void HandleDeviceLost() {
     CreateDeviceResources();
     CreateWindowSizeDependentResources(_width, _height);
 }
-
-
-//void CompilePipelineState(GraphicsPipelineInfo& effect, uint msaaSamples = 1, bool useStencil = true, uint renderTargets = 1) {
-//    try {
-//        auto psoDesc = BuildPipelineStateDesc(effect.settings, *effect.shader, useStencil, msaaSamples, renderTargets);
-//        ThrowIfFailed(resources.d3dDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&effect.state)));
-//    }
-//    catch (const std::exception& e) {
-//        SPDLOG_ERROR("Unable to compile shader: {}", e.what());
-//    }
-//}
 
 void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOptions& options) {
     ASSERT(hwnd);
@@ -543,7 +529,7 @@ void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOpti
     D3D12MA::Budget videoMemBudget = {};
     resources.memoryAllocator->GetBudget(&videoMemBudget, nullptr);
 
-    SPDLOG_INFO("GPU Memory usage {} / {} MB", videoMemBudget.UsageBytes / 1024 / 1024, videoMemBudget.BudgetBytes / 1024 / 1024);
+    SPDLOG_INFO("GPU memory usage {} / {} MB", videoMemBudget.UsageBytes / 1024 / 1024, videoMemBudget.BudgetBytes / 1024 / 1024);
 }
 
 void ScreenSizeChanged(unsigned int width, unsigned int height) {
@@ -562,8 +548,13 @@ RenderTarget& GetBackBuffer() {
     return sizedResources.backBuffers[_backBufferIndex];
 }
 
-void Render(GraphicsContext& context) {
+void Render(Camera& camera, RenderTarget& renderTarget) {
+    camera.UpdatePerspectiveMatrices();
+
+    // todo: context varies
+    auto& context = *resources.graphicsContext[_backBufferIndex];
     context.Reset();
+    context.camera = &camera;
 
     auto cmdList = context.GetCommandList();
 
@@ -587,17 +578,19 @@ void Render(GraphicsContext& context) {
     shaders::compose::SetSampler(cmdList, resources.states->PointClamp());
     shaders::compose::SetSource(cmdList, sizedResources.uiRenderTarget->GetSRV());
     cmdList->DrawInstanced(3, 1, 0, 0);
+
+    // execute the command list
+    renderTarget.Transition(cmdList, D3D12_RESOURCE_STATE_PRESENT);
+    context.Execute();
+}
+
+void RenderView(Camera& camera) {
+    auto& renderTarget = sizedResources.backBuffers[_backBufferIndex];
+    Render(camera, renderTarget);
 }
 
 // Present the contents of the swap chain to the screen.
 void Present() {
-    auto& context = resources.graphicsContext[_backBufferIndex];
-    Render(*context);
-
-    auto cmdList = context->GetCommandList();
-    sizedResources.backBuffers[_backBufferIndex].Transition(cmdList, D3D12_RESOURCE_STATE_PRESENT);
-    context->Execute();
-
     HRESULT hr{};
     if (m_options.allowTearing && !m_options.useVsync) {
         // Recommended to always use tearing if supported when using a sync interval of 0.
@@ -629,17 +622,6 @@ void Present() {
             ThrowIfFailed(CreateDXGIFactory2(m_dxgiFactoryFlags, IID_PPV_ARGS(resources.dxgiFactory.ReleaseAndGetAddressOf())));
         }
     }
-
-    // Check for render scale change
-    //if (Inferno::Settings::Graphics.RenderScale != _renderScale) {
-    //    WaitForGpu();
-    //    _renderScale = Inferno::Settings::Graphics.RenderScale;
-    //    auto width = m_outputSize.right;
-    //    auto height = m_outputSize.bottom;
-    //    CreateBuffers(width, height);
-    //}
-
-    //Render::Allocator->SetCurrentFrameIndex(m_backBufferIndex);
 }
 
 TexHandle CreateTexture(const Image& image, std::string_view name) {
@@ -664,5 +646,146 @@ void FreeTexture(TexHandle index) {
     if (index >= resources.textures.size()) return;
     resources.textures[index] = {};
 }
+
+GpuMeshHandle CreateMesh() {
+    return {};
+}
+
+uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
+    uint64 totalSize = 0;
+
+    for (auto& submesh : mesh.submeshes) {
+        totalSize += GetVectorSizeInBytes(submesh.vertices);
+        totalSize = AlignTo(totalSize, alignment);
+
+        totalSize += GetVectorSizeInBytes(submesh.indices);
+        totalSize = AlignTo(totalSize, alignment);
+
+        //totalSize += GetVectorSizeInBytes(submesh.textures);
+        //totalSize = AlignTo(totalSize, alignment);
+    }
+
+    return totalSize;
+}
+
+
+
+void UploadMeshes(span<Mesh> meshes) {
+    auto device = gfx::GetDevice();
+    ASSERT(device);
+
+    gfx::CommandQueue uploadQueue = { device, D3D12_COMMAND_LIST_TYPE_COPY, "Upload queue" };
+    gfx::CommandContext uploadContext = { device, &uploadQueue, "Upload command list" };
+    uploadContext.Reset();
+
+    gfx::GpuUploadBuffer uploadBuffer;
+    uploadBuffer.Create("Upload buffer", 1024 * 1024 * 20);
+    uploadBuffer.BeginCopy();
+
+    auto cmdList = uploadContext.GetCommandList();
+
+
+    // All buffers must use CBV alignment if they are packed in a single shared buffer
+    constexpr auto CBV_ALIGNMENT = 256;
+
+
+
+    for (int i = 0; i < meshes.size(); ++i) {
+        auto& mesh = meshes[i];
+        //gfx::GpuBuffer meshBuffer;
+
+        auto meshBufferSize = CalculateMeshSize(mesh, 4);
+        //meshBuffer.Create(mesh.name, meshBufferSize);
+
+        // Use D3D12MA to divide memory
+        //D3D12MA::VIRTUAL_BLOCK_DESC blockDesc = {};
+        //blockDesc.Size = meshBufferSize;
+
+        //D3D12MA::VirtualBlock* block;
+        //ThrowIfFailed(CreateVirtualBlock(&blockDesc, &block));
+
+        //uint64 byteOffset = 0;
+
+        auto& gpuMesh = resources.meshes.emplace_back();
+        gpuMesh.meshData.Create(mesh.name, meshBufferSize);
+        gpuMesh.textureData.Create(mesh.name, meshBufferSize);
+
+        for (int j = 0; j < mesh.submeshes.size(); ++j) {
+            auto& submesh = mesh.submeshes[j];
+            submesh.handle = (int)resources.meshes.size();
+
+            auto& gpuSubmesh = gpuMesh.submeshes.emplace_back();
+
+            {
+                auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
+
+                //D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+                //allocDesc.Size = sizeInBytes;
+                //allocDesc.Alignment = 4;
+
+                //D3D12MA::VirtualAllocation alloc;
+                //UINT64 allocOffset;
+                //ThrowIfFailed(block->Allocate(&allocDesc, &alloc, &allocOffset));
+
+                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+
+                //gpuMesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
+                auto uploadOffset = uploadBuffer.Copy(span{ submesh.vertices });
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, uploadOffset, allocation.Offset, sizeInBytes);
+
+                auto& vbv = gpuSubmesh.vbv;
+                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+                vbv.SizeInBytes = sizeInBytes;
+                vbv.StrideInBytes = sizeof(shaders::ModelVertex);
+
+                //byteOffset += sizeInBytes;
+                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
+            }
+
+            {
+                auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
+                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+
+                //gpuMesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
+                auto offset = uploadBuffer.Copy(span{ submesh.vertices });
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, offset, allocation.Offset, sizeInBytes);
+
+                auto& vbv = gpuSubmesh.ibv;
+                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+                vbv.SizeInBytes = sizeInBytes;
+                vbv.Format = DXGI_FORMAT_R16_UINT;
+
+                //byteOffset += sizeInBytes;
+                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
+            }
+
+            {
+                auto sizeInBytes = GetVectorSizeInBytes(submesh.textures);
+
+                // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
+                auto allocation = gpuMesh.textureData.Allocate(sizeInBytes);
+                auto offset = uploadBuffer.Copy(span{ submesh.vertices });
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureData, offset, allocation.Offset, sizeInBytes);
+
+                
+                auto& desc = gpuSubmesh.textureView;
+                desc.Format = DXGI_FORMAT_UNKNOWN;
+                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                desc.Buffer.FirstElement = allocation.Offset / sizeof(short);
+                desc.Buffer.NumElements = submesh.textures.size();
+                desc.Buffer.StructureByteStride = sizeof(short);
+
+
+                //byteOffset += sizeInBytes;
+                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
+            }
+        }
+    }
+
+    uploadBuffer.EndCopy();
+    uploadContext.Execute();
+    uploadContext.WaitForIdle();
+}
+
 
 }
