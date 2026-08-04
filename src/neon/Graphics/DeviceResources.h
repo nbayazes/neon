@@ -11,12 +11,14 @@ namespace neon::gfx {
 
 using Microsoft::WRL::ComPtr;
 
-constexpr size_t MAX_BACK_BUFFER_COUNT = 2;
+// Back buffer count is also used as frames as flight, although technically not correct
+constexpr size_t BACK_BUFFER_COUNT = 2;
 
 struct GpuSubmesh {
     D3D12_VERTEX_BUFFER_VIEW vbv{};
     D3D12_INDEX_BUFFER_VIEW ibv{};
     D3D12_SHADER_RESOURCE_VIEW_DESC textureView;
+    uint elementCount = 0;
 };
 
 // GPU instanced mesh
@@ -49,7 +51,11 @@ struct DeviceResources {
     // todo: split textures and meshes into separate resource groups based on type (menu, UI, level, object)
     List<Texture> textures;
     List<GpuMesh> meshes;
-    Ptr<GraphicsContext> graphicsContext[MAX_BACK_BUFFER_COUNT];
+    Ptr<GraphicsContext> graphicsContext[BACK_BUFFER_COUNT];
+
+    //GpuUploadBuffer frameConstants[BACK_BUFFER_COUNT];
+    FrameRingBuffer frameRingBuffer;
+    D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT];
 
     Texture* whiteTexture = nullptr;
 
@@ -65,8 +71,10 @@ struct WindowSizeResources {
     ComPtr<IDXGISwapChain3> swapChain;
 
     Ptr<RenderTarget> uiRenderTarget;
-    RenderTarget backBuffers[MAX_BACK_BUFFER_COUNT];
+    RenderTarget backBuffers[BACK_BUFFER_COUNT];
     // frame buffers
+    RenderTarget sceneColorBuffer;
+    DepthBuffer sceneDepthBuffer;
 };
 
 

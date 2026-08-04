@@ -197,6 +197,7 @@
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Graphics\FrameConstants.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
     <ClInclude Include="SystemClock.h" />

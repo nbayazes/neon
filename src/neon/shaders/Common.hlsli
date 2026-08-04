@@ -13,8 +13,8 @@ static const int MAT_NORM = 4; // Normal
 static const int VCLIP_RANGE = 10000;
 
 struct FrameConstants {
-    float4x4 viewProj; // Camera view * proj matrix
-    float4x4 view; // Camera view matrix
+    float4x4 ViewProj; // Camera view * proj matrix
+    float4x4 View; // Camera view matrix
     float3 Eye; // Camera position
     float Time; // elapsed game time in seconds
     float2 Size; // Frame width and height

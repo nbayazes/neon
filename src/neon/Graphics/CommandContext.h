@@ -35,7 +35,7 @@ namespace neon::gfx {
         CommandContext& operator=(CommandContext&&) = delete;
 
         ID3D12GraphicsCommandList* GetCommandList() const { return _cmdList.Get(); }
-        ID3D12CommandQueue* GetCommandQueue() const { return _queue->Get(); }
+        CommandQueue* GetCommandQueue() const { return _queue; }
 
         void ExecuteIndirect(ID3D12Device* device) {
             struct IndirectCommand : D3D12_DRAW_INDEXED_ARGUMENTS {
@@ -116,6 +116,14 @@ namespace neon::gfx {
             renderTarget.Transition(_cmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
             auto rtv = renderTarget.GetRTV();
             SetRenderTargets({ &rtv, 1 });
+        }
+
+        void SetRenderTarget(RenderTarget& renderTarget, DepthBuffer& depthTarget) const {
+            renderTarget.Transition(_cmdList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+            depthTarget.Transition(_cmdList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+            auto rtv = renderTarget.GetRTV();
+            auto dsv = depthTarget.GetDSV();
+            SetRenderTargets({ &rtv, 1 }, dsv);
         }
 
         void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv) const {

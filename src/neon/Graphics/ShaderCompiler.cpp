@@ -162,7 +162,8 @@ ComPtr<ID3DBlob> LoadComputeShader(const filesystem::path& file, ComPtr<ID3D12Ro
         CompileShader(file, args, shader);
     }
 
-    LoadShaderRootSig(*shader.Get(), rootSignature);
+    if (!rootSignature.Get())
+        LoadShaderRootSig(*shader.Get(), rootSignature);
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.pRootSignature = rootSignature.Get();
@@ -249,8 +250,26 @@ CompiledShader CompileShader(const ShaderInfo& shader) {
     try {
         auto vertexShader = LoadVertexShader(shader.file, shader.vsEntryPoint);
         // load root sig from the shader hlsl
-        compiled.rootSignature = LoadShaderRootSig(*vertexShader.Get());
-        //ThrowIfFailed(compiled->rootSignature->SetName(shader.file.c_str()));
+
+        if (shader.rootSignature) {
+            D3D12_VERSIONED_ROOT_SIGNATURE_DESC vdesc = {
+                .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,
+                .Desc_1_1 = *shader.rootSignature
+            };
+
+            ComPtr<ID3DBlob> sigBlob, errBlob;
+            HRESULT hr = D3D12SerializeVersionedRootSignature(&vdesc, &sigBlob, &errBlob);
+            if (FAILED(hr)) {
+                string str = { (const char*)errBlob->GetBufferPointer(), errBlob->GetBufferSize() };
+                throw Exception(str);
+            }
+
+            ThrowIfFailed(_device->CreateRootSignature(0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(), IID_PPV_ARGS(&compiled.rootSignature)));
+        }
+        else {
+            compiled.rootSignature = LoadShaderRootSig(*vertexShader.Get());
+            //ThrowIfFailed(compiled->rootSignature->SetName(shader.file.c_str()));
+        }
 
         auto pixelShader = LoadPixelShader(shader.file, shader.psEntryPoint);
 

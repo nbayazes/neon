@@ -123,8 +123,9 @@ class GpuBuffer : public GpuResource {
     uint _elementCount = 0;
     D3D12MA::VirtualBlock* _block = nullptr;
     uint _alignment = 0;
+
 public:
-    void Create(string_view name, uint64 sizeBytes, uint alignment = 4);
+    void Create(string_view name, uint64 size, uint alignment = 4);
 
     // Allocates a block of memory in the buffer
     D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size) const {
@@ -153,6 +154,56 @@ protected:
     }
 };
 
+class FrameRingBuffer : public GpuResource {
+    struct FrameAllocations {
+        UINT64 fenceValue = 0; // queue fence value recorded on submit
+        std::vector<D3D12MA::VirtualAllocation> allocs;
+    };
+
+    List<FrameAllocations> _frameAllocs;
+    ubyte* _mappedPtr = nullptr;
+    D3D12MA::VirtualBlock* _block = nullptr;
+    uint _frames = 0;
+public:
+    void Create(string_view name, uint64 size, uint frames);
+
+    // Copy data to the ring buffer and increments it internally.
+    // Returns the offset.
+    // Fence value is the value when the resource should be released.
+    template <typename T>
+    UINT64 Copy(uint64 frame, uint64 fenceValue, T& data, uint64 alignment = 4) {
+
+        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+        allocDesc.Size = sizeof(data);
+        allocDesc.Alignment = alignment;
+
+        D3D12MA::VirtualAllocation alloc;
+        UINT64 offset;
+        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+
+        auto& slot = _frameAllocs[frame % _frames];
+        slot.allocs.push_back(alloc);
+        slot.fenceValue = fenceValue;
+
+        memcpy(_mappedPtr + offset, &data, sizeof(data));
+        return offset;
+    }
+
+
+    // Call at the end of each frame to free resources
+    void Update(uint64 frame, uint64 fenceValue) {
+        auto& slot = _frameAllocs[frame % _frames];
+
+        if (fenceValue >= slot.fenceValue) {
+            for (auto& alloc : slot.allocs) {
+                _block->FreeAllocation(alloc);
+            }
+
+            slot.allocs.clear();
+        }
+    }
+};
+
 class GpuUploadBuffer : public GpuResource {
     bool _inUpdate = false;
     int64 _offset = 0;
@@ -161,14 +212,24 @@ class GpuUploadBuffer : public GpuResource {
 public:
     void Create(string_view name, uint64 size);
 
-    // Copy data and 
+    // Copy data immediately
     template <typename T>
-    void ImmediateCopy(std::vector<T>& data) {
-        constexpr D3D12_RANGE CPU_READ_NONE = {};
+    void ImmediateCopy(span<T>& data) {
+        //constexpr D3D12_RANGE CPU_READ_NONE = {};
         void* mappedPtr;
         ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, &mappedPtr));
 
         memcpy(mappedPtr, data.data(), data.size());
+        _resource->Unmap(0, nullptr);
+    }
+
+    template <typename T>
+    void ImmediateCopy(T& data) {
+        //constexpr D3D12_RANGE CPU_READ_NONE = {};
+        void* mappedPtr;
+        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, &mappedPtr));
+
+        memcpy(mappedPtr, &data, sizeof(data));
         _resource->Unmap(0, nullptr);
     }
 
@@ -181,7 +242,7 @@ public:
     }
 
     // Copies data into the buffer. Returns the offset.
-    template<typename T>
+    template <typename T>
     int64 Copy(span<T> src) {
         if (!_inUpdate)
             throw Exception("Must call Begin before Copy");
@@ -435,16 +496,15 @@ public:
             samples
         );
         _desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-        _state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        //_state = D3D12_RESOURCE_STATE_COMMON;
 
-        //D3D12_CLEAR_VALUE clearValue = {};
-        //clearValue.Format = format;
-        //clearValue.DepthStencil.Depth = ClearDepth;
+        D3D12_CLEAR_VALUE clearValue = {};
+        clearValue.Format = format;
+        clearValue.DepthStencil.Depth = ClearDepth;
 
         //D3D12MA::ALLOCATION_DESC allocDesc = {};
         //allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
         //allocDesc.Flags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
-        SetName(_resource, name);
 
         //ThrowIfFailed(Render::Allocator->CreateResource(
         //    &allocDesc,
@@ -454,6 +514,10 @@ public:
         //    _allocation.ReleaseAndGetAddressOf(),
         //    IID_PPV_ARGS(_resource.ReleaseAndGetAddressOf())
         //));
+
+        CreateOnDefaultHeap(name, &clearValue);
+
+        SetName(_resource, name);
     }
 
     void Clear(ID3D12GraphicsCommandList* commandList) {

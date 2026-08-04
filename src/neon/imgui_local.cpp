@@ -182,10 +182,10 @@ struct FrameResources {
 
 // Helper structure we store in the void* RenderUserData field of each ImGuiViewport to easily retrieve our backend data.
 struct ImGuiViewportData {
-    ComPtr<ID3D12CommandQueue> CommandQueue;
-    ComPtr<ID3D12Fence> Fence;
-    UINT64 FenceSignaledValue = 0;
-    HANDLE FenceEvent = nullptr;
+    //ComPtr<ID3D12CommandQueue> CommandQueue;
+    //ComPtr<ID3D12Fence> Fence;
+    //UINT64 FenceSignaledValue = 0;
+    //HANDLE FenceEvent = nullptr;
 
     UINT FrameIndex = UINT_MAX;
     std::vector<FrameResources> Resources;
@@ -194,7 +194,7 @@ struct ImGuiViewportData {
         Resources(backBufferCount) {}
 
     ~ImGuiViewportData() {
-        CloseHandle(FenceEvent);
+        //CloseHandle(FenceEvent);
     }
 
     ImGuiViewportData(const ImGuiViewportData&) = delete;
@@ -267,22 +267,22 @@ void Initialize(SDL_Window* window, float fontSize) {
     io.Fonts->AddFontFromFileTTF(R"(c:\Windows\Fonts\SegoeUI.ttf)", fontSize * shell::dpiScale, nullptr, nullptr);
 }
 
-void ImGui_WaitForPendingOperations(ImGuiViewportData* data) {
-    HRESULT hr = S_FALSE;
-    if (data && data->CommandQueue && data->Fence && data->FenceEvent) {
-        hr = data->CommandQueue->Signal(data->Fence.Get(), ++data->FenceSignaledValue);
-        IM_ASSERT(hr == S_OK);
-        ::WaitForSingleObject(data->FenceEvent, 0); // Reset any forgotten waits
-        hr = data->Fence->SetEventOnCompletion(data->FenceSignaledValue, data->FenceEvent);
-        IM_ASSERT(hr == S_OK);
-        ::WaitForSingleObject(data->FenceEvent, INFINITE);
-    }
-}
+//void ImGui_WaitForPendingOperations(ImGuiViewportData* data) {
+//    HRESULT hr = S_FALSE;
+//    if (data && data->CommandQueue && data->Fence && data->FenceEvent) {
+//        hr = data->CommandQueue->Signal(data->Fence.Get(), ++data->FenceSignaledValue);
+//        IM_ASSERT(hr == S_OK);
+//        ::WaitForSingleObject(data->FenceEvent, 0); // Reset any forgotten waits
+//        hr = data->Fence->SetEventOnCompletion(data->FenceSignaledValue, data->FenceEvent);
+//        IM_ASSERT(hr == S_OK);
+//        ::WaitForSingleObject(data->FenceEvent, INFINITE);
+//    }
+//}
 
 void DestroyWindow(ImGuiViewport* viewport) {
     // The main viewport (owned by the application) will always have RendererUserData == nullptr since we didn't create the data for it.
     if (auto data = (ImGuiViewportData*)viewport->RendererUserData) {
-        ImGui_WaitForPendingOperations(data);
+        //ImGui_WaitForPendingOperations(data);
         IM_DELETE(data);
     }
     viewport->RendererUserData = nullptr;
@@ -294,7 +294,6 @@ void InitializeGraphics(UINT backBufferCount) {
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "imgui_impl_dx12";
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional) // FIXME-VIEWPORT: Actually unfinished..
 
     auto mainViewport = ImGui::GetMainViewport();
     //#pragma warning(push)
@@ -303,7 +302,7 @@ void InitializeGraphics(UINT backBufferCount) {
     mainViewport->RendererUserData = viewportData;
     //#pragma warning(pop)
     // Setup back-end capabilities flags
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
+    //io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 #if IM_MULTI_VIEWPORT
         ImGui_ImplDX12_InitPlatformInterface();

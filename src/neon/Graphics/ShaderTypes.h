@@ -12,6 +12,8 @@ namespace neon::gfx {
         string_view vsEntryPoint = "vsmain";
         string_view psEntryPoint = "psmain";
         D3D12_INPUT_LAYOUT_DESC inputLayout{};
+        // For code defined root signatures. If null the signature is read from the HLSL file.
+        const D3D12_ROOT_SIGNATURE_DESC1* rootSignature = nullptr;
     };
 
     enum class BlendMode { Opaque, Alpha, StraightAlpha, Additive, Multiply }; // "Alpha" is premultiplied

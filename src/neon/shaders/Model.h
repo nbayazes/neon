@@ -6,8 +6,14 @@
 namespace neon::gfx::shaders::model {
 
 enum RootParameters : uint {
-    RootConstants,
-    Sampler,
+    FrameConstants, // b0
+    ObjectConstants, // b1
+    //TextureTable, // t0, space1
+};
+
+enum RootSamplers : uint {
+    Sampler, // s0
+    NormalSampler, // s1
 };
 
 //FrameConstants, // b0
@@ -22,9 +28,63 @@ enum RootParameters : uint {
 //NormalSampler, // s1
 //LightGrid, // t11, t12, t13, b2
 
-// todo: these should be pushed to a single contiguous buffer for MDI
+constexpr D3D12_DESCRIPTOR_RANGE1 TextureTableRange = {
+    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+    .NumDescriptors = UINT_MAX,
+    .BaseShaderRegister = 0, // t0
+    .RegisterSpace = 1,
+    .Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE,
+    .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+};
+
+constexpr D3D12_DESCRIPTOR_RANGE1 DiffuseSamplerDescriptor = {
+    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
+    .NumDescriptors = 1,
+    .BaseShaderRegister = Sampler
+};
+
+constexpr D3D12_DESCRIPTOR_RANGE1 NormalSamplerDescriptor = {
+    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
+    .NumDescriptors = 1,
+    .BaseShaderRegister = NormalSampler
+};
+
+constexpr D3D12_ROOT_PARAMETER1 Params[] = {
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
+        .Descriptor = { .ShaderRegister = FrameConstants },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+    },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
+        .Descriptor = { .ShaderRegister = ObjectConstants },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+    },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &TextureTableRange },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &DiffuseSamplerDescriptor },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &NormalSamplerDescriptor },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    }
+};
+
+constexpr D3D12_ROOT_SIGNATURE_DESC1 RootSignature = {
+    .NumParameters = std::size(Params),
+    .pParameters = Params,
+    .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+};
+
 struct Constants {
-    Matrix world;
+    Matrix world = Matrix::Identity;
 };
 
 struct Vertex {
@@ -60,6 +120,7 @@ static void SetConstants(ID3D12GraphicsCommandList* commandList, const Constants
 constexpr ShaderInfo info = {
     .file = "shaders/model.hlsl",
     .inputLayout = gfx::CreateLayout(Vertex::layout),
+    .rootSignature = &RootSignature
 };
 
 }
@@ -69,7 +130,7 @@ namespace neon::gfx::pipelines {
 inline PipelineInfo model = {
     .name = "model",
     .shader = &shaders::model::info,
-    .format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+    .format = DXGI_FORMAT_R11G11B10_FLOAT,
     .blend = BlendMode::Opaque, // Alpha?
     .culling = CullMode::None,
     .depth = DepthMode::Read,

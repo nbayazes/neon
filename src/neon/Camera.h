@@ -29,19 +29,19 @@ class Camera {
     Viewport _viewport = { 0, 0, 1024, 768, 1, 3000 };
 
 public:
-    float fovDeg = 60; // FOV in degrees
-    Vector3 position = { 40, 0, 0 };
-    Matrix view;
-    Matrix projection;
-    Matrix inverseProjection;
+    float FovDeg = 60; // FOV in degrees
+    Vector3 Position = { 40, 0, 0 };
+    Matrix View;
+    Matrix Projection;
+    Matrix InverseProjection;
 
-    Vector3 target = Vector3::Zero;
-    Vector3 up = Vector3::UnitY;
+    Vector3 Target = Vector3::Zero;
+    Vector3 Up = Vector3::UnitY;
 
-    float minimumZoom = 5; // closest the camera can get to the target
+    float MinimumZoom = 5; // closest the camera can get to the target
 
-    DirectX::BoundingFrustum frustum;
-    Matrix viewProjection;
+    DirectX::BoundingFrustum Frustum;
+    Matrix ViewProjection;
     //SegID Segment;
 
     uint2 GetViewportSize() const {
@@ -74,176 +74,176 @@ public:
     //    InverseProjection = Projection.Invert();
     //}
 
-    Matrix3x3 GetOrientation() const { return Matrix3x3(GetForward(), up); }
+    Matrix3x3 GetOrientation() const { return Matrix3x3(GetForward(), Up); }
 
-    void MoveTo(const Vector3& position_, const Vector3& target_, const Vector3& up_) {
-        if (position == position_ && target == target_ && up == up_) return;
-        position = position_;
-        target = target_;
+    void MoveTo(const Vector3& position, const Vector3& target, const Vector3& up) {
+        if (Position == position && Target == target && Up == up) return;
+        Position = position;
+        Target = target;
 
         // Recalculate
-        auto forward = target - position;
+        auto forward = Target - Position;
         forward.Normalize();
-        auto right = forward.Cross(up_);
-        this->up = right.Cross(forward);
-        this->up.Normalize();
+        auto right = forward.Cross(up);
+        this->Up = right.Cross(forward);
+        this->Up.Normalize();
     }
 
     void Rotate(float yaw, float pitch) {
-        auto qyaw = Quaternion::CreateFromAxisAngle(up, yaw);
+        auto qyaw = Quaternion::CreateFromAxisAngle(Up, yaw);
         auto qpitch = Quaternion::CreateFromAxisAngle(GetRight(), pitch);
 
-        Vector3 offset = target - position;
-        target = Vector3::Transform(offset, qyaw * qpitch) + position;
-        up = Vector3::Transform(up, qpitch);
-        up.Normalize();
+        Vector3 offset = Target - Position;
+        Target = Vector3::Transform(offset, qyaw * qpitch) + Position;
+        Up = Vector3::Transform(Up, qpitch);
+        Up.Normalize();
     }
 
     void Roll(float roll) {
         auto qroll = Quaternion::CreateFromAxisAngle(GetForward(), roll);
-        up = Vector3::Transform(up, qroll);
-        up.Normalize();
+        Up = Vector3::Transform(Up, qroll);
+        Up.Normalize();
     }
 
     // Orbits around the target point
     void Orbit(float yaw, float pitch) {
-        Vector3 offset = position - target;
-        auto qyaw = Quaternion::CreateFromAxisAngle(up, yaw);
-        auto qpitch = Quaternion::CreateFromAxisAngle(up.Cross(offset), -pitch);
+        Vector3 offset = Position - Target;
+        auto qyaw = Quaternion::CreateFromAxisAngle(Up, yaw);
+        auto qpitch = Quaternion::CreateFromAxisAngle(Up.Cross(offset), -pitch);
 
-        position = Vector3::Transform(offset, qyaw * qpitch) + target;
-        up = Vector3::Transform(up, qpitch);
-        up.Normalize();
+        Position = Vector3::Transform(offset, qyaw * qpitch) + Target;
+        Up = Vector3::Transform(Up, qpitch);
+        Up.Normalize();
     }
 
     Vector3 GetForward() const {
-        auto forward = target - position;
+        auto forward = Target - Position;
         forward.Normalize();
         return forward;
     }
 
     Vector3 GetRight() const {
-        auto right = GetForward().Cross(up);
+        auto right = GetForward().Cross(Up);
         right.Normalize();
         return right;
     }
 
     void Pan(float horizontal, float vertical) {
         auto right = GetRight();
-        auto translation = right * horizontal + up * vertical;
-        target += translation;
-        position += translation;
+        auto translation = right * horizontal + Up * vertical;
+        Target += translation;
+        Position += translation;
     }
 
     void MoveForward(float value) {
         if (value == 0) return;
         auto step = GetForward() * value;
-        position += step;
-        target += step;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void MoveBack(float value) {
         if (value == 0) return;
         auto step = -GetForward() * value;
-        position += step;
-        target += step;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void MoveLeft(float value) {
         if (value == 0) return;
         auto step = GetRight() * value;
-        position += step;
-        target += step;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void MoveRight(float value) {
         if (value == 0) return;
         auto step = -GetRight() * value;
-        position += step;
-        target += step;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void MoveUp(float value) {
         if (value == 0) return;
-        auto step = up * value;
-        position += step;
-        target += step;
+        auto step = Up * value;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void MoveDown(float value) {
         if (value == 0) return;
-        auto step = -up * value;
-        position += step;
-        target += step;
+        auto step = -Up * value;
+        Position += step;
+        Target += step;
         CancelLerp();
     }
 
     void Zoom(const float& value) {
-        Vector3 delta = target - position;
+        Vector3 delta = Target - Position;
         delta.Normalize();
         // add the value along the direction of the vector
-        Vector3 pos = position + delta * value;
+        Vector3 pos = Position + delta * value;
 
-        if (Vector3::Distance(pos, target) > minimumZoom)
-            position = pos;
+        if (Vector3::Distance(pos, Target) > MinimumZoom)
+            Position = pos;
     }
 
     void ZoomIn() {
-        auto delta = target - position;
+        auto delta = Target - Position;
         auto direction = delta;
         direction.Normalize();
 
         // scale zoom amount based on distance from target
-        auto value = std::clamp(delta.Length() / 6, minimumZoom, 100.0f);
-        Vector3 pos = position + direction * value;
+        auto value = std::clamp(delta.Length() / 6, MinimumZoom, 100.0f);
+        Vector3 pos = Position + direction * value;
 
-        if (Vector3::Distance(pos, target) > minimumZoom)
-            position = pos;
+        if (Vector3::Distance(pos, Target) > MinimumZoom)
+            Position = pos;
     }
 
     void ZoomOut() {
-        auto delta = target - position;
+        auto delta = Target - Position;
         auto direction = delta;
         direction.Normalize();
 
         // scale zoom amount based on distance from target
         auto value = std::clamp(delta.Length() / 6, 10.0f, 100.0f);
-        Vector3 pos = position - direction * value;
-        position = pos;
+        Vector3 pos = Position - direction * value;
+        Position = pos;
     }
 
     // Unprojects a screen coordinate into world space along the near plane
     Vector3 Unproject(Vector2 screen, const Matrix& world = Matrix::Identity) const {
-        return _viewport.Unproject({ screen.x, screen.y, 0 }, projection, view, world);
+        return _viewport.Unproject({ screen.x, screen.y, 0 }, Projection, View, world);
     }
 
     Ray UnprojectRay(Vector2 screen, const Matrix& world = Matrix::Identity) const {
-        auto direction = Unproject(screen, world) - position;
+        auto direction = Unproject(screen, world) - Position;
         direction.Normalize();
-        return { position, direction };
+        return { Position, direction };
     }
 
     // Projects a world coordinate into screen space
     Vector3 Project(Vector3 p, const Matrix& world = Matrix::Identity) const {
-        return _viewport.Project(p, projection, view, world);
+        return _viewport.Project(p, Projection, View, world);
     }
 
     void MoveTo(const Vector3& target_) {
-        auto translation = target_ - target;
-        this->position += translation;
-        this->target += translation;
+        auto translation = target_ - Target;
+        this->Position += translation;
+        this->Target += translation;
     }
 
     void LerpTo(const Vector3& target_, float duration) {
         _lerpDuration = duration;
         _lerpTime = 0;
         _lerpEnd = target_;
-        _lerpStart = target;
+        _lerpStart = Target;
     }
 
     void CancelLerp() {
@@ -251,11 +251,11 @@ public:
     }
 
     void UpdatePerspectiveMatrices() {
-        view = DirectX::XMMatrixLookAtLH(position, target, up);
-        projection = DirectX::XMMatrixPerspectiveFovLH(fovDeg * DegToRad, _viewport.AspectRatio(), _viewport.minDepth, _viewport.maxDepth);
-        viewProjection = view * projection;
-        inverseProjection = projection.Invert();
-        frustum = GetFrustum(position, view, projection);
+        View = DirectX::XMMatrixLookAtLH(Position, Target, Up);
+        Projection = DirectX::XMMatrixPerspectiveFovLH(FovDeg * DegToRad, _viewport.AspectRatio(), _viewport.minDepth, _viewport.maxDepth);
+        ViewProjection = View * Projection;
+        InverseProjection = Projection.Invert();
+        Frustum = GetFrustum(Position, View, Projection);
     }
 };
 

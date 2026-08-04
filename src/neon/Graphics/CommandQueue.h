@@ -31,6 +31,9 @@ namespace neon::gfx {
 
         ID3D12CommandQueue* Get() const { return _queue.Get(); }
 
+        uint64 GetCompletedValue() const { return _lastCompletedValue; }
+        uint64 GetNextValue() const { return _nextFenceValue; }
+
     private:
         bool IsFenceComplete(uint64 value);
 

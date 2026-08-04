@@ -8,6 +8,7 @@
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
 #include "DeviceResources.h"
+#include "FrameConstants.h"
 #include "imgui.h"
 #include "imgui_local.h"
 #include "Logging.h"
@@ -17,6 +18,7 @@
 #include "shaders/compose.h"
 #include "shaders/neon-shaders.h"
 #include "Shell.h"
+#include "SystemClock.h"
 #include "Utility.h"
 #include "Widechar.h"
 
@@ -27,6 +29,7 @@ namespace {
     UINT _backBufferIndex = 0;
     UINT _backBufferCount = 2;
     uint _width = 1, _height = 1;
+    uint64 _frame = 0;
 
     DeviceResources resources;
     WindowSizeResources sizedResources;
@@ -356,6 +359,8 @@ void CreateDeviceResources() {
     resources.textureCopyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "texture copy queue");
     resources.textureCopyContext = std::make_unique<CommandContext>(device, resources.textureCopyQueue.get(), "texture upload context");
 
+    resources.frameRingBuffer.Create("frame ring buffer", 1024 * 1024 * 1, BACK_BUFFER_COUNT);
+
     {
         // create white texture
         Image image;
@@ -397,6 +402,11 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
 
     // creates intermediate render targets
     //CreateBuffers(backBufferWidth, backBufferHeight);
+    sizedResources.sceneColorBuffer.Create("Scene color buffer", width, height, DXGI_FORMAT_R11G11B10_FLOAT);
+    sizedResources.sceneDepthBuffer.Create("Scene depth buffer", width, height);
+
+    resources.renderTargetDescriptors->AddRTV(sizedResources.sceneColorBuffer);
+    resources.depthStencilDescriptors->AddDSV(sizedResources.sceneDepthBuffer);
 
     // If the swap chain already exists, resize it, otherwise create one.
     if (sizedResources.swapChain && !forceSwapChainRebuild) {
@@ -491,10 +501,31 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     resources.sizedDescriptors->AddSRV(*sizedResources.uiRenderTarget);
 }
 
+//struct FrameAllocations {
+//    UINT64 fenceValue = 0; // queue fence value recorded on submit
+//    std::vector<D3D12MA::Allocation*> allocs;
+//};
+
+//FrameAllocations g_frameSlots[BACK_BUFFER_COUNT];
+
 void MoveToNextFrame() {
     _backBufferIndex = sizedResources.swapChain->GetCurrentBackBufferIndex();
     auto& nextFrame = resources.graphicsContext[_backBufferIndex];
+
+    //auto& slot = g_frameSlots[_backBufferIndex];
+    // free allocations from the ring buffer before starting the next frame
+    //if (nextFrame->GetCommandQueue()->GetCompletedValue() >= slot.fenceValue) {
+    //    for (auto* alloc : slot.allocs)
+    //        alloc->Release();
+
+    //    slot.allocs.clear();
+    //    slot.fenceValue = 0;
+    //}
+
     nextFrame->WaitForIdle(); // wait on the next frame to finish rendering before recording new commands
+    _frame++;
+    auto fenceValue = nextFrame->GetCommandQueue()->GetCompletedValue();
+    resources.frameRingBuffer.Update(_frame, fenceValue);
 }
 
 GraphicsContext* GetGraphicsContext() {
@@ -548,6 +579,61 @@ RenderTarget& GetBackBuffer() {
     return sizedResources.backBuffers[_backBufferIndex];
 }
 
+D3D12_GPU_VIRTUAL_ADDRESS& GetFrameConstants() {
+    return resources.frameConstants[_frame % BACK_BUFFER_COUNT];
+}
+
+constexpr auto CBV_ALIGNMENT = 256;
+constexpr auto VB_ALIGNMENT = 4;
+
+void UpdateFrameConstants(const Camera& camera, uint64 fenceValue, float renderScale) {
+    auto size = camera.GetViewportSize();
+
+    FrameConstants frameConstants{};
+    //frameConstants.ElapsedTime = Game::GetState() == GameState::MainMenu || Game::GetState() == GameState::Briefing
+    //    ? (float)Inferno::Clock.GetTotalTimeSeconds()
+    //    : (float)Game::Time;
+    frameConstants.ElapsedTime = (float)Clock.GetTotalTimeSeconds();
+    frameConstants.ViewProjection = camera.ViewProjection;
+    frameConstants.View = camera.View;
+    frameConstants.NearClip = camera.GetNearClip();
+    frameConstants.FarClip = camera.GetFarClip();
+    frameConstants.Eye = camera.Position;
+    frameConstants.EyeDir = camera.GetForward();
+    frameConstants.EyeUp = camera.Up;
+    frameConstants.Size = Vector2{ size.x * renderScale, size.y * renderScale };
+    frameConstants.RenderScale = renderScale;
+
+    auto offset = resources.frameRingBuffer.Copy(_frame, fenceValue, frameConstants, CBV_ALIGNMENT);
+    GetFrameConstants() = resources.frameRingBuffer->GetGPUVirtualAddress() + offset;
+
+    //frameConstants.GlobalDimming = Game::GlobalDimming;
+    //frameConstants.NewLightMode = Settings::Graphics.NewLightMode && Settings::Editor.RenderMode == RenderMode::Shaded;
+    //frameConstants.FilterMode = Settings::Graphics.FilterMode;
+
+    //dest.ImmediateCopy(frameConstants);
+
+    //dest.Begin();
+    //dest.Copy({ &frameConstants, 1 });
+    //dest.End();
+}
+
+void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
+    auto cmdList = context.GetCommandList();
+    context.SetPipelineState(pipelines::model);
+    // todo: get GPUVA of the ring buffer and use allocation offset, or store GPUVA somewhere
+    context.SetConstantBuffer(0, GetFrameConstants());
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    for (auto& submesh : mesh.submeshes) {
+        //shaders::model::SetConstants(cmdList, );
+
+        cmdList->IASetIndexBuffer(&submesh.ibv);
+        cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
+        cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
+    }
+}
+
 void Render(Camera& camera, RenderTarget& renderTarget) {
     camera.UpdatePerspectiveMatrices();
 
@@ -556,10 +642,19 @@ void Render(Camera& camera, RenderTarget& renderTarget) {
     context.Reset();
     context.camera = &camera;
 
-    auto cmdList = context.GetCommandList();
+    float renderScale = 1;
+    auto fenceValue = context.GetCommandQueue()->GetNextValue();
+    UpdateFrameConstants(camera, fenceValue, renderScale);
 
+    auto cmdList = context.GetCommandList();
     ID3D12DescriptorHeap* heaps[] = { resources.shaderVisibleHeap->Heap(), resources.states->Heap() };
     cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
+
+    context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
+    context.ClearRenderTarget(sizedResources.sceneColorBuffer);
+    context.ClearDepth(sizedResources.sceneDepthBuffer);
+    DrawMesh(context, resources.meshes[0]);
+
 
     context.SetRenderTarget(*sizedResources.uiRenderTarget);
     context.ClearRenderTarget(*sizedResources.uiRenderTarget, nullptr);
@@ -578,6 +673,7 @@ void Render(Camera& camera, RenderTarget& renderTarget) {
     shaders::compose::SetSampler(cmdList, resources.states->PointClamp());
     shaders::compose::SetSource(cmdList, sizedResources.uiRenderTarget->GetSRV());
     cmdList->DrawInstanced(3, 1, 0, 0);
+
 
     // execute the command list
     renderTarget.Transition(cmdList, D3D12_RESOURCE_STATE_PRESENT);
@@ -686,9 +782,7 @@ void UploadMeshes(span<Mesh> meshes) {
 
 
     // All buffers must use CBV alignment if they are packed in a single shared buffer
-    constexpr auto CBV_ALIGNMENT = 256;
-
-
+    //constexpr auto CBV_ALIGNMENT = 256;
 
     for (int i = 0; i < meshes.size(); ++i) {
         auto& mesh = meshes[i];
@@ -735,7 +829,7 @@ void UploadMeshes(span<Mesh> meshes) {
 
                 auto& vbv = gpuSubmesh.vbv;
                 vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                vbv.SizeInBytes = sizeInBytes;
+                vbv.SizeInBytes = (uint)sizeInBytes;
                 vbv.StrideInBytes = sizeof(shaders::ModelVertex);
 
                 //byteOffset += sizeInBytes;
@@ -752,7 +846,7 @@ void UploadMeshes(span<Mesh> meshes) {
 
                 auto& vbv = gpuSubmesh.ibv;
                 vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                vbv.SizeInBytes = sizeInBytes;
+                vbv.SizeInBytes = (uint)sizeInBytes;
                 vbv.Format = DXGI_FORMAT_R16_UINT;
 
                 //byteOffset += sizeInBytes;
@@ -772,7 +866,7 @@ void UploadMeshes(span<Mesh> meshes) {
                 desc.Format = DXGI_FORMAT_UNKNOWN;
                 desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
                 desc.Buffer.FirstElement = allocation.Offset / sizeof(short);
-                desc.Buffer.NumElements = submesh.textures.size();
+                desc.Buffer.NumElements = (uint)submesh.textures.size();
                 desc.Buffer.StructureByteStride = sizeof(short);
 
 

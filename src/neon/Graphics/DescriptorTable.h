@@ -77,9 +77,9 @@ namespace neon::gfx {
         D3D12_GPU_DESCRIPTOR_HANDLE AddUAV(GpuResource& resource, uint32 index) const {
             ASSERT(_desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             //auto desc = useDefaultDesc ? nullptr : &_uavDesc;
-            auto dest = GetHandle(index);
+            resource._uav = GetHandle(index);
             auto desc = resource.GetUavDesc();
-            _device->CreateUnorderedAccessView(resource.Get(), nullptr, &desc, dest.GetCpuHandle());
+            _device->CreateUnorderedAccessView(resource.Get(), nullptr, &desc, resource._uav.GetCpuHandle());
             return resource.GetUAV();
         }
 
@@ -88,9 +88,9 @@ namespace neon::gfx {
         D3D12_CPU_DESCRIPTOR_HANDLE AddDSV(GpuResource& resource, uint index) const {
             ASSERT(_desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
             //auto desc = useDefaultDesc ? nullptr : &_uavDesc;
-            auto dest = GetHandle(index);
+            resource._dsv = GetHandle(index);
             auto desc = resource.GetDsvDesc();
-            _device->CreateDepthStencilView(resource.Get(), &desc, dest.GetCpuHandle());
+            _device->CreateDepthStencilView(resource.Get(), &desc, resource._dsv.GetCpuHandle());
             return resource.GetDSV();
         }
 

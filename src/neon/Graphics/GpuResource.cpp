@@ -29,8 +29,8 @@ void GpuResource::Create(D3D12_HEAP_TYPE heapType, string_view name, const D3D12
     SetName(_resource, name);
 }
 
-void GpuBuffer::Create(string_view name, uint64 sizeBytes, uint alignment) {
-    _desc = CD3DX12_RESOURCE_DESC::Buffer(sizeBytes);
+void GpuBuffer::Create(string_view name, uint64 size, uint alignment) {
+    _desc = CD3DX12_RESOURCE_DESC::Buffer(size);
     _alignment = alignment;
 
     D3D12MA::ALLOCATION_DESC allocDesc = { .HeapType = D3D12_HEAP_TYPE_DEFAULT };
@@ -46,11 +46,40 @@ void GpuBuffer::Create(string_view name, uint64 sizeBytes, uint alignment) {
     ));
 
     D3D12MA::VIRTUAL_BLOCK_DESC blockDesc = {};
-    blockDesc.Size = sizeBytes;
+    blockDesc.Size = size;
     blockDesc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
     ThrowIfFailed(CreateVirtualBlock(&blockDesc, &_block));
 
     SetName(_resource, name);
+}
+
+void FrameRingBuffer::Create(string_view name, uint64 size, uint frames) {
+    _desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+    _state = D3D12_RESOURCE_STATE_GENERIC_READ;
+
+    auto allocator = GetMemoryAllocator();
+    D3D12MA::ALLOCATION_DESC allocDesc = { .HeapType = D3D12_HEAP_TYPE_UPLOAD };
+
+    ThrowIfFailed(allocator->CreateResource(
+        &allocDesc,
+        &_desc,
+        _state,
+        nullptr,
+        _allocation.ReleaseAndGetAddressOf(),
+        IID_PPV_ARGS(_resource.ReleaseAndGetAddressOf())
+    ));
+
+    D3D12MA::VIRTUAL_BLOCK_DESC blockDesc = {};
+    blockDesc.Size = size;
+    blockDesc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
+    ThrowIfFailed(CreateVirtualBlock(&blockDesc, &_block));
+
+    SetName(_resource, name);
+    _frameAllocs.resize(frames);
+    _frames = frames;
+
+    ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
+
 }
 
 void GpuUploadBuffer::Create(string_view name, uint64 size) {
