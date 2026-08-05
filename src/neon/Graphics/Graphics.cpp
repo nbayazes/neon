@@ -571,6 +571,7 @@ void ScreenSizeChanged(unsigned int width, unsigned int height) {
 }
 
 void Shutdown() {
+    resources.commandQueue->WaitForIdle();
     FreeShaderCompiler();
     FreeResources();
 }
@@ -764,8 +765,6 @@ uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
     return totalSize;
 }
 
-
-
 void UploadMeshes(span<Mesh> meshes) {
     auto device = gfx::GetDevice();
     ASSERT(device);
@@ -861,7 +860,7 @@ void UploadMeshes(span<Mesh> meshes) {
                 auto offset = uploadBuffer.Copy(span{ submesh.vertices });
                 uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureData, offset, allocation.Offset, sizeInBytes);
 
-                
+
                 auto& desc = gpuSubmesh.textureView;
                 desc.Format = DXGI_FORMAT_UNKNOWN;
                 desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;

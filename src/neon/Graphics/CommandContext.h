@@ -15,6 +15,7 @@ namespace neon::gfx {
         CommandQueue* _queue;
         ComPtr<ID3D12GraphicsCommandList> _cmdList;
         ComPtr<ID3D12CommandAllocator> _allocator;
+        uint64 _nextFenceValue = 0;
 
     public:
         CommandContext(ID3D12Device* device, CommandQueue* queue, string_view name) : _queue(queue) {
@@ -76,13 +77,13 @@ namespace neon::gfx {
             ThrowIfFailed(_cmdList->Reset(_allocator.Get(), nullptr));
         }
 
-        void Execute() const {
-            _queue->Execute(_cmdList.Get());
+        void Execute() {
+            _nextFenceValue = _queue->Execute(_cmdList.Get());
         }
 
         // Blocks until command queue finishes execution
         void WaitForIdle() const {
-            _queue->WaitForIdle();
+            _queue->WaitForFence(_nextFenceValue);
         }
 
         // Waits on another queue

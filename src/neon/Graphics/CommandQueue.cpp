@@ -19,9 +19,9 @@ namespace neon::gfx {
 
         //ThrowIfFailed(_fence->Signal((uint64)type << 56));
 
-        _fenceEvent.Attach(CreateEventEx(nullptr, nullptr, 0, EVENT_MODIFY_STATE | SYNCHRONIZE));
-        if (!_fenceEvent.IsValid())
-            throw std::exception("CreateEvent");
+        //_fenceEvent.Attach(CreateEventEx(nullptr, nullptr, 0, EVENT_MODIFY_STATE | SYNCHRONIZE));
+        //if (!_fenceEvent.IsValid())
+        //    throw std::exception("CreateEvent");
     }
 
     uint64 CommandQueue::Execute(ID3D12GraphicsCommandList* cmdList) {
@@ -46,8 +46,9 @@ namespace neon::gfx {
             return;
 
         std::scoped_lock lock(_eventMutex);
-        ThrowIfFailed(_fence->SetEventOnCompletion(value, _fenceEvent.Get()));
-        WaitForSingleObject(_fenceEvent.Get(), INFINITE);
+        ThrowIfFailed(_fence->SetEventOnCompletion(value, nullptr)); // null event causes infinite wait here
+        //ThrowIfFailed(_fence->SetEventOnCompletion(value, _fenceEvent.Get()));
+        //WaitForSingleObject(_fenceEvent.Get(), INFINITE);
         _lastCompletedValue = value;
     }
 

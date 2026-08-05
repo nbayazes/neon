@@ -14,7 +14,7 @@ namespace neon::gfx {
         D3D12_COMMAND_LIST_TYPE _type;
         ComPtr<ID3D12CommandQueue> _queue;
         ComPtr<ID3D12Fence> _fence;
-        Microsoft::WRL::Wrappers::Event _fenceEvent; // todo: rewrite this? the corewrapper.h is quite large
+        //Microsoft::WRL::Wrappers::Event _fenceEvent; // todo: rewrite this? the corewrapper.h is quite large
         uint64 _nextFenceValue = 1, _lastCompletedValue = 0;
         std::mutex _eventMutex;
 
@@ -33,11 +33,11 @@ namespace neon::gfx {
 
         uint64 GetCompletedValue() const { return _lastCompletedValue; }
         uint64 GetNextValue() const { return _nextFenceValue; }
+        void WaitForFence(uint64 value);
 
     private:
         bool IsFenceComplete(uint64 value);
 
-        void WaitForFence(uint64 value);
 
         // Signal the next fence value (with the GPU)
         uint64 IncrementFence();
