@@ -1,6 +1,7 @@
 #pragma once
 #include <D3D12MemAlloc.h>
 #include <directxtk12/DirectXHelpers.h>
+#include <spdlog/spdlog.h>
 #include "Descriptor.h"
 #include "neon-graphics.h"
 #include "neon-math.h"
@@ -93,10 +94,10 @@ public:
         cmdList->CopyResource(Get(), src._resource.Get());
     }
 
-    void CopyRegionTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest, uint64 offset, uint64 destOffset, uint64 numBytes) const {
+    void CopyRegionTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest, uint64 destOffset, uint64 srcOffset, uint64 numBytes) const {
         dest.Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
         //Transition(cmdList, D3D12_RESOURCE_STATE_COPY_SOURCE);
-        cmdList->CopyBufferRegion(dest.Get(), destOffset, _resource.Get(), offset, numBytes);
+        cmdList->CopyBufferRegion(dest.Get(), destOffset, _resource.Get(), srcOffset, numBytes);
     }
 
 protected:
@@ -122,16 +123,16 @@ protected:
 class GpuBuffer : public GpuResource {
     uint _elementCount = 0;
     D3D12MA::VirtualBlock* _block = nullptr;
-    uint _alignment = 0;
-
+    ubyte* _mappedPtr = nullptr; // mapped pointer used by upload buffers
+    D3D12_HEAP_TYPE _heapType = D3D12_HEAP_TYPE_DEFAULT;
 public:
-    void Create(string_view name, uint64 size, uint alignment = 4);
+    void Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT);
 
     // Allocates a block of memory in the buffer
-    D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size) const {
+    D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size, uint alignment = 4) const {
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = size;
-        allocDesc.Alignment = _alignment;
+        allocDesc.Alignment = alignment;
 
         D3D12MA::VirtualAllocation alloc;
         UINT64 allocOffset;
@@ -142,6 +143,43 @@ public:
         return info;
     }
 
+    // Copies data directly into the buffer
+    template <typename T>
+    UINT64 Copy(T& data, uint64 alignment = 4) {
+        ASSERT(_heapType == D3D12_HEAP_TYPE_UPLOAD); // CPU copies are only supported for upload buffers!
+        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+        allocDesc.Size = sizeof(data);
+        allocDesc.Alignment = alignment;
+
+        D3D12MA::VirtualAllocation alloc;
+        UINT64 offset;
+        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+
+        //SPDLOG_INFO("Copy alloc offset: {} size: {} alignment: {}", offset, allocDesc.Size, allocDesc.Alignment);
+
+        memcpy(_mappedPtr + offset, &data, allocDesc.Size);
+        return offset;
+    }
+
+    // Copies data into the buffer. Returns the offset.
+    template <typename T>
+    int64 Copy(span<T> src, uint64 alignment = 4) {
+        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+        allocDesc.Size = src.size_bytes();
+        allocDesc.Alignment = alignment;
+
+        D3D12MA::VirtualAllocation alloc;
+        UINT64 offset;
+        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+
+        memcpy(_mappedPtr + offset, src.data(), allocDesc.Size);
+        return offset;
+    }
+
+    // Resets the internal allocations to the start of the buffer
+    void Clear() const {
+        _block->Clear();
+    }
 protected:
     D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() override {
         D3D12_SHADER_RESOURCE_VIEW_DESC desc{};
@@ -153,56 +191,55 @@ protected:
         return desc;
     }
 };
-
-class FrameRingBuffer : public GpuResource {
-    struct FrameAllocations {
-        UINT64 fenceValue = 0; // queue fence value recorded on submit
-        std::vector<D3D12MA::VirtualAllocation> allocs;
-    };
-
-    List<FrameAllocations> _frameAllocs;
-    ubyte* _mappedPtr = nullptr;
-    D3D12MA::VirtualBlock* _block = nullptr;
-    uint _frames = 0;
-public:
-    void Create(string_view name, uint64 size, uint frames);
-
-    // Copy data to the ring buffer and increments it internally.
-    // Returns the offset.
-    // Fence value is the value when the resource should be released.
-    template <typename T>
-    UINT64 Copy(uint64 frame, uint64 fenceValue, T& data, uint64 alignment = 4) {
-
-        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
-        allocDesc.Size = sizeof(data);
-        allocDesc.Alignment = alignment;
-
-        D3D12MA::VirtualAllocation alloc;
-        UINT64 offset;
-        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
-
-        auto& slot = _frameAllocs[frame % _frames];
-        slot.allocs.push_back(alloc);
-        slot.fenceValue = fenceValue;
-
-        memcpy(_mappedPtr + offset, &data, sizeof(data));
-        return offset;
-    }
-
-
-    // Call at the end of each frame to free resources
-    void Update(uint64 frame, uint64 fenceValue) {
-        auto& slot = _frameAllocs[frame % _frames];
-
-        if (fenceValue >= slot.fenceValue) {
-            for (auto& alloc : slot.allocs) {
-                _block->FreeAllocation(alloc);
-            }
-
-            slot.allocs.clear();
-        }
-    }
-};
+//
+//class FrameRingBuffer : public GpuResource {
+//    ubyte* _mappedPtr = nullptr;
+//    D3D12MA::VirtualBlock* _block = nullptr;
+//    uint _frames = 0;
+//public:
+//    void Create(string_view name, uint64 size, uint frames = 2);
+//
+//    // Copy data to the ring buffer and increments it internally.
+//    // Returns the offset.
+//    // Fence value is the value when the resource should be released.
+//    template <typename T>
+//    UINT64 Copy(T& data, uint64 alignment = 4) {
+//
+//        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+//        allocDesc.Size = sizeof(data);
+//        allocDesc.Alignment = alignment;
+//
+//        D3D12MA::VirtualAllocation alloc;
+//        UINT64 offset;
+//        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+//
+//        //SPDLOG_INFO("Copy alloc offset: {} size: {} alignment: {}", offset, allocDesc.Size, allocDesc.Alignment);
+//
+//        memcpy(_mappedPtr + offset, &data, allocDesc.Size);
+//        return offset;
+//    }
+//
+//    void Clear() const {
+//        _block->Clear();
+//    }
+//
+//    //// Call at the end of each frame to free resources
+//    //void Update(uint64 frame, uint64 fenceValue) {
+//    //    auto& slot = _frameAllocs[frame % _frames];
+//
+//    //    if (fenceValue >= slot.fenceValue) {
+//    //        for (auto& alloc : slot.allocs) {
+//    //            _block->FreeAllocation(alloc);
+//    //        }
+//
+//    //        slot.allocs.clear();
+//    //    }
+//    //}
+//
+//    //~FrameRingBuffer() override {
+//    //    _resource->Unmap(0, nullptr);
+//    //}
+//};
 
 class GpuUploadBuffer : public GpuResource {
     bool _inUpdate = false;
@@ -251,7 +288,7 @@ public:
             throw Exception("Out of space in upload buffer");
         }
 
-        memcpy(_mappedPtr + _offset, src.data(), src.size());
+        memcpy(_mappedPtr + _offset, src.data(), src.size() * sizeof(T));
         auto offset = _offset;
         _offset += src.size();
         return offset;

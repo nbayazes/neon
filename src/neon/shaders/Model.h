@@ -28,6 +28,12 @@ enum RootSamplers : uint {
 //NormalSampler, // s1
 //LightGrid, // t11, t12, t13, b2
 
+constexpr D3D12_DESCRIPTOR_RANGE1 ConstantsTable = {
+    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+    .NumDescriptors = 1,
+    .BaseShaderRegister = ObjectConstants
+};
+
 constexpr D3D12_DESCRIPTOR_RANGE1 TextureTableRange = {
     .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
     .NumDescriptors = UINT_MAX,
@@ -56,8 +62,9 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
     },
     {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
-        .Descriptor = { .ShaderRegister = ObjectConstants },
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        //.Descriptor = { .ShaderRegister = ObjectConstants },
+        .DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &ConstantsTable },
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
     },
     {

@@ -19,15 +19,15 @@ struct GpuSubmesh {
     D3D12_INDEX_BUFFER_VIEW ibv{};
     D3D12_SHADER_RESOURCE_VIEW_DESC textureView;
     uint elementCount = 0;
+    GpuBuffer vertexBuffer;
+    GpuBuffer indexBuffer;
 };
 
 // GPU instanced mesh
 struct GpuMesh {
-    GpuBuffer meshData;
+    //GpuBuffer meshData;
     GpuBuffer textureData;
     List<GpuSubmesh> submeshes;
-    //GpuBuffer vertexBuffer;
-    //GpuBuffer indexBuffer;
     //StructuredBuffer textureMap; // buffer containing texture index for each geometry element
 };
 
@@ -43,6 +43,7 @@ struct DeviceResources {
     Ptr<LinearDescriptorRange> sizedDescriptors; // Descriptors for resources that reset when window size changes
     Ptr<LinearDescriptorRange> renderTargetDescriptors; // RTV descriptors, resets when window size changes
     Ptr<LinearDescriptorRange> depthStencilDescriptors; // DSV descriptors, resets when window size changes
+    Ptr<LinearDescriptorRange> frameDescriptors[BACK_BUFFER_COUNT]; // per-frame descriptors. Resets after a new frame.
 
     Ptr<DirectX::CommonStates> states;
     Ptr<CommandQueue> textureCopyQueue;
@@ -54,7 +55,10 @@ struct DeviceResources {
     Ptr<GraphicsContext> graphicsContext[BACK_BUFFER_COUNT];
 
     //GpuUploadBuffer frameConstants[BACK_BUFFER_COUNT];
-    FrameRingBuffer frameRingBuffer;
+    //FrameRingBuffer frameRingBuffer;
+    GpuBuffer frameBuffer[BACK_BUFFER_COUNT]; // buffer for per-frame data
+    //GpuBuffer frameRingBuffer;
+
     D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT];
 
     Texture* whiteTexture = nullptr;
@@ -70,7 +74,7 @@ struct DeviceResources {
 struct WindowSizeResources {
     ComPtr<IDXGISwapChain3> swapChain;
 
-    Ptr<RenderTarget> uiRenderTarget;
+    RenderTarget uiRenderTarget;
     RenderTarget backBuffers[BACK_BUFFER_COUNT];
     // frame buffers
     RenderTarget sceneColorBuffer;

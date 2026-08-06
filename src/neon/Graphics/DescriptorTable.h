@@ -104,21 +104,37 @@ namespace neon::gfx {
         DescriptorHeap* _heap = nullptr;
         uint _offset = 0; // offset into the heap
         uint _descriptors = 0; // number of descriptors
-        uint _index = 0;
+        //uint _index = 0;
         std::mutex _indexLock;
+
+        //struct FrameAllocations {
+        //    UINT64 fenceValue = 0; // queue fence value recorded on submit
+        //    
+        //};
+
+        D3D12MA::VirtualBlock* _block = nullptr;
 
     public:
         LinearDescriptorRange(DescriptorHeap* heap, uint descriptors = UINT32_MAX)
             : _heap(heap), _descriptors(descriptors) {
             _offset = _heap->Reserve(descriptors);
             //SPDLOG_INFO("Created descriptor range with offset: {} and size: {}", offset, descriptors);
+
+            D3D12MA::VIRTUAL_BLOCK_DESC blockDesc = {};
+            blockDesc.Size = descriptors;
+            blockDesc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
+            ThrowIfFailed(CreateVirtualBlock(&blockDesc, &_block));
         }
 
         // Allows descriptors to wrap back to the start of the range
         bool allowWrapping = false;
 
-        void ResetIndex() {
-            _index = 0;
+        //void ResetIndex() {
+        //    _index = 0;
+        //}
+
+        void Clear() {
+            _block->Clear();
         }
 
         D3D12_GPU_DESCRIPTOR_HANDLE AddSRV(GpuResource& resource) {
@@ -138,19 +154,26 @@ namespace neon::gfx {
         }
 
         // Returns the next descriptor index. Wraps if out of space.
-        uint Next() {
+        uint32 Next() {
             std::scoped_lock lock(_indexLock);
 
-            if (_index + 1 >= _descriptors) {
-                if (allowWrapping) {
-                    _index = 0;
-                    return 0;
-                } else {
-                    throw Exception("Out of space in descriptor range");
-                }
-            }
+            D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+            allocDesc.Size = 1;
 
-            return _index++;
+            D3D12MA::VirtualAllocation alloc;
+            uint64 offset;
+            ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+
+            //if (_index + 1 >= _descriptors) {
+            //    if (allowWrapping) {
+            //        _index = 0;
+            //        return 0;
+            //    } else {
+            //        throw Exception("Out of space in descriptor range");
+            //    }
+            //}
+
+            return (uint32)offset;
         }
 
         //DescriptorHandle Allocate() {
@@ -158,6 +181,7 @@ namespace neon::gfx {
         //}
 
         DescriptorHandle GetHandle(uint index) const { return _heap->GetHandle(_offset + index); }
+        DescriptorHandle GetNextHandle() { return _heap->GetHandle(_offset + Next()); }
         DescriptorHandle operator[](int index) const { return GetHandle(index); }
 
         D3D12_GPU_DESCRIPTOR_HANDLE GetGpuHandle(uint index = 0) const {

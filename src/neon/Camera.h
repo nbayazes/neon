@@ -30,7 +30,7 @@ class Camera {
 
 public:
     float FovDeg = 60; // FOV in degrees
-    Vector3 Position = { 40, 0, 0 };
+    Vector3 Position = { 10, 0, 0 };
     Matrix View;
     Matrix Projection;
     Matrix InverseProjection;

@@ -526,8 +526,8 @@ void Init() {
     ReadVClips(hog, _gameTable);
 
     LoadModel(hog, _gameTable, "4packConc.OOF");
-    LoadModel(hog, _gameTable, "gyro.OOF");
-    LoadModel(hog, _gameTable, "kfrog.OOF");
+    //LoadModel(hog, _gameTable, "gyro.OOF");
+    //LoadModel(hog, _gameTable, "kfrog.OOF");
 
     gfx::UploadMeshes(_meshes);
 

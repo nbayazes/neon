@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "Graphics/ShaderTypes.h"
+#include <directx/d3d12.h>
 #include "neon-math.h"
 
 namespace neon::gfx::shaders {
