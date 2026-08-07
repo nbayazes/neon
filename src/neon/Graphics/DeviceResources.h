@@ -36,12 +36,14 @@ struct DeviceResources {
     Ptr<DescriptorHeap> renderTargetHeap;
     Ptr<DescriptorHeap> depthStencilHeap;
 
-    Ptr<LinearDescriptorRange> reservedDescriptors; // Descriptors that are manually managed and live for the duration of the app
-    Ptr<LinearDescriptorRange> textureDescriptors; // Descriptors for long lived textures
-    Ptr<LinearDescriptorRange> sizedDescriptors; // Descriptors for resources that reset when window size changes
-    Ptr<LinearDescriptorRange> renderTargetDescriptors; // RTV descriptors, resets when window size changes
-    Ptr<LinearDescriptorRange> depthStencilDescriptors; // DSV descriptors, resets when window size changes
-    Ptr<LinearDescriptorRange> frameDescriptors[BACK_BUFFER_COUNT]; // per-frame descriptors. Resets after a new frame.
+    Ptr<DescriptorRange> reservedDescriptors; // Descriptors that are manually managed and live for the duration of the app
+    Ptr<DescriptorRange> textureDescriptors; // Descriptors for long lived textures
+    Ptr<DescriptorRange> sizedDescriptors; // SRV descriptors, resets when window size changes
+    Ptr<DescriptorRange> sizedRenderTargetDescriptors; // RTV descriptors, resets when window size changes
+    Ptr<DescriptorRange> sizedDepthStencilDescriptors; // DSV descriptors, resets when window size changes
+    Ptr<DescriptorRange> renderTargetDescriptors; // RTV descriptors
+    Ptr<DescriptorRange> depthStencilDescriptors; // DSV descriptors
+    Ptr<DescriptorRange> frameDescriptors[BACK_BUFFER_COUNT]; // per-frame descriptors. Resets after a new frame.
 
     Ptr<DirectX::CommonStates> states;
     Ptr<CommandQueue> textureCopyQueue;

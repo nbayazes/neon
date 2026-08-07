@@ -349,14 +349,19 @@ void CreateDeviceResources() {
     resources.renderTargetHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 20, "RTV heap");
     resources.depthStencilHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 20, "DSV heap");
 
-    resources.reservedDescriptors = make_unique<LinearDescriptorRange>(resources.shaderVisibleHeap.get(), 100);
-    resources.sizedDescriptors = make_unique<LinearDescriptorRange>(resources.shaderVisibleHeap.get(), 100);
-    resources.frameDescriptors[0] = make_unique<LinearDescriptorRange>(resources.shaderVisibleHeap.get(), 100);
-    resources.frameDescriptors[1] = make_unique<LinearDescriptorRange>(resources.shaderVisibleHeap.get(), 100);
-    resources.textureDescriptors = make_unique<LinearDescriptorRange>(resources.shaderVisibleHeap.get(), 10000);
+    resources.reservedDescriptors = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 100);
+    resources.sizedDescriptors = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 100);
 
-    resources.renderTargetDescriptors = make_unique<LinearDescriptorRange>(resources.renderTargetHeap.get());
-    resources.depthStencilDescriptors = make_unique<LinearDescriptorRange>(resources.depthStencilHeap.get());
+    resources.sizedRenderTargetDescriptors = make_unique<DescriptorRange>(resources.renderTargetHeap.get(), 10);
+    resources.renderTargetDescriptors= make_unique<DescriptorRange>(resources.renderTargetHeap.get(), 10);
+
+    resources.sizedDepthStencilDescriptors = make_unique<DescriptorRange>(resources.depthStencilHeap.get());
+    resources.depthStencilDescriptors = make_unique<DescriptorRange>(resources.depthStencilHeap.get());
+
+    resources.frameDescriptors[0] = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 100);
+    resources.frameDescriptors[1] = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 100);
+    resources.textureDescriptors = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 10000);
+
 
     resources.textureCopyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "texture copy queue");
     resources.textureCopyContext = std::make_unique<CommandContext>(device, resources.textureCopyQueue.get(), "texture upload context");
@@ -410,9 +415,9 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     sizedResources.sceneDepthBuffer.Create("Scene depth buffer", width, height);
     sizedResources.sceneDepthBuffer.ClearDepth = 1;
 
-    resources.renderTargetDescriptors->AddRTV(sizedResources.sceneColorBuffer);
+    resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.sceneColorBuffer);
     resources.sizedDescriptors->AddSRV(sizedResources.sceneColorBuffer);
-    resources.depthStencilDescriptors->AddDSV(sizedResources.sceneDepthBuffer);
+    resources.sizedDepthStencilDescriptors->AddDSV(sizedResources.sceneDepthBuffer);
 
     // If the swap chain already exists, resize it, otherwise create one.
     if (sizedResources.swapChain && !forceSwapChainRebuild) {
@@ -489,7 +494,7 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     for (UINT n = 0; n < _backBufferCount; n++) {
         auto name = fmt::format("Back buffer {}", n);
         sizedResources.backBuffers[n].CreateBackBuffer(name, sizedResources.swapChain.Get(), n);
-        resources.renderTargetDescriptors->AddRTV(sizedResources.backBuffers[n]);
+        resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.backBuffers[n]);
         //resources.renderTargetHeap->Allocate();
         //resources.renderTargetHeap->AddRTV(resources.backBuffers[n], n);
     }
@@ -502,7 +507,7 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     _backBufferIndex = sizedResources.swapChain->GetCurrentBackBufferIndex();
 
     sizedResources.uiRenderTarget.Create("ui render target", width, height, pipelines::imgui.format, Color(0, 0, 0, 0));
-    resources.renderTargetDescriptors->AddRTV(sizedResources.uiRenderTarget);
+    resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.uiRenderTarget);
     resources.sizedDescriptors->AddSRV(sizedResources.uiRenderTarget);
 }
 
@@ -521,7 +526,7 @@ D3D12_GPU_VIRTUAL_ADDRESS& GetFrameConstants() {
     return resources.frameConstants[_frame % BACK_BUFFER_COUNT];
 }
 
-LinearDescriptorRange& GetFrameDescriptors() {
+DescriptorRange& GetFrameDescriptors() {
     return *resources.frameDescriptors[_frame % BACK_BUFFER_COUNT];
 }
 
@@ -589,10 +594,10 @@ void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOpti
 
 void ScreenSizeChanged(unsigned int width, unsigned int height) {
     resources.commandQueue->WaitForIdle();
-    // TODO: release descriptors of sized resources
     sizedResources = {};
-    //resources.renderTargetDescriptors->ResetIndex();
-    //resources.sizedDescriptors->ResetIndex();
+    resources.sizedDescriptors->Clear();
+    resources.sizedRenderTargetDescriptors->Clear();
+    resources.sizedDepthStencilDescriptors->Clear();
     CreateWindowSizeDependentResources(width, height);
 }
 
@@ -688,6 +693,7 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
 }
 
 void Render(Camera& camera, RenderTarget& renderTarget) {
+    camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(0.1, 100);
 
@@ -695,7 +701,7 @@ void Render(Camera& camera, RenderTarget& renderTarget) {
     auto& context = *resources.graphicsContext[_backBufferIndex];
     context.Reset();
     context.camera = &camera;
-    context.SetViewportAndScissor({ shell::width, shell::height });
+    context.SetViewportAndScissor(camera.GetViewportSize());
 
     float renderScale = 1;
     //auto fenceValue = context.GetCommandQueue()->GetNextValue();

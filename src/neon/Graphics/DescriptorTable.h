@@ -100,22 +100,16 @@ namespace neon::gfx {
         //}
     };
 
-    class LinearDescriptorRange {
+    // A descriptor range sequentially allocates descriptors until it runs out of space
+    class DescriptorRange {
         DescriptorHeap* _heap = nullptr;
         uint _offset = 0; // offset into the heap
         uint _descriptors = 0; // number of descriptors
-        //uint _index = 0;
         std::mutex _indexLock;
-
-        //struct FrameAllocations {
-        //    UINT64 fenceValue = 0; // queue fence value recorded on submit
-        //    
-        //};
-
         D3D12MA::VirtualBlock* _block = nullptr;
 
     public:
-        LinearDescriptorRange(DescriptorHeap* heap, uint descriptors = UINT32_MAX)
+        DescriptorRange(DescriptorHeap* heap, uint descriptors = UINT32_MAX)
             : _heap(heap), _descriptors(descriptors) {
             _offset = _heap->Reserve(descriptors);
             //SPDLOG_INFO("Created descriptor range with offset: {} and size: {}", offset, descriptors);
@@ -125,13 +119,6 @@ namespace neon::gfx {
             blockDesc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
             ThrowIfFailed(CreateVirtualBlock(&blockDesc, &_block));
         }
-
-        // Allows descriptors to wrap back to the start of the range
-        bool allowWrapping = false;
-
-        //void ResetIndex() {
-        //    _index = 0;
-        //}
 
         void Clear() const {
             _block->Clear();
@@ -153,7 +140,7 @@ namespace neon::gfx {
             return _heap->AddDSV(resource, Next() + _offset);
         }
 
-        // Returns the next descriptor index. Wraps if out of space.
+        // Returns the next available descriptor index
         uint32 Next() {
             std::scoped_lock lock(_indexLock);
 
@@ -181,119 +168,4 @@ namespace neon::gfx {
 
         size_t GetSize() const { return _descriptors; }
     };
-
-    /*
-     * A descriptor table partitions a descriptor heap into separate addressable ranges.
-     *
-     * Ranges can be reset individually and passed to shaders as root descriptor tables.
-     */
-    //class DescriptorTable {
-    //    D3D12_DESCRIPTOR_HEAP_DESC _desc = {};
-    //    ID3D12DescriptorHeap* _heap;
-    //    DescriptorHandle _start = {};
-    //    uint32 _descriptorSize = 0;
-    //    uint _index = 0;
-    //    std::mutex _indexLock;
-
-    //public:
-    //    DescriptorTable(ID3D12DescriptorHeap& heap) : _heap(&heap) {  }
-    //    uint Size() const { return _desc.NumDescriptors; }
-    //    ID3D12DescriptorHeap* Heap() const { return _heap; }
-    //    //uint DescriptorSize() const { return _start.DescriptorSize(); }
-    //    //D3D12_DESCRIPTOR_HEAP_TYPE Type() const { return _desc.Type; }
-
-    //    // Gets a specific handle by index.
-    //    DescriptorHandle GetHandle(uint index) const {
-    //        if (index >= Size())
-    //            throw Exception("Descriptor handle index is out of range");
-
-    //        return _start.Offset(index);
-    //    }
-
-    //    DescriptorHandle operator[](uint index) const { return GetHandle(index); }
-
-    //    void SetName(string_view name) const {
-    //        ThrowIfFailed(_heap->SetName(Widen(name).c_str()));
-    //    };
-
-    //    // Returns an unused handle. This ignores any direct index usage.
-    //    //DescriptorHandle Allocate(uint count = 1) {
-    //    //    std::scoped_lock lock(_indexLock);
-    //    //    auto index = _index;
-    //    //    _index += count;
-    //    //    return GetHandle((int)index);
-    //    //}
-
-    //    class Range {
-    //        friend DescriptorTable;
-
-    //        DescriptorTable* _heap = nullptr;
-    //        uint _offset = 0; // offset into the heap
-    //        uint _descriptors = 0; // number of descriptors
-    //        uint _index = 0;
-    //        std::mutex _indexLock;
-
-    //        Range(DescriptorTable* heap, uint descriptors, uint offset)
-    //            : _heap(heap), _offset(offset), _descriptors(descriptors) {
-    //            //SPDLOG_INFO("Created descriptor range with offset: {} and size: {}", offset, descriptors);
-    //        }
-
-    //    public:
-    //        Range() = default;
-
-    //        void Reset() {
-    //            _index = 0;
-    //        }
-
-    //        //void AddSRV(GpuResource& resource) {
-    //        //    if (!_srv) _srv = Render::Descriptors->reserved.Allocate();
-    //        //    Render::Device->CreateShaderResourceView(Get(), &_srvDesc, _srv.GetCpuHandle());
-    //        //}
-
-    //        //void AddUAV(GpuResource& resource) {
-    //        //    // UAVs are mixed with SRVs
-    //        //    auto desc = useDefaultDesc ? nullptr : &_uavDesc;
-    //        //    Render::Device->CreateUnorderedAccessView(Get(), nullptr, desc, _uav.GetCpuHandle());
-    //        //}
-
-    //        //void AddRTV(GpuResource& resource) {
-    //        //    if (!_rtv) _rtv = Render::RenderTargetDescriptors->Allocate();
-    //        //    Render::Device->CreateRenderTargetView(Get(), &_rtvDesc, _rtv.GetCpuHandle());
-    //        //}
-
-    //        // Returns the next descriptor index
-    //        uint Next() {
-    //            std::scoped_lock lock(_indexLock);
-    //            if (_index + 1 >= _descriptors) {
-    //                //SPDLOG_ERROR("No free indices in descriptor range!");
-    //                return 0;
-    //            }
-    //            return _index++;
-    //        }
-
-    //        DescriptorHandle Allocate() {
-    //            return GetHandle(Next());
-    //        }
-
-    //        DescriptorHandle GetHandle(uint index) const { return _heap->GetHandle(_offset + index); }
-    //        DescriptorHandle operator[](int index) const { return GetHandle(index); }
-
-    //        D3D12_GPU_DESCRIPTOR_HANDLE GetGpuHandle(uint index = 0) const {
-    //            return _heap->GetHandle(_offset + index).GetGpuHandle();
-    //        }
-
-    //        D3D12_CPU_DESCRIPTOR_HANDLE GetCpuHandle(uint index = 0) const {
-    //            return _heap->GetHandle(_offset + index).GetCpuHandle();
-    //        }
-
-    //        size_t GetSize() const { return _descriptors; }
-    //    };
-
-    //    Range CreateRange(uint descriptors) {
-    //        ASSERT(_index + descriptors <= Size());
-    //        auto index = _index;
-    //        _index += descriptors;
-    //        return { this, descriptors, index };
-    //    }
-    //};
 }
