@@ -1,4 +1,5 @@
 #pragma once
+#include "d3/OutrageModel.h"
 #include "shaders/ModelVertex.h"
 #include "Texture.h"
 
@@ -19,6 +20,8 @@ struct DeviceCreationOptions {
 
 void Init(HWND hwnd, unsigned int width, unsigned int height, DeviceCreationOptions& options);
 
+void ReloadShaders();
+
 void ScreenSizeChanged(unsigned int width, unsigned int height);
 
 //void CreateDevice(DeviceCreationOptions& options);
@@ -27,7 +30,7 @@ void Shutdown();
 // Waits for the GPU to become idle
 void WaitForGpu();
 
-void RenderView(Camera& camera);
+void RenderView(Camera& camera, uint meshid);
 
 // Presents to the screen
 void Present();
@@ -49,6 +52,7 @@ struct Submesh {
     List<uint16> indices;
     List<int32> textureIndices; // local texture index for each triangle
     GpuMeshHandle handle = -1; // Handle to the GPU mesh data. Used for retrieval and updating
+    d3::Submodel model{}; // HACK: remove asap
 
     //D3D12_VERTEX_BUFFER_VIEW vbv{};
     //D3D12_INDEX_BUFFER_VIEW ibv{};
@@ -58,6 +62,7 @@ struct Mesh {
     string name;
     List<Submesh> submeshes;
     bool IsTransparent = false; // contains transparent textures
+    d3::Model model{}; // HACK: remove asap
 };
 
 GpuMeshHandle CreateMesh();

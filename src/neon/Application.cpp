@@ -58,7 +58,7 @@ void PopulateTangents(span<gfx::shaders::ModelVertex> verts) {
 
 gfx::Mesh CreateMesh(d3::Model& model) {
     gfx::Mesh mesh;
-    //List<gfx::Submesh> submeshes;
+    mesh.model = model;
 
     for (int smIndex = 0; auto& submodel : model.submodels) {
         auto& submesh = mesh.submeshes.emplace_back();
@@ -104,6 +104,7 @@ gfx::Mesh CreateMesh(d3::Model& model) {
                 vx = &v;
 
                 submesh.textureIndices.push_back(face.texNum);
+                submesh.model = submodel;
             }
         }
 
@@ -448,7 +449,7 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
 //}
 
 // maps the local texture indices to global textures
-void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
+void MapTextures(const d3::GameTable& gameTable, d3::Model& model, gfx::Mesh& mesh) {
     model.textureHandles.resize(model.textures.size());
 
     for (int i = 0; i < model.textures.size(); ++i) {
@@ -461,13 +462,21 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
         //else continue;
 
         if (auto find = _textureLookup.find(name); find != _textureLookup.end()) {
-            model.textureHandles[i] = _loadedTextures[(int)find->second];
+            model.textureHandles[i] = (int)find->second; // _loadedTextures[(int)find->second];
             SPDLOG_INFO("Mapping model texture {} to {}", i, (int)find->second);
         }
         else {
             SPDLOG_WARN("Unable to find texture {}", texture);
         }
     }
+
+    // Map the local indices to global ones
+    for (auto& submesh : mesh.submeshes) {
+        for (auto& i : submesh.textureIndices) {
+            i = model.textureHandles[i];
+        }
+    }
+
     //for (auto& texture : model.textures) {
     //    if (auto find = objectTextures.find(texture); find != objectTextures.end()) {
     //            //    }
@@ -494,133 +503,105 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
 //};
 
 List<gfx::Mesh> _meshes;
+d3::GameTable _gameTable;
+List<d3::Hog2::Entry> _modelEntries;
+d3::Hog2 _d3Hog;
+uint _meshid = -1;
 
-void LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, string_view name) {
+d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
     auto modelData = hog.ReadEntry(name);
-    if (!modelData) return;
+    if (!modelData) return {};
 
     StreamReader reader(*modelData);
     auto model = d3::Model::Read(reader);
     SPDLOG_INFO("Read model with {} submodels and {} textures", model.submodels.size(), model.textures.size());
-
-    auto mesh = CreateMesh(model);
-    mesh.name = name;
-    _meshes.push_back(std::move(mesh));
-
-    LoadTextures(hog, gameTable, model.textures);
-    MapTextures(gameTable, model);
+    return model;
 }
 
-d3::GameTable _gameTable;
+gfx::Mesh LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model) {
+    auto mesh = CreateMesh(model);
+
+    LoadTextures(hog, gameTable, model.textures);
+    MapTextures(gameTable, model, mesh);
+
+    return mesh;
+}
 
 void Init() {
     auto hog = d3::Hog2::Read("D:/descent3/d3.hog");
 
-
     auto tableData = hog.ReadEntry("Table.gam");
     if (!tableData) return;
+
+    for (auto& entry : hog.entries) {
+        if (String::ToLower(entry.name).ends_with(".oof"))
+            _modelEntries.push_back(entry);
+    }
+
 
     StreamReader tableReader(*tableData);
     _gameTable = d3::GameTable::Read(tableReader);
 
     ReadVClips(hog, _gameTable);
 
-    LoadModel(hog, _gameTable, "4packConc.OOF");
-    //LoadModel(hog, _gameTable, "gyro.OOF");
-    //LoadModel(hog, _gameTable, "kfrog.OOF");
+    auto model = ReadModel(hog, "4packConc.OOF");
+    auto mesh = LoadModel(hog, _gameTable, model);
+    mesh.name = "4packConc.OOF";
 
-    gfx::UploadMeshes(_meshes);
+    _meshid = 0;
+    std::array upload = { mesh };
+    gfx::UploadMeshes(upload);
 
-    //auto device = gfx::GetDevice();
-    //ASSERT(device);
-    //gfx::GpuUploadBuffer uploadBuffer;
-
-    //gfx::CommandQueue uploadQueue = { device, D3D12_COMMAND_LIST_TYPE_COPY, "Upload queue" };
-    //gfx::CommandContext uploadContext = { device, &uploadQueue, "Upload command list" };
-
-    //auto cmdList = uploadContext.GetCommandList();
-    //uploadContext.Reset();
-
-    ////Ptr<gfx::CommandContext> context;
-    ////context = make_unique<gfx::CommandContext>();
-    //uploadBuffer.Create("Upload buffer", 1024 * 1024 * 20);
-    //uploadBuffer.BeginCopy();
-
-    //List<gfx::Mesh> uploadedMeshes;
-
-    //for (int i = 0; i < _meshes.size(); ++i) {
-    //    auto& mesh = _meshes[i];
-    //    for (int j = 0; j < mesh.mesh.size(); ++j) {
-    //        auto& submesh = mesh.mesh[j];
-
-    //        /*uploadBuffer->Begin();
-    //        uploadBuffer->Copy(vclips);
-    //        uploadBuffer->End();
-
-    //        VClipBuffer->Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
-    //        cmdList->CopyResource(VClipBuffer->Get(), VClipUploadBuffer->Get());
-    //        VClipBuffer->Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);*/
-
-    //        //gfx::StructuredBuffer
-
-
-    //        auto& upload = uploadedMeshes.emplace_back();
-
-    //        {
-    //            // auto sizeBytes = sizeof(gfx::shaders::ModelVertex) * submesh.vertices.size();
-    //            auto sizeBytes = GetVectorSizeBytes(submesh.vertices);
-    //            upload.vertexBuffer.Create(mesh.name + " VB", sizeBytes);
-    //            auto offset = uploadBuffer.Copy(span{ submesh.vertices });
-    //            uploadBuffer.CopyRegionTo(cmdList, upload.vertexBuffer, offset, 0, sizeBytes);
-    //        }
-
-    //        {
-    //            //auto sizeBytes = sizeof(uint16) * submesh.indices.size();
-    //            auto sizeBytes = GetVectorSizeBytes(submesh.indices);
-    //            upload.indexBuffer.Create(mesh.name + " IB", sizeBytes);
-    //            auto offset = uploadBuffer.Copy(span{ submesh.vertices });
-    //            uploadBuffer.CopyRegionTo(cmdList, upload.indexBuffer, offset, 0, sizeBytes);
-    //        }
-
-    //        {
-    //            //auto sizeBytes = sizeof(short) * submesh.textures.size();
-    //            auto sizeBytes = GetVectorSizeBytes(submesh.textures);
-    //            upload.textureMap.Create(mesh.name + " Tex", sizeBytes);
-    //            auto offset = uploadBuffer.Copy(span{ submesh.vertices });
-    //            uploadBuffer.CopyRegionTo(cmdList, upload.indexBuffer, offset, 0, sizeBytes);
-    //        }
-    //        //upload.textureMap.Create(mesh.name + " Tex", sizeof(short), submesh.textures.size());
-
-
-    //        //uploadBuffer.CopyTo(cmdList, upload.vertexBuffer);
-    //        //uploadedMeshes.push_back(upload);
-    //    }
-    //}
-
-    //uploadBuffer.EndCopy();
-    //uploadContext.Execute();
-    //uploadContext.WaitForIdle();
-
-    // todo: pack mesh into buffer. vertices + indices + texture map
-    // how to update between frames? 
-    // - vertex lighting: ring buffer
-    // - level mesh: move to disposal queue + frame index + watch fence value
-
-    // todo: set up shader, bind global texture array, texture buffer, sv_primitive_index
-
-    // camera, frame constants
-
-    //for (auto& [i, smm] : smMeshes) {
-    //    auto& mesh = _meshes.emplace_back();
-    //    handle.Meshes[smIndex][i] = &mesh;
-    //    mesh.VertexBuffer = _buffer.PackVertices(span{ smm.vertices });
-    //    mesh.IndexBuffer = _buffer.PackIndices(span{ smm.indices });
-    //    mesh.IndexCount = (uint)smm.indices.size();
-    //    mesh.Texture = tid;
-    //}
-
-    return;
+    _d3Hog = std::move(hog);
 }
+
+DirectX::BoundingBox CalculateModelBounds(const gfx::Mesh& mesh) {
+    Vector3 min(std::numeric_limits<float>::infinity()), max(-std::numeric_limits<float>::infinity());
+
+    for (auto& submesh : mesh.submeshes) {
+        for (auto& v : submesh.vertices) {
+            min = Vector3::Min(min, v.position);
+            max = Vector3::Max(max, v.position);
+        }
+    }
+
+    DirectX::BoundingBox bounds;
+    DirectX::BoundingBox::CreateFromPoints(bounds, min, max);
+    return bounds;
+}
+
+float _cameraDistance = 5;
+
+void ModelBrowser() {
+    ImGui::Begin("Models");
+
+    ImGui::BeginChild("models", { -1, -1 }, true);
+
+    static int _selection = 0;
+
+    for (int i = 0; i < _modelEntries.size(); ++i) {
+        auto& entry = _modelEntries[i];
+        if (ImGui::Selectable(entry.name.c_str(), i == _selection)) {
+            _selection = i;
+
+            auto model = ReadModel(_d3Hog, entry.name);
+            auto mesh = LoadModel(_d3Hog, _gameTable, model);
+            mesh.name = entry.name;
+
+            _meshid++;
+            std::array upload = { mesh };
+            gfx::UploadMeshes(upload);
+            //auto bounds = CalculateModelBounds(mesh);
+            //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
+            _cameraDistance = std::max(model.radius, 2.5f) * 2;
+        }
+    }
+
+    ImGui::EndChild();
+
+    ImGui::End();
+}
+
 
 void TextureDebugWindow() {
     ImGui::Begin("Textures");
@@ -678,8 +659,20 @@ void TextureDebugWindow() {
 }
 
 void Update(float /*dt*/) {
-    _camera.Position = Vector3(5.5, 2.5, 3.5);
-    gfx::RenderView(_camera);
+
+
+    ModelBrowser();
+    TextureDebugWindow();
+
+}
+
+void Render() {
+    Vector3 dir(5.5, 2.5, 3.5);
+    dir.Normalize();
+
+    _camera.Position = dir * _cameraDistance;
+
+    gfx::RenderView(_camera, _meshid);
 }
 
 }

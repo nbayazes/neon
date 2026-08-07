@@ -1,6 +1,7 @@
 #pragma once
 
 #include <DirectXTex.h>
+#include <directx/d3dx12.h>
 #include "neon-graphics.h"
 #include "neon-types.h"
 

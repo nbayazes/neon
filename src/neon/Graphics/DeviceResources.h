@@ -1,7 +1,9 @@
 #pragma once
 #include <dxgi1_6.h>
+#include <directxtk12/CommonStates.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
+#include "d3/OutrageModel.h"
 #include "DescriptorTable.h"
 #include "neon-graphics.h"
 #include "Texture.h"
@@ -19,6 +21,7 @@ struct GpuSubmesh {
     D3D12_INDEX_BUFFER_VIEW ibv{};
     D3D12_SHADER_RESOURCE_VIEW_DESC textureIndicesView{};
     uint elementCount = 0;
+    d3::Submodel model{}; // HACK: remove asap
 };
 
 // GPU instanced mesh
@@ -26,6 +29,7 @@ struct GpuMesh {
     GpuBuffer meshData;
     GpuBuffer textureIndices;
     List<GpuSubmesh> submeshes;
+    d3::Model model{}; // HACK: remove asap
     //StructuredBuffer textureMap; // buffer containing texture index for each geometry element
 };
 

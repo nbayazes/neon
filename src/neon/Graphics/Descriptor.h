@@ -1,5 +1,6 @@
 #pragma once
 
+#include <directx/d3dx12.h>
 #include "neon.h"
 #include "neon-graphics.h"
 

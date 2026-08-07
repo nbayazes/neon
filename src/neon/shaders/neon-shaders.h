@@ -8,11 +8,11 @@
 
 namespace neon::gfx::shaders {
 
-inline void Compile() {
-    CompileGraphicsPipeline(pipelines::imgui);
-    CompileGraphicsPipeline(pipelines::rmlui);
-    CompileGraphicsPipeline(pipelines::compose);
-    CompileGraphicsPipeline(pipelines::model);
+inline void Compile(bool ignoreCache = false) {
+    CompileGraphicsPipeline(pipelines::imgui, ignoreCache);
+    CompileGraphicsPipeline(pipelines::rmlui, ignoreCache);
+    CompileGraphicsPipeline(pipelines::compose, ignoreCache);
+    CompileGraphicsPipeline(pipelines::model, ignoreCache);
 }
 
 }

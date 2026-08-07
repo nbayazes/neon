@@ -439,23 +439,28 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
 }
 
 // shaders can be shared across multiple pipelines and should be cached
-ID3D12RootSignature* GetRootSignature(const ShaderInfo* shader) {
+ID3D12RootSignature* GetRootSignature(const ShaderInfo* shader, bool ignoreCache) {
     auto shaderAddr = (uintptr_t)shader;
 
-    if (!_shaders.contains(shaderAddr))
+    //if(ignoreCache) {
+    //    auto compiledShader = CompileShader(*shader);
+
+    //}
+
+    if (!_shaders.contains(shaderAddr) || ignoreCache)
         _shaders[shaderAddr] = CompileShader(*shader);
 
     return _shaders[shaderAddr].rootSignature.Get();
 }
 
-void CompileGraphicsPipeline(PipelineInfo& info) {
+void CompileGraphicsPipeline(PipelineInfo& info, bool ignoreCache) {
     if (!_compiler) throw std::exception("Shader compiler is not initializated. Was InitShaderCompiler() called?");
     ASSERT(info.shader);
 
     auto shaderAddr = (uintptr_t)info.shader;
     auto pipelineAddr = (uintptr_t)&info;
 
-    auto rootSignature = GetRootSignature(info.shader);
+    auto rootSignature = GetRootSignature(info.shader, ignoreCache);
     info.rootSignature = rootSignature;
 
     bool useStencil = false;
@@ -483,4 +488,5 @@ void ClearShaderCache() {
     _shaders.clear();
     _pipelines.clear();
 }
+
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <D3D12MemAlloc.h>
 #include <directxtk12/DirectXHelpers.h>
+#include <directx/d3dx12.h>
 #include <spdlog/spdlog.h>
 #include "Descriptor.h"
 #include "neon-graphics.h"

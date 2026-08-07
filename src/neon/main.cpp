@@ -85,12 +85,12 @@ SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
     ImGui::NewFrame();
     //ImGui::ShowDemoWindow();
 
-    neon::app::TextureDebugWindow();
+    neon::app::Update(dt);
 
     ImGui::Render(); // this doesn't actually call any graphics commands, it populates draw data
 
+    neon::app::Render();
     //neon::rml::Update();
-    neon::app::Update(dt);
 
     neon::gfx::Present();
     return SDL_APP_CONTINUE;
@@ -100,6 +100,12 @@ SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
 SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
     if (event->type == SDL_EVENT_QUIT) {
         return SDL_APP_SUCCESS;
+    }
+
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        if (event->key.scancode == SDL_SCANCODE_F5) {
+            neon::gfx::ReloadShaders();
+        }
     }
 
     ImGui_ImplSDL3_ProcessEvent(event);

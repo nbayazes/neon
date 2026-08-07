@@ -55,17 +55,13 @@ struct PS_INPUT {
     centroid float3 tangent : TANGENT;
     centroid float3 bitangent : BITANGENT;
     centroid float3 world : TEXCOORD1;
-    uint primitiveID : PRIMID;
 };
 
-//[RootSignature(RS)]
-PS_INPUT vsmain(ObjectVertex input, uint id : SV_VertexID){
+PS_INPUT vsmain(ObjectVertex input){
     float4x4 wvp = mul(Frame.ViewProj, Object.World);
     PS_INPUT output;
     output.position = mul(wvp, float4(input.position, 1));
     output.color = input.color;
-    
-    output.color.rgb = float3(0.5, 0.5, 1);
     output.uv = input.uv;
 
     // transform from object space to world space
@@ -73,14 +69,18 @@ PS_INPUT vsmain(ObjectVertex input, uint id : SV_VertexID){
     output.tangent = normalize(mul((float3x3)Object.World, input.tangent));
     output.bitangent = normalize(mul((float3x3)Object.World, input.bitangent));
     output.world = mul(Object.World, float4(input.position, 1)).xyz;
-    output.primitiveID = TextureIndices[NonUniformResourceIndex(id / 3)];
-    //output.texid = input.texid;
+
     return output;
 }
 
-
-float4 psmain(PS_INPUT input) : SV_TARGET {
-    Texture2D tex = TextureTable[NonUniformResourceIndex(input.primitiveID)];
+float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET
+{
+    uint textureIndex = TextureIndices[NonUniformResourceIndex(primitiveID)];
+    Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
     float3 rgb = tex.Sample(Sampler, input.uv).rgb;
+    rgb = pow(rgb, 1/2.2);
+    
+    float3 l = normalize(float3(4, 1, 5));
+    rgb *= 1 + dot(normalize(input.normal * 2), l) * 0.5;
     return float4(rgb, 1);
 }

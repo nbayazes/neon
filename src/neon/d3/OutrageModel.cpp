@@ -487,15 +487,11 @@ Model Model::Read(StreamReader& r) {
 
             case MakeFourCC("PINF"): // POF file information, like command line, etc
             {
-                //List<ubyte> buffer(len);
-                //r.ReadBytes(buffer);
                 break;
             }
 
             case MakeFourCC("SPCL"): // Only contains dummy data
             {
-                //List<ubyte> buffer(len);
-                //r.ReadBytes(buffer);
                 break;
             }
 
