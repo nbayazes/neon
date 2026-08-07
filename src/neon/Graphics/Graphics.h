@@ -36,7 +36,7 @@ using TexHandle = unsigned int;
 
 // Returns the handle of the texture. Used later to free or retrieve it
 // todo: if name alreadly exists, replace it and swap
-TexHandle CreateTexture(const Image& image, std::string_view name);
+TexHandle CreateTexture(const Image& image, std::string_view name, bool reserved = false);
 
 Texture* GetTexture(TexHandle index);
 
@@ -47,7 +47,7 @@ using GpuMeshHandle = int;
 struct Submesh {
     List<gfx::shaders::ModelVertex> vertices;
     List<uint16> indices;
-    List<short> textures; // local texture index for each triangle
+    List<int32> textureIndices; // local texture index for each triangle
     GpuMeshHandle handle = -1; // Handle to the GPU mesh data. Used for retrieval and updating
 
     //D3D12_VERTEX_BUFFER_VIEW vbv{};

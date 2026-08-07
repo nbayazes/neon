@@ -17,16 +17,14 @@ constexpr size_t BACK_BUFFER_COUNT = 2;
 struct GpuSubmesh {
     D3D12_VERTEX_BUFFER_VIEW vbv{};
     D3D12_INDEX_BUFFER_VIEW ibv{};
-    D3D12_SHADER_RESOURCE_VIEW_DESC textureView;
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureIndicesView{};
     uint elementCount = 0;
-    GpuBuffer vertexBuffer;
-    GpuBuffer indexBuffer;
 };
 
 // GPU instanced mesh
 struct GpuMesh {
-    //GpuBuffer meshData;
-    GpuBuffer textureData;
+    GpuBuffer meshData;
+    GpuBuffer textureIndices;
     List<GpuSubmesh> submeshes;
     //StructuredBuffer textureMap; // buffer containing texture index for each geometry element
 };

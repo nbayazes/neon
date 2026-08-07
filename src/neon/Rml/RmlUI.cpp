@@ -145,13 +145,13 @@ namespace neon::rml {
 
         gfx::Image image;
         image.Load<ubyte>(data, texture_dimensions.x, texture_dimensions.y);
-        return gfx::CreateTexture(image, "rml texture");
+        return gfx::CreateTexture(image, "rml texture", true);
     }
 
     Rml::TextureHandle RmlRenderInterface::GenerateTexture(Rml::Span<const unsigned char> source, Rml::Vector2i source_dimensions) {
         gfx::Image image;
         image.Load(std::span(source.data(), source.size()), source_dimensions.x, source_dimensions.y);
-        return gfx::CreateTexture(image, "rml texture");
+        return gfx::CreateTexture(image, "rml texture", true);
     }
 
     void RmlRenderInterface::ReleaseTexture(Rml::TextureHandle texture) {

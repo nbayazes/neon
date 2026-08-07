@@ -8,7 +8,14 @@ namespace neon::gfx::shaders::model {
 enum RootParameters : uint {
     FrameConstants, // b0
     ObjectConstants, // b1
-    //TextureTable, // t0, space1
+};
+
+enum TextureRegisters {
+    TextureIndices, // t0
+};
+
+enum TextureRegistersSpace1 {
+    TextureTable, // t0, space1
 };
 
 enum RootSamplers : uint {
@@ -28,16 +35,37 @@ enum RootSamplers : uint {
 //NormalSampler, // s1
 //LightGrid, // t11, t12, t13, b2
 
-constexpr D3D12_DESCRIPTOR_RANGE1 ConstantsTable = {
-    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-    .NumDescriptors = 1,
-    .BaseShaderRegister = ObjectConstants
+// constexpr D3D12_DESCRIPTOR_RANGE1 ConstantsDescriptor = {
+//     .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+//     .NumDescriptors = 1,
+//     .BaseShaderRegister = ObjectConstants
+// };
+//
+// constexpr D3D12_DESCRIPTOR_RANGE1 TextureIndicesDescriptor = {
+//     .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+//     .NumDescriptors = 1,
+//     .BaseShaderRegister = ObjectConstants,
+//     .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+// };
+
+constexpr D3D12_DESCRIPTOR_RANGE1 Descriptors[] = {
+    {
+        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        .NumDescriptors = 1,
+        .BaseShaderRegister = ObjectConstants
+    },
+    {
+        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        .NumDescriptors = 1,
+        .BaseShaderRegister = TextureIndices,
+        .OffsetInDescriptorsFromTableStart = 1
+    }
 };
 
 constexpr D3D12_DESCRIPTOR_RANGE1 TextureTableRange = {
     .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
     .NumDescriptors = UINT_MAX,
-    .BaseShaderRegister = 0, // t0
+    .BaseShaderRegister = TextureTable, // t0
     .RegisterSpace = 1,
     .Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE,
     .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
@@ -64,29 +92,54 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
         //.Descriptor = { .ShaderRegister = ObjectConstants },
-        .DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &ConstantsTable },
+        .DescriptorTable = { .NumDescriptorRanges = std::size(Descriptors), .pDescriptorRanges = Descriptors },
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
     },
+    // {
+    //     .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+    //     //.Descriptor = { .ShaderRegister = ObjectConstants },
+    //     .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &ConstantsDescriptor },
+    //     .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+    // },
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
         .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &TextureTableRange },
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
     },
-    {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &DiffuseSamplerDescriptor },
-        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
-    },
-    {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &NormalSamplerDescriptor },
-        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
-    }
+    //{
+    //    .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+    //    .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &DiffuseSamplerDescriptor },
+    //    .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    //},
+    //{
+    //    .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+    //    .DescriptorTable = { .NumDescriptorRanges = 1, .pDescriptorRanges = &NormalSamplerDescriptor },
+    //    .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    //}
+};
+
+constexpr D3D12_STATIC_SAMPLER_DESC linearSampler {
+    .Filter = D3D12_FILTER_ANISOTROPIC,
+    .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .MipLODBias = 0,
+    .MaxAnisotropy = 0,
+    .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
+    .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+    .MinLOD = 0,
+    .MaxLOD = 0,
+    .ShaderRegister = Sampler,
+    .RegisterSpace = 0,
+    .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
+    // .Flags = D3D12_SAMPLER_FLAG_NONE
 };
 
 constexpr D3D12_ROOT_SIGNATURE_DESC1 RootSignature = {
     .NumParameters = std::size(Params),
     .pParameters = Params,
+    .NumStaticSamplers = 1,
+    .pStaticSamplers = &linearSampler,
     .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
 };
 
@@ -140,7 +193,7 @@ inline PipelineInfo model = {
     .format = DXGI_FORMAT_R11G11B10_FLOAT,
     .blend = BlendMode::Opaque, // Alpha?
     .culling = CullMode::None,
-    .depth = DepthMode::Read,
+    .depth = DepthMode::ReadWrite,
     .stencil = StencilMode::PortalRead,
     .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 };

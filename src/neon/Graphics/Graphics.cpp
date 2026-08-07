@@ -372,7 +372,7 @@ void CreateDeviceResources() {
         image.Load<uint32>(data, 2, 2);
 
         // todo: this should not be mixed with the other textures
-        auto handle = CreateTexture(image, "white");
+        auto handle = CreateTexture(image, "white", true);
         resources.whiteTexture = GetTexture(handle);
         resources.reservedDescriptors->AddSRV(*resources.whiteTexture);
     }
@@ -652,9 +652,6 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     //cmdList->SetGraphicsRootConstantBufferView(0, resources.frameRingBuffer->GetGPUVirtualAddress());
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    auto fence = context.GetCommandQueue()->GetNextValue();
-
-    // todo: need a frame ring buffer for descriptors as well
     shaders::model::Constants constants = {};
     auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
@@ -666,11 +663,22 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     //SPDLOG_INFO("Creating view at GPU address {} (offset {})", fmt::ptr((void*)(frameBuffer->GetGPUVirtualAddress() + offset)), offset);
 
     auto handle = frameDescriptors.GetNextHandle();
-    GetDevice()->CreateConstantBufferView(&desc, handle.GetCpuHandle());
+    frameDescriptors.Next();
+    //frameDescriptors.Next();
+
+    auto device = GetDevice();
+    device->CreateConstantBufferView(&desc, handle.GetCpuHandle());
+
+    cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+
 
     for (auto& submesh : mesh.submeshes) {
         //shaders::model::SetConstants(cmdList, );
         //cmdList->SetGraphicsRootConstantBufferView(shaders::model::ObjectConstants, resources.frameRingBuffer->GetGPUVirtualAddress() + offset);
+
+        //device->CreateShaderResourceView(mesh.textureIndices.Get(), &submesh.textureView, handle.Offset(1).GetCpuHandle());
+        device->CreateShaderResourceView(mesh.textureIndices.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
+
         context.SetConstantBuffer(0, frameConstants);
         cmdList->SetGraphicsRootDescriptorTable(shaders::model::ObjectConstants, handle.GetGpuHandle());
         cmdList->IASetIndexBuffer(&submesh.ibv);
@@ -683,7 +691,7 @@ void Render(Camera& camera, RenderTarget& renderTarget) {
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(0.1, 100);
 
-    // todo: context varies
+    
     auto& context = *resources.graphicsContext[_backBufferIndex];
     context.Reset();
     context.camera = &camera;
@@ -698,7 +706,8 @@ void Render(Camera& camera, RenderTarget& renderTarget) {
     cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
 
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
-    context.ClearRenderTarget(sizedResources.sceneColorBuffer);
+    Color background(0.05f, 0.05f, 0.05f);
+    context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
     DrawMesh(context, resources.meshes[0]);
 
@@ -772,7 +781,7 @@ void Present() {
     }
 }
 
-TexHandle CreateTexture(const Image& image, std::string_view name) {
+TexHandle CreateTexture(const Image& image, std::string_view name, bool reserved) {
     auto index = resources.textures.size();
     auto& texture = resources.textures.emplace_back();
     resources.textureCopyContext->Reset();
@@ -780,7 +789,12 @@ TexHandle CreateTexture(const Image& image, std::string_view name) {
     resources.textureCopyContext->Execute();
     resources.textureCopyContext->WaitForIdle();
 
-    resources.textureDescriptors->AddSRV(texture).ptr;
+    if (reserved) {
+        resources.reservedDescriptors->AddSRV(texture).ptr;
+    } else {
+        resources.textureDescriptors->AddSRV(texture).ptr;
+    }
+
     return (TexHandle)index;
 }
 
@@ -830,29 +844,15 @@ void UploadMeshes(span<Mesh> meshes) {
 
     auto cmdList = uploadContext.GetCommandList();
 
-
     // All buffers must use CBV alignment if they are packed in a single shared buffer
-    //constexpr auto CBV_ALIGNMENT = 256;
 
     for (int i = 0; i < meshes.size(); ++i) {
         auto& mesh = meshes[i];
-        //gfx::GpuBuffer meshBuffer;
-
         auto meshBufferSize = CalculateMeshSize(mesh, 4);
-        //meshBuffer.Create(mesh.name, meshBufferSize);
-
-        // Use D3D12MA to divide memory
-        //D3D12MA::VIRTUAL_BLOCK_DESC blockDesc = {};
-        //blockDesc.Size = meshBufferSize;
-
-        //D3D12MA::VirtualBlock* block;
-        //ThrowIfFailed(CreateVirtualBlock(&blockDesc, &block));
-
-        //uint64 byteOffset = 0;
 
         auto& gpuMesh = resources.meshes.emplace_back();
-        //gpuMesh.meshData.Create(mesh.name, meshBufferSize * 4);
-        gpuMesh.textureData.Create(mesh.name, meshBufferSize);
+        gpuMesh.meshData.Create(mesh.name, meshBufferSize * 4);
+        gpuMesh.textureIndices.Create(mesh.name, meshBufferSize);
 
         for (int j = 0; j < mesh.submeshes.size(); ++j) {
             auto& submesh = mesh.submeshes[j];
@@ -863,72 +863,52 @@ void UploadMeshes(span<Mesh> meshes) {
             {
                 auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
 
-                //D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
-                //allocDesc.Size = sizeInBytes;
-                //allocDesc.Alignment = 4;
-
-                //D3D12MA::VirtualAllocation alloc;
-                //UINT64 allocOffset;
-                //ThrowIfFailed(block->Allocate(&allocDesc, &alloc, &allocOffset));
-
-                //auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
-
-                gpuSubmesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
+                //gpuSubmesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
                 auto srcOffset = uploadBuffer.Copy(span{ submesh.vertices });
-                // uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-                uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.vertexBuffer, 0, srcOffset, sizeInBytes);
+                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
+                //uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.vertexBuffer, 0, srcOffset, sizeInBytes);
 
                 auto& vbv = gpuSubmesh.vbv;
-                //vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
+                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+                // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
                 vbv.SizeInBytes = (uint)sizeInBytes;
                 vbv.StrideInBytes = sizeof(shaders::ModelVertex);
 
                 gpuSubmesh.elementCount = (uint)submesh.vertices.size();
-
-                
-                //byteOffset += sizeInBytes;
-                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
             }
 
             {
                 auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
-                //auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
 
-                gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
+                // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
                 auto srcOffset = uploadBuffer.Copy(span{ submesh.indices });
-                // uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-                uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
+                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
+                // uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
 
                 auto& vbv = gpuSubmesh.ibv;
-                //vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                vbv.BufferLocation = gpuSubmesh.indexBuffer->GetGPUVirtualAddress();
+                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+                // vbv.BufferLocation = gpuSubmesh.indexBuffer->GetGPUVirtualAddress();
                 vbv.SizeInBytes = (uint)sizeInBytes;
                 vbv.Format = DXGI_FORMAT_R16_UINT;
-
-                //byteOffset += sizeInBytes;
-                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
             }
 
             {
-                //auto sizeInBytes = GetVectorSizeInBytes(submesh.textures);
+                auto sizeInBytes = GetVectorSizeInBytes(submesh.textureIndices);
 
-                //// gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
-                //auto allocation = gpuMesh.textureData.Allocate(sizeInBytes);
-                //auto srcOffset = uploadBuffer.Copy(span{ submesh.textures });
-                //uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureData, allocation.Offset, srcOffset, sizeInBytes);
+                // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
+                auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
+                auto srcOffset = uploadBuffer.Copy(span{ submesh.textureIndices });
+                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
 
-
-                //auto& desc = gpuSubmesh.textureView;
-                //desc.Format = DXGI_FORMAT_UNKNOWN;
-                //desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-                //desc.Buffer.FirstElement = allocation.Offset / sizeof(short);
-                //desc.Buffer.NumElements = (uint)submesh.textures.size();
-                //desc.Buffer.StructureByteStride = sizeof(short);
-
-
-                //byteOffset += sizeInBytes;
-                //byteOffset = AlignTo(byteOffset, CBV_ALIGNMENT);
+                auto& desc = gpuSubmesh.textureIndicesView;
+                desc.Format = DXGI_FORMAT_UNKNOWN;
+                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
+                desc.Buffer.NumElements = (uint)submesh.textureIndices.size();
+                desc.Buffer.StructureByteStride = sizeof(int32);
             }
         }
     }

@@ -33,6 +33,7 @@ struct Constants {
 ConstantBuffer<FrameConstants> Frame : register(b0);
 ConstantBuffer<Constants> Object : register(b1);
 StructuredBuffer<int> TextureIndices : register(t0); // mapping to texture table
+Texture2D TextureTable[] : register(t0, space1);
 
 // lighting constants are register b2
 
@@ -44,8 +45,7 @@ SamplerState NormalSampler : register(s1);
 //Texture2D DissolveTexture : register(t7);
 //TextureCube Environment : register(t8);
 
-// primary texture table
-Texture2D TextureTable[] : register(t0, space1);
+
 
 struct PS_INPUT {
     float4 position : SV_Position;
@@ -55,14 +55,17 @@ struct PS_INPUT {
     centroid float3 tangent : TANGENT;
     centroid float3 bitangent : BITANGENT;
     centroid float3 world : TEXCOORD1;
+    uint primitiveID : PRIMID;
 };
 
 //[RootSignature(RS)]
-PS_INPUT vsmain(ObjectVertex input) {
+PS_INPUT vsmain(ObjectVertex input, uint id : SV_VertexID){
     float4x4 wvp = mul(Frame.ViewProj, Object.World);
     PS_INPUT output;
     output.position = mul(wvp, float4(input.position, 1));
     output.color = input.color;
+    
+    output.color.rgb = float3(0.5, 0.5, 1);
     output.uv = input.uv;
 
     // transform from object space to world space
@@ -70,11 +73,14 @@ PS_INPUT vsmain(ObjectVertex input) {
     output.tangent = normalize(mul((float3x3)Object.World, input.tangent));
     output.bitangent = normalize(mul((float3x3)Object.World, input.bitangent));
     output.world = mul(Object.World, float4(input.position, 1)).xyz;
+    output.primitiveID = TextureIndices[NonUniformResourceIndex(id / 3)];
     //output.texid = input.texid;
     return output;
 }
 
 
-float4 psmain() : SV_TARGET {
-    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+float4 psmain(PS_INPUT input) : SV_TARGET {
+    Texture2D tex = TextureTable[NonUniformResourceIndex(input.primitiveID)];
+    float3 rgb = tex.Sample(Sampler, input.uv).rgb;
+    return float4(rgb, 1);
 }

@@ -103,7 +103,7 @@ gfx::Mesh CreateMesh(d3::Model& model) {
                 fvx = &fv;
                 vx = &v;
 
-                submesh.textures.push_back(face.texNum);
+                submesh.textureIndices.push_back(face.texNum);
             }
         }
 
@@ -678,6 +678,7 @@ void TextureDebugWindow() {
 }
 
 void Update(float /*dt*/) {
+    _camera.Position = Vector3(5.5, 2.5, 3.5);
     gfx::RenderView(_camera);
 }
 

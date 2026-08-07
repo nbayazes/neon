@@ -217,7 +217,7 @@ void CreateFontTexture() {
     //auto copyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "imgui upload queue");
     //auto copyContext = std::make_unique<CommandContext>(device, copyQueue.get(), "imgui upload context");
 
-    auto handle = gfx::CreateTexture(fontImage, "imgui font");
+    auto handle = gfx::CreateTexture(fontImage, "imgui font", true);
 
     // Store the handle
     static_assert(sizeof(ImTextureID) >= sizeof(handle), "Can't pack descriptor handle into TexID");

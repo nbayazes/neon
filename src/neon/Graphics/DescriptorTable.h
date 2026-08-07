@@ -133,7 +133,7 @@ namespace neon::gfx {
         //    _index = 0;
         //}
 
-        void Clear() {
+        void Clear() const {
             _block->Clear();
         }
 
@@ -164,21 +164,8 @@ namespace neon::gfx {
             uint64 offset;
             ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
 
-            //if (_index + 1 >= _descriptors) {
-            //    if (allowWrapping) {
-            //        _index = 0;
-            //        return 0;
-            //    } else {
-            //        throw Exception("Out of space in descriptor range");
-            //    }
-            //}
-
             return (uint32)offset;
         }
-
-        //DescriptorHandle Allocate() {
-        //    return GetHandle(Next());
-        //}
 
         DescriptorHandle GetHandle(uint index) const { return _heap->GetHandle(_offset + index); }
         DescriptorHandle GetNextHandle() { return _heap->GetHandle(_offset + Next()); }
