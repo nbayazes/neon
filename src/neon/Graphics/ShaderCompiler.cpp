@@ -312,28 +312,70 @@ constexpr D3D12_BLEND_DESC BLEND_DESC_MULTIPLY = {
     .RenderTarget = { BLEND_DESC_MULTIPLY_RT }
 };
 
-constexpr D3D12_DEPTH_STENCIL_DESC DEPTH_EQUAL =
-{
-    TRUE, // DepthEnable
-    D3D12_DEPTH_WRITE_MASK_ZERO,
-    D3D12_COMPARISON_FUNC_EQUAL, // DepthFunc
-    FALSE, // StencilEnable
-    D3D12_DEFAULT_STENCIL_READ_MASK,
-    D3D12_DEFAULT_STENCIL_WRITE_MASK,
-    {
-        D3D12_STENCIL_OP_KEEP, // StencilFailOp
-        D3D12_STENCIL_OP_KEEP, // StencilDepthFailOp
-        D3D12_STENCIL_OP_KEEP, // StencilPassOp
-        D3D12_COMPARISON_FUNC_ALWAYS // StencilFunc
-    }, // FrontFace
-    {
-        D3D12_STENCIL_OP_KEEP, // StencilFailOp
-        D3D12_STENCIL_OP_KEEP, // StencilDepthFailOp
-        D3D12_STENCIL_OP_KEEP, // StencilPassOp
-        D3D12_COMPARISON_FUNC_ALWAYS // StencilFunc
-    } // BackFace
+constexpr D3D12_DEPTH_STENCIL_DESC DepthEqual = {
+    .DepthEnable = TRUE,
+    .DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO,
+    .DepthFunc = D3D12_COMPARISON_FUNC_EQUAL,
+    .StencilEnable = FALSE,
+    .StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK,
+    .StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK,
+    .FrontFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS 
+    },
+    .BackFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
+    }
 };
 
+// Flipped due to reversed Z
+constexpr D3D12_DEPTH_STENCIL_DESC DepthDefault = {
+    .DepthEnable = TRUE,
+    .DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL,
+    .DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL, // closer is a larger depth
+    .StencilEnable = FALSE,
+    .StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK,
+    .StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK,
+    .FrontFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
+    },
+    .BackFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
+    }
+};
+
+// Flipped due to reversed Z
+constexpr D3D12_DEPTH_STENCIL_DESC DepthRead = {
+    .DepthEnable = TRUE,
+    .DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO,
+    .DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL, // closer is a larger depth
+    .StencilEnable = FALSE,
+    .StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK,
+    .StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK,
+    .FrontFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
+    },
+    .BackFace = {
+        .StencilFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
+    }
+};
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, CompiledShader& shader, bool useStencil, uint msaaSamples, uint renderTargets) {
     using namespace DirectX;
@@ -356,6 +398,8 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
         }
     }();
 
+    psoDesc.RasterizerState.DepthClipEnable = false; // Using reverse infinite z, no far plane
+
     psoDesc.BlendState = [&info] {
         switch (info.blend) {
             case BlendMode::Alpha: return CommonStates::AlphaBlend;
@@ -371,9 +415,9 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
     psoDesc.DepthStencilState = [&info] {
         switch (info.depth) {
             case DepthMode::None: return CommonStates::DepthNone;
-            case DepthMode::ReadWrite: return CommonStates::DepthDefault;
-            case DepthMode::Read: default: return CommonStates::DepthRead;
-            case DepthMode::ReadEqual: return DEPTH_EQUAL;
+            case DepthMode::ReadWrite: return DepthDefault;
+            case DepthMode::Read: default: return DepthRead;
+            case DepthMode::ReadEqual: return DepthEqual;
         }
     }();
 
@@ -435,6 +479,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
         psoDesc.RTVFormats[i] = info.format;
 
     psoDesc.SampleDesc.Count = info.enableMultisample ? msaaSamples : 1;
+
     return psoDesc;
 }
 

@@ -84,6 +84,9 @@
     <ClInclude Include="SetWindowsTimePeriod.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />
+    <ClInclude Include="ScopedTimer.h" />
+    <ClInclude Include="gsl\pointers.h" />
+    <ClInclude Include="gsl\assert.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

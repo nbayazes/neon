@@ -15,6 +15,7 @@
 #include "neon-graphics.h"
 #include "neon-types.h"
 #include "Rml/RmlUI.h"
+#include "ScopedTimer.h"
 #include "shaders/compose.h"
 #include "shaders/neon-shaders.h"
 #include "Shell.h"
@@ -413,7 +414,6 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     //CreateBuffers(backBufferWidth, backBufferHeight);
     sizedResources.sceneColorBuffer.Create("Scene color buffer", width, height, DXGI_FORMAT_R11G11B10_FLOAT);
     sizedResources.sceneDepthBuffer.Create("Scene depth buffer", width, height);
-    sizedResources.sceneDepthBuffer.ClearDepth = 1;
 
     resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.sceneColorBuffer);
     resources.sizedDescriptors->AddSRV(sizedResources.sceneColorBuffer);
@@ -864,6 +864,9 @@ uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
 std::mutex _uploadMutex;
 
 void UploadMeshes(span<Mesh> meshes) {
+    int64 time = 0;
+    ScopedTimer timer(time);
+
     auto device = gfx::GetDevice();
     ASSERT(device);
     std::lock_guard lock(_uploadMutex);
@@ -952,6 +955,9 @@ void UploadMeshes(span<Mesh> meshes) {
 
     uploadContext.Execute();
     uploadContext.WaitForIdle();
+
+    timer.Stop();
+    SPDLOG_INFO("Model upload time: {:.2f} ms", time / 1000.0f);
 }
 
 

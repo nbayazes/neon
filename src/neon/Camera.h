@@ -252,7 +252,7 @@ public:
 
     void UpdatePerspectiveMatrices() {
         View = DirectX::XMMatrixLookAtLH(Position, Target, Up);
-        Projection = DirectX::XMMatrixPerspectiveFovLH(FovDeg * DegToRad, _viewport.AspectRatio(), _viewport.minDepth, _viewport.maxDepth);
+        Projection = DirectX::XMMatrixPerspectiveFovInfiniteReverseZLH(FovDeg * DegToRad, _viewport.AspectRatio(), _viewport.minDepth);
         ViewProjection = View * Projection;
         InverseProjection = Projection.Invert();
         Frustum = GetFrustum(Position, View, Projection);

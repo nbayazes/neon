@@ -198,7 +198,10 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />
+    <ClInclude Include="gsl\assert.h" />
+    <ClInclude Include="gsl\pointers.h" />
     <ClInclude Include="Scene.h" />
+    <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />

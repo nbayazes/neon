@@ -522,7 +522,7 @@ class DepthBuffer : public PixelBuffer {
     D3D12_DEPTH_STENCIL_VIEW_DESC _dsvDesc = {};
 
 public:
-    float ClearDepth = 1.0f;
+    float ClearDepth = 0.0f; // Reverse Z defaults to 0
 
     void Create(string_view name, uint width, uint height, DXGI_FORMAT format = DXGI_FORMAT_D32_FLOAT, uint samples = 1) {
         _desc = CD3DX12_RESOURCE_DESC::Tex2D(
