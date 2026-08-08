@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "Application.h"
 #include <spdlog/spdlog.h>
+#include "ankerl/ankerl.h"
 #include "Camera.h"
 #include "d3/Hog2.h"
 #include "d3/OutrageBitmap.h"
@@ -12,6 +13,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "Scene.h"
+#include "ScopedTimer.h"
 #include "shaders/ModelVertex.h"
 #include "SystemClock.h"
 
@@ -103,7 +105,8 @@ gfx::Mesh CreateMesh(d3::Model& model) {
                 fvx = &fv;
                 vx = &v;
 
-                submesh.textureIndices.push_back(face.texNum);
+                // Map the local indices to global ones
+                submesh.textureIndices.push_back(model.textureHandles[face.texNum]);
                 submesh.model = submodel;
             }
         }
@@ -124,9 +127,10 @@ enum class LoadedTexHandle : int16 {};
 // the index is then assigned to the model texture slots
 //      0 -> 3
 // and used in the shader to fetch the correct texture
-Dictionary<string, LoadedTexHandle> _textureLookup;
+CaseInsensitiveDictionary<LoadedTexHandle> _textureLookup;
 
 List<d3::VClip> _vclips;
+CaseInsensitiveDictionary<string> _vclipFrameLookup; // maps vclip frames to the vclip file name
 
 struct TextureEntry {
     int entry = -1; // Game table texture entry
@@ -181,69 +185,36 @@ void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
             vclip.fileName = tex.fileName;
             vclip.frameTime = tex.speed / vclip.frames.size();
             _vclips.push_back(vclip);
+
+            for (auto& frame : vclip.frames) {
+                _vclipFrameLookup[frame.name] = vclip.fileName;
+            }
         }
     }
 }
 
 string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName) {
+    auto fileNameOgf = fileName + ".ogf";
+
     for (auto& tex : gameTable.textures) {
         if (HasFlag(tex.flags, d3::TextureFlag::Animated)) {
-            for (auto& vclip : _vclips) {
-                for (auto& frame : vclip.frames) {
-                    if (String::EqualsIgnoreCase(frame.name, fileName))
-                        return vclip.fileName;
-                    else if (String::EqualsIgnoreCase(frame.name, fileName + ".ogf"))
-                        return vclip.fileName;
-                }
-            }
+            if (auto f = _vclipFrameLookup.find(fileName); f != _vclipFrameLookup.end())
+                return f->second;
+
+            if (auto f = _vclipFrameLookup.find(fileNameOgf); f != _vclipFrameLookup.end())
+                return f->second;
         }
         else {
             string name;
             if (String::EqualsIgnoreCase(tex.name, fileName))
                 return tex.fileName;
-            else if (String::EqualsIgnoreCase(tex.fileName, fileName + ".ogf"))
+            else if (String::EqualsIgnoreCase(tex.fileName, fileNameOgf))
                 return tex.fileName;
         }
     }
 
     return fileName;
 }
-
-//int FindTextureBitmapName(char* name) {
-//    int i;
-//
-//    ASSERT(name != NULL);
-//
-//    for (i = 0; i < MAX_TEXTURES; i++) {
-//        if (GameTextures[i].used) {
-//            if (GameTextures[i].flags & TF_ANIMATED) {
-//                int not_res = 0;
-//                if (GameVClips[GameTextures[i].bm_handle].flags & VCF_NOT_RESIDENT)
-//                    not_res = 1;
-//
-//                PageInVClip(GameTextures[i].bm_handle);
-//                vclip* vc = &GameVClips[GameTextures[i].bm_handle];
-//                ASSERT(vc->used);
-//
-//                int t;
-//                int retval = -1;
-//
-//                for (t = 0; t < vc->num_frames && retval == -1; t++)
-//                    if ((!stricmp(GameBitmaps[vc->frames[t]].name, name)))
-//                        retval = i;
-//
-//                if (retval != -1)
-//                    return retval;
-//            }
-//            else {
-//                if ((!stricmp(GameBitmaps[GameTextures[i].bm_handle].name, name)))
-//                    return i;
-//            }
-//        }
-//    }
-//
-//    return -1;
-//}
 
 
 int FindVClip(string_view name) {
@@ -254,41 +225,69 @@ int FindVClip(string_view name) {
     return -1;
 }
 
-bool VClipContainsFrame(const d3::VClip& vclip, string_view name) {
-    for (auto& frame : vclip.frames) {
-        if (String::EqualsIgnoreCase(frame.name, name)) {
-            return true;
-        }
-        else if (String::EqualsIgnoreCase(frame.name, name + ".ogf")) {
-            return true;
-        }
+//bool VClipContainsFrame(const d3::VClip& vclip, string_view name) {
+//    for (auto& frame : vclip.frames) {
+//        if (String::EqualsIgnoreCase(frame.name, name)) {
+//            return true;
+//        }
+//        else if (String::EqualsIgnoreCase(frame.name, name + ".ogf")) {
+//            return true;
+//        }
+//    }
+//
+//    return false;
+//}
+
+int FindVClipFrame(const d3::GameTable& gameTable, const string& name) {
+    auto nameOgf = name + ".ogf";
+
+    string file;
+
+    if (auto vclipName = _vclipFrameLookup.find(nameOgf); vclipName != _vclipFrameLookup.end()) {
+        file = vclipName->second;
+    }
+    else if (vclipName = _vclipFrameLookup.find(name); vclipName != _vclipFrameLookup.end()) {
+        file = vclipName->second;
     }
 
-    return false;
-}
+    if (file.empty()) return -1;
 
-int FindTextureEntry(const d3::GameTable& gameTable, string_view name) {
     for (int i = 0; i < gameTable.textures.size(); ++i) {
         auto& entry = gameTable.textures[i];
-        if (HasFlag(entry.flags, d3::TextureFlag::Animated)) {
-            auto vclipIndex = FindVClip(entry.fileName);
-            if (vclipIndex == -1) continue;
-
-            auto& vclip = _vclips[vclipIndex];
-            if (VClipContainsFrame(vclip, name))
-                return i;
-        }
-        else {
-            if (String::EqualsIgnoreCase(entry.name, name)) {
-                return i;
-            }
-            else if (String::EqualsIgnoreCase(entry.fileName, name + ".ogf")) {
-                return i;
-            }
+        if (HasFlag(entry.flags, d3::TextureFlag::Animated) && entry.fileName == file) {
+            return i;
         }
     }
 
     return -1;
+}
+
+int FindTextureEntry(const d3::GameTable& gameTable, const string& name) {
+    for (int i = 0; i < gameTable.textures.size(); ++i) {
+        auto& entry = gameTable.textures[i];
+        //if (HasFlag(entry.flags, d3::TextureFlag::Animated)) {
+        //    auto vclipIndex = FindVClip(entry.fileName);
+        //    if (vclipIndex == -1) continue;
+
+        //    auto& vclip = _vclips[vclipIndex];
+        //    if (VClipContainsFrame(vclip, name))
+        //        return i;
+        //}
+        //else {
+        if (String::EqualsIgnoreCase(entry.name, name)) {
+            return i;
+        }
+        else if (String::EqualsIgnoreCase(entry.fileName, name + ".ogf")) {
+            return i;
+        }
+        //}
+    }
+
+    auto vclipFrame = FindVClipFrame(gameTable, name);
+    return vclipFrame;
+
+
+    //return -1;
 }
 
 
@@ -449,52 +448,21 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
 //}
 
 // maps the local texture indices to global textures
-void MapTextures(const d3::GameTable& gameTable, d3::Model& model, gfx::Mesh& mesh) {
+void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
     model.textureHandles.resize(model.textures.size());
 
     for (int i = 0; i < model.textures.size(); ++i) {
         auto& texture = model.textures[i];
         auto name = ResolveTextureName(gameTable, texture);
 
-        //string name;
-        //if (String::EqualsIgnoreCase(t.FileName, texture)) name = texture;
-        //else if (String::EqualsIgnoreCase(t.FileName, texture + ".ogf")) name = texture + ".ogf";
-        //else continue;
-
         if (auto find = _textureLookup.find(name); find != _textureLookup.end()) {
-            model.textureHandles[i] = (int)find->second; // _loadedTextures[(int)find->second];
+            model.textureHandles[i] = (int)find->second;
             SPDLOG_INFO("Mapping model texture {} to {}", i, (int)find->second);
         }
         else {
             SPDLOG_WARN("Unable to find texture {}", texture);
         }
     }
-
-    // Map the local indices to global ones
-    for (auto& submesh : mesh.submeshes) {
-        for (auto& i : submesh.textureIndices) {
-            i = model.textureHandles[i];
-        }
-    }
-
-    //for (auto& texture : model.textures) {
-    //    if (auto find = objectTextures.find(texture); find != objectTextures.end()) {
-    //            //    }
-
-    //}
-
-    //for (auto& submesh : mesh) {
-    //    for (auto& index : submesh.textures) {
-    //        if (!Seq::inRange(model.textures, index)) {
-    //            SPDLOG_WARN("Model texture index out of range: {}", index);
-    //            continue;
-    //        }
-
-    //        auto& name = model.textures[index];
-    //        // auto find = objectTextures.find(name);
-    //        if (auto find = objectTextures.find(name); find != objectTextures.end()) {}
-    //    }
-    //}
 }
 
 //struct LoadedMesh {
@@ -519,10 +487,23 @@ d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
 }
 
 gfx::Mesh LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model) {
-    auto mesh = CreateMesh(model);
+    int64 time = 0;
+    ScopedTimer timer(time);
 
+    timer.Start();
     LoadTextures(hog, gameTable, model.textures);
-    MapTextures(gameTable, model, mesh);
+    timer.Stop();
+    SPDLOG_INFO("Model texture load time: {:.2f} ms", time / 1000.0f);
+
+    timer.Start();
+    MapTextures(gameTable, model);
+    timer.Stop();
+    SPDLOG_INFO("Texture map time: {:.2f} ms", time / 1000.0f);
+
+    auto mesh = CreateMesh(model);
+    timer.Stop();
+    SPDLOG_INFO("Mesh load time: {:.2f} ms", time / 1000.0f);
+
 
     return mesh;
 }
@@ -544,9 +525,9 @@ void Init() {
 
     ReadVClips(hog, _gameTable);
 
-    auto model = ReadModel(hog, "4packConc.OOF");
+    auto model = ReadModel(hog, "shield.OOF");
     auto mesh = LoadModel(hog, _gameTable, model);
-    mesh.name = "4packConc.OOF";
+    mesh.name = "shield.OOF";
 
     _meshid = 0;
     std::array upload = { mesh };
@@ -659,11 +640,8 @@ void TextureDebugWindow() {
 }
 
 void Update(float /*dt*/) {
-
-
     ModelBrowser();
     TextureDebugWindow();
-
 }
 
 void Render() {

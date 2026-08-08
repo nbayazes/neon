@@ -110,9 +110,6 @@ using Tuple = std::pair<T, U>;
 //template<class T>
 //using Stack = std::stack<T>;
 
-// <T, U, class _Hasher = hash<_Kty>, class _Keyeq = equal_to<_Kty>, class _Alloc = allocator<pair<const _Kty, _Ty>>
-template <class T, class U, class THasher = std::hash<T>>
-using Dictionary = std::unordered_map<T, U, THasher>;
 
 //template <class T, class TContainer = std::deque<T>>
 //using Queue = std::queue<T, TContainer>;

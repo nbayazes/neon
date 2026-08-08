@@ -87,6 +87,8 @@
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="gsl\pointers.h" />
     <ClInclude Include="gsl\assert.h" />
+    <ClInclude Include="ankerl\unordered_dense.h" />
+    <ClInclude Include="ankerl\ankerl.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

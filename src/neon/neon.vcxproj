@@ -195,6 +195,8 @@
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ankerl\ankerl.h" />
+    <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />

@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "ShaderCompiler.h"
 #include <dxcapi.h>
+#include "ankerl/ankerl.h"
 #include "Graphics/DeviceResources.h"
 #include "Logging.h"
 
