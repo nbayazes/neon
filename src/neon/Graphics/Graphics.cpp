@@ -60,6 +60,51 @@ D3D12MA::Allocator* GetMemoryAllocator() {
 
 ID3D12Device* GetDevice() { return resources.d3dDevice.Get(); }
 
+void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
+    auto& uploadBuffer = resources.textureInfoUploadBuffer;
+    uploadBuffer.Clear();
+
+    auto device = GetDevice();
+    gfx::CommandContext uploadContext = { device, resources.copyQueue.get(), "Mesh upload command list" };
+    uploadContext.Reset();
+
+    auto cmdList = uploadContext.GetCommandList();
+
+    //auto sizeInBytes = GetVectorSizeInBytes(textures);
+
+    // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
+    auto allocation = resources.textureInfo.Allocate(textures.size_bytes());
+    uploadBuffer.Copy(textures);
+    //uploadBuffer.Copy(textures, AlignTo(sizeof(shaders::model::TextureInfo), 256));
+    uploadBuffer.CopyRegionTo(cmdList, resources.textureInfo, allocation.Offset, 0, textures.size_bytes());
+
+    uploadContext.Execute();
+    uploadContext.WaitForIdle();
+
+
+    // update the descriptor after the upload is complete
+    auto& desc = resources.textureInfoView;
+    desc.Format = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    // desc.Buffer.FirstElement = allocation.Offset / sizeof(shaders::model::TextureInfo);
+    desc.Buffer.FirstElement = allocation.Offset / sizeof(shaders::model::TextureInfo);
+    desc.Buffer.NumElements = (uint)textures.size();
+    desc.Buffer.StructureByteStride = sizeof(shaders::model::TextureInfo);
+
+    //auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
+    //auto srcOffset = uploadBuffer.Copy(span{ submesh.textureIndices });
+    //uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
+
+    //auto& desc = gpuSubmesh.textureIndicesView;
+    //desc.Format = DXGI_FORMAT_UNKNOWN;
+    //desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    //desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    //desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
+    //desc.Buffer.NumElements = (uint)submesh.textureIndices.size();
+    //desc.Buffer.StructureByteStride = sizeof(int32);
+}
+
 D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_0;
 
 void ReportLiveObjects() {
@@ -335,7 +380,7 @@ void CreateDevice(DeviceCreationOptions& options) {
 void CreateDeviceResources() {
     // Create the command queues
     auto device = resources.d3dDevice.Get();
-    resources.commandQueue = make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_DIRECT, "DeviceResources Command Queue");
+    resources.graphicsQueue = make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_DIRECT, "DeviceResources Command Queue");
 
     //BatchUploadQueue = make_unique<Inferno::CommandQueue>(m_d3dDevice.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT, "DeviceResources Batch Queue");
     //AsyncBatchUploadQueue = make_unique<Inferno::CommandQueue>(m_d3dDevice.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT, "DeviceResources Batch Queue");
@@ -343,7 +388,7 @@ void CreateDeviceResources() {
 
     // Create a command allocator for each back buffer that will be rendered to.
     for (UINT n = 0; n < _backBufferCount; n++) {
-        resources.graphicsContext[n] = make_unique<GraphicsContext>(resources.d3dDevice.Get(), resources.commandQueue.get(), fmt::format("Render target {}", n));
+        resources.graphicsContext[n] = make_unique<GraphicsContext>(resources.d3dDevice.Get(), resources.graphicsQueue.get(), fmt::format("Render target {}", n));
     }
 
     resources.shaderVisibleHeap = std::make_unique<DescriptorHeap>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100'000, "CBV/SRV/UAV heap");
@@ -363,13 +408,17 @@ void CreateDeviceResources() {
     resources.frameDescriptors[1] = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 1000);
     resources.textureDescriptors = make_unique<DescriptorRange>(resources.shaderVisibleHeap.get(), 20000);
 
-
-    resources.textureCopyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "texture copy queue");
-    resources.textureCopyContext = std::make_unique<CommandContext>(device, resources.textureCopyQueue.get(), "texture upload context");
+    resources.copyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "texture copy queue");
+    resources.textureCopyContext = std::make_unique<CommandContext>(device, resources.copyQueue.get(), "texture upload context");
 
     //resources.frameRingBuffer.Create("frame ring buffer", 1024 * 1024 * 1, BACK_BUFFER_COUNT);
     resources.frameBuffer[0].Create("frame ring buffer 0", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
     resources.frameBuffer[1].Create("frame ring buffer 1", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
+
+    resources.textureInfo.Create("texture info", 1024 * 1024 * 1);
+
+    resources.meshUploadBuffer.Create("Mesh upload buffer", 1024 * 1024 * 2, D3D12_HEAP_TYPE_UPLOAD);
+    resources.textureInfoUploadBuffer.Create("Texture info upload buffer", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
 
     {
         // create white texture
@@ -472,7 +521,7 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
         // Create a swap chain for the window.
         ComPtr<IDXGISwapChain1> swapChain;
         ThrowIfFailed(resources.dxgiFactory->CreateSwapChainForHwnd(
-            resources.commandQueue->Get(),
+            resources.graphicsQueue->Get(),
             _hwnd,
             &swapChainDesc,
             &fsSwapChainDesc,
@@ -599,7 +648,7 @@ void ReloadShaders() {
 }
 
 void ScreenSizeChanged(unsigned int width, unsigned int height) {
-    resources.commandQueue->WaitForIdle();
+    resources.graphicsQueue->WaitForIdle();
     sizedResources = {};
     resources.sizedDescriptors->Clear();
     resources.sizedRenderTargetDescriptors->Clear();
@@ -608,7 +657,7 @@ void ScreenSizeChanged(unsigned int width, unsigned int height) {
 }
 
 void Shutdown() {
-    resources.commandQueue->WaitForIdle();
+    resources.graphicsQueue->WaitForIdle();
     FreeShaderCompiler();
     FreeResources();
 }
@@ -654,7 +703,7 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
 void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::model);
-    // todo: get GPUVA of the ring buffer and use allocation offset, or store GPUVA somewhere
+
     auto frameConstants = GetFrameConstants();
     auto& frameDescriptors = GetFrameDescriptors();
     auto& frameBuffer = GetFrameBuffer();
@@ -662,8 +711,6 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     // cmdList->SetGraphicsRootConstantBufferView(0, resources.meshes[0].textureData->GetGPUVirtualAddress());
     //cmdList->SetGraphicsRootConstantBufferView(0, resources.frameRingBuffer->GetGPUVirtualAddress());
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-
 
     //SPDLOG_INFO("Creating view at GPU address {} (offset {})", fmt::ptr((void*)(frameBuffer->GetGPUVirtualAddress() + offset)), offset);
 
@@ -674,9 +721,16 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     //auto model = Resources::GetOutrageModel(object.Render.Model.ID);
     //if (model == nullptr) return;
 
+    // Set the texture table
+    cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+
+    // Set frame constants
+    context.SetConstantBuffer(shaders::model::FrameConstants, frameConstants);
+
     for (auto& submesh : mesh.submeshes) {
-        // allocate two handles for the submesh
+        // allocate three handles for the submesh
         auto handle = frameDescriptors.GetNextHandle();
+        frameDescriptors.Next();
         frameDescriptors.Next();
 
         auto submodelOffset = Vector3::Zero;
@@ -700,13 +754,20 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
             .SizeInBytes = (uint)AlignTo(sizeof(constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
         };
 
+        // Create three consecutive descriptors
         device->CreateConstantBufferView(&desc, handle.GetCpuHandle());
-        cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
-        context.SetConstantBuffer(shaders::model::FrameConstants, frameConstants);
+        //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
 
         // the second handle is the texture indices
         device->CreateShaderResourceView(mesh.textureIndices.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
-        cmdList->SetGraphicsRootDescriptorTable(shaders::model::ObjectConstants, handle.GetGpuHandle());
+        //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
+
+        // the third handle is the texture table
+        device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
+
+        // Three consecutive handles in the table
+        cmdList->SetGraphicsRootDescriptorTable(1, handle.GetGpuHandle());
+
 
         cmdList->IASetIndexBuffer(&submesh.ibv);
         cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
@@ -861,25 +922,34 @@ uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
     return totalSize;
 }
 
+uint64 CalculateTextureIndexSize(const Mesh& mesh) {
+    uint64 totalSize = 0;
+
+    for (auto& submesh : mesh.submeshes) {
+        totalSize += GetVectorSizeInBytes(submesh.textureIndices);
+        totalSize = AlignTo(totalSize, 4);
+    }
+
+    return totalSize;
+}
+
 std::mutex _uploadMutex;
 
 void UploadMeshes(span<Mesh> meshes) {
     int64 time = 0;
     ScopedTimer timer(time);
 
-    auto device = gfx::GetDevice();
+    auto device = GetDevice();
     ASSERT(device);
     std::lock_guard lock(_uploadMutex);
 
-    gfx::CommandQueue uploadQueue = { device, D3D12_COMMAND_LIST_TYPE_COPY, "Upload queue" };
-    gfx::CommandContext uploadContext = { device, &uploadQueue, "Upload command list" };
+    gfx::CommandContext uploadContext = { device, resources.copyQueue.get(), "Mesh upload command list" };
     uploadContext.Reset();
 
-    gfx::GpuBuffer uploadBuffer;
-    uploadBuffer.Create("Upload buffer", 1024 * 1024 * 10, D3D12_HEAP_TYPE_UPLOAD);
-    //uploadBuffer.BeginCopy();
-
     auto cmdList = uploadContext.GetCommandList();
+
+    auto& uploadBuffer = resources.meshUploadBuffer;
+    uploadBuffer.Clear();
 
     // All buffers must use CBV alignment if they are packed in a single shared buffer
 
@@ -889,7 +959,7 @@ void UploadMeshes(span<Mesh> meshes) {
 
         auto& gpuMesh = resources.meshes.emplace_back();
         gpuMesh.meshData.Create(mesh.name, meshBufferSize);
-        gpuMesh.textureIndices.Create(mesh.name, meshBufferSize);
+        gpuMesh.textureIndices.Create(mesh.name + " texture indices", CalculateTextureIndexSize(mesh));
         gpuMesh.model = mesh.model;
 
         for (int j = 0; j < mesh.submeshes.size(); ++j) {
@@ -959,6 +1029,5 @@ void UploadMeshes(span<Mesh> meshes) {
     timer.Stop();
     SPDLOG_INFO("Model upload time: {:.2f} ms", time / 1000.0f);
 }
-
 
 }

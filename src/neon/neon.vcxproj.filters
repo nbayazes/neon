@@ -28,6 +28,7 @@
     <ClCompile Include="d3\OutrageTable.cpp" />
     <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="SetWindowsTimePeriod.cpp" />
+    <ClCompile Include="Graphics\CycleBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -89,6 +90,7 @@
     <ClInclude Include="gsl\assert.h" />
     <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="ankerl\ankerl.h" />
+    <ClInclude Include="Graphics\CycleBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

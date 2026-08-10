@@ -1,5 +1,6 @@
 #pragma once
 #include "d3/OutrageModel.h"
+#include "shaders/Model.h"
 #include "shaders/ModelVertex.h"
 #include "Texture.h"
 
@@ -73,5 +74,7 @@ void UpdateMeshTextures(Mesh& mesh);
 
 
 ID3D12Device* GetDevice();
+
+void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures);
 
 }

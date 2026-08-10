@@ -30,9 +30,40 @@ struct Constants {
     //float PhaseAmount;
 };
 
+struct TextureInfo {
+    int index;
+    int frames; // for animations
+    float frameTime;
+    int pingpong;
+
+    int GetFrame(float time) {
+        if (frames <= 1)
+            return index;
+
+        //if (NumFrames == 0) return 0;
+        int frame = (int)floor(abs(time) / frameTime);
+
+        if (pingpong) {
+            frame %= frames * 2;
+
+            if (frame >= frames)
+                frame = (frames - 1) - (frame % frames);
+            else
+                frame %= frames;
+
+            return index + frame;
+        }
+        else {
+            return index + frame % frames;
+        }
+    }
+};
+
 ConstantBuffer<FrameConstants> Frame : register(b0);
 ConstantBuffer<Constants> Object : register(b1);
 StructuredBuffer<int> TextureIndices : register(t0); // mapping to texture table
+StructuredBuffer<TextureInfo> TextureInfoTable : register(t1); // Texture / material information
+
 Texture2D TextureTable[] : register(t0, space1);
 
 // lighting constants are register b2
@@ -46,7 +77,6 @@ SamplerState NormalSampler : register(s1);
 //TextureCube Environment : register(t8);
 
 
-
 struct PS_INPUT {
     float4 position : SV_Position;
     float2 uv : TEXCOORD0;
@@ -57,7 +87,7 @@ struct PS_INPUT {
     centroid float3 world : TEXCOORD1;
 };
 
-PS_INPUT vsmain(ObjectVertex input){
+PS_INPUT vsmain(ObjectVertex input) {
     float4x4 wvp = mul(Frame.ViewProj, Object.World);
     PS_INPUT output;
     output.position = mul(wvp, float4(input.position, 1));
@@ -73,13 +103,15 @@ PS_INPUT vsmain(ObjectVertex input){
     return output;
 }
 
-float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET
-{
+float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     uint textureIndex = TextureIndices[NonUniformResourceIndex(primitiveID)];
-    Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
+    TextureInfo info = TextureInfoTable[NonUniformResourceIndex(textureIndex)];
+    // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
+    Texture2D tex = TextureTable[NonUniformResourceIndex(info.GetFrame(Frame.Time))];
+    // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
     float3 rgb = tex.Sample(Sampler, input.uv).rgb;
-    rgb = pow(rgb, 1/2.2);
-    
+    rgb = pow(rgb, 1 / 2.2);
+
     float3 l = normalize(float3(4, 1, 5));
     rgb *= 1 + dot(normalize(input.normal * 2), l) * 0.5;
     return float4(rgb, 1);

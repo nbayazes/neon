@@ -2,6 +2,7 @@
 #include <D3D12MemAlloc.h>
 #include <directxtk12/DirectXHelpers.h>
 #include <directx/d3dx12.h>
+#include <queue>
 #include <spdlog/spdlog.h>
 #include "Descriptor.h"
 #include "neon-graphics.h"
@@ -85,7 +86,7 @@ public:
 
     void CopyTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest) {
         dest.Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
-        Transition(cmdList, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        //Transition(cmdList, D3D12_RESOURCE_STATE_COPY_SOURCE);
         cmdList->CopyResource(dest.Get(), _resource.Get());
     }
 
@@ -120,34 +121,57 @@ protected:
     //[[nodiscard]] IntermediateResource CreateIntermediate();
 };
 
-// General purpose buffer
+// General purpose buffer that allocates memory in sequence.
+// Call Clear() to reset the internal allocations.
 class GpuBuffer : public GpuResource {
     uint _elementCount = 0;
     D3D12MA::VirtualBlock* _block = nullptr;
     ubyte* _mappedPtr = nullptr; // mapped pointer used by upload buffers
     D3D12_HEAP_TYPE _heapType = D3D12_HEAP_TYPE_DEFAULT;
+    std::deque<D3D12MA::VirtualAllocation> _allocations;
+
 public:
+    // Creates a general purpose GPU buffer. Size in bytes.
     void Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT);
 
-    // Allocates a block of memory in the buffer
-    D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size, uint alignment = 4) const {
+    // Allocates a block of memory in the buffer. Wrapping = true will free the oldest allocations to make space for new ones.
+    D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size, bool allowWrapping = true, uint alignment = 4) {
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = size;
         allocDesc.Alignment = alignment;
 
         D3D12MA::VirtualAllocation alloc;
         UINT64 allocOffset;
-        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &allocOffset));
+
+        auto hr = _block->Allocate(&allocDesc, &alloc, &allocOffset);
+
+        if (allowWrapping) {
+            // free allocations until there's room. Hopefully the performance impact of this is minimal.
+            // This trades ease of use for stability, as it relies on the buffer being big enough to fit everything in use at once.
+            while (hr == E_OUTOFMEMORY && _allocations.size() > 0) {
+                SPDLOG_INFO("Freeing allocation");
+                _block->FreeAllocation(_allocations.back());
+                _allocations.pop_back();
+                hr = _block->Allocate(&allocDesc, &alloc, &allocOffset);
+            }
+        }
+
+        if (hr == E_OUTOFMEMORY) {
+            throw Exception(fmt::format("Unable to create allocation in {}", _name));
+        }
 
         D3D12MA::VIRTUAL_ALLOCATION_INFO info{};
         _block->GetAllocationInfo(alloc, &info);
         return info;
     }
 
+    // todo: add a private Copy method that accepts void* data + size to remove duplication
+
     // Copies data directly into the buffer
     template <typename T>
     UINT64 Copy(T& data, uint64 alignment = 4) {
         ASSERT(_heapType == D3D12_HEAP_TYPE_UPLOAD); // CPU copies are only supported for upload buffers!
+
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = sizeof(data);
         allocDesc.Alignment = alignment;
@@ -155,8 +179,7 @@ public:
         D3D12MA::VirtualAllocation alloc;
         UINT64 offset;
         ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
-
-        //SPDLOG_INFO("Copy alloc offset: {} size: {} alignment: {}", offset, allocDesc.Size, allocDesc.Alignment);
+        _allocations.push_front(alloc);
 
         memcpy(_mappedPtr + offset, &data, allocDesc.Size);
         return offset;
@@ -165,6 +188,7 @@ public:
     // Copies data into the buffer. Returns the offset.
     template <typename T>
     int64 Copy(span<T> src, uint64 alignment = 4) {
+        ASSERT(_heapType == D3D12_HEAP_TYPE_UPLOAD); // CPU copies are only supported for upload buffers!
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = src.size_bytes();
         allocDesc.Alignment = alignment;
@@ -181,6 +205,7 @@ public:
     void Clear() const {
         _block->Clear();
     }
+
 protected:
     D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() override {
         D3D12_SHADER_RESOURCE_VIEW_DESC desc{};
@@ -191,253 +216,6 @@ protected:
         desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
         return desc;
     }
-};
-//
-//class FrameRingBuffer : public GpuResource {
-//    ubyte* _mappedPtr = nullptr;
-//    D3D12MA::VirtualBlock* _block = nullptr;
-//    uint _frames = 0;
-//public:
-//    void Create(string_view name, uint64 size, uint frames = 2);
-//
-//    // Copy data to the ring buffer and increments it internally.
-//    // Returns the offset.
-//    // Fence value is the value when the resource should be released.
-//    template <typename T>
-//    UINT64 Copy(T& data, uint64 alignment = 4) {
-//
-//        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
-//        allocDesc.Size = sizeof(data);
-//        allocDesc.Alignment = alignment;
-//
-//        D3D12MA::VirtualAllocation alloc;
-//        UINT64 offset;
-//        ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
-//
-//        //SPDLOG_INFO("Copy alloc offset: {} size: {} alignment: {}", offset, allocDesc.Size, allocDesc.Alignment);
-//
-//        memcpy(_mappedPtr + offset, &data, allocDesc.Size);
-//        return offset;
-//    }
-//
-//    void Clear() const {
-//        _block->Clear();
-//    }
-//
-//    //// Call at the end of each frame to free resources
-//    //void Update(uint64 frame, uint64 fenceValue) {
-//    //    auto& slot = _frameAllocs[frame % _frames];
-//
-//    //    if (fenceValue >= slot.fenceValue) {
-//    //        for (auto& alloc : slot.allocs) {
-//    //            _block->FreeAllocation(alloc);
-//    //        }
-//
-//    //        slot.allocs.clear();
-//    //    }
-//    //}
-//
-//    //~FrameRingBuffer() override {
-//    //    _resource->Unmap(0, nullptr);
-//    //}
-//};
-
-class GpuUploadBuffer : public GpuResource {
-    bool _inUpdate = false;
-    int64 _offset = 0;
-    ubyte* _mappedPtr = nullptr;
-
-public:
-    void Create(string_view name, uint64 size);
-
-    // Copy data immediately
-    template <typename T>
-    void ImmediateCopy(span<T>& data) {
-        //constexpr D3D12_RANGE CPU_READ_NONE = {};
-        void* mappedPtr;
-        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, &mappedPtr));
-
-        memcpy(mappedPtr, data.data(), data.size());
-        _resource->Unmap(0, nullptr);
-    }
-
-    template <typename T>
-    void ImmediateCopy(T& data) {
-        //constexpr D3D12_RANGE CPU_READ_NONE = {};
-        void* mappedPtr;
-        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, &mappedPtr));
-
-        memcpy(mappedPtr, &data, sizeof(data));
-        _resource->Unmap(0, nullptr);
-    }
-
-    void BeginCopy() {
-        ASSERT(_resource);
-        if (_inUpdate) throw Exception("Already called Begin");
-
-        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
-        _inUpdate = true;
-    }
-
-    // Copies data into the buffer. Returns the offset.
-    template <typename T>
-    int64 Copy(span<T> src) {
-        if (!_inUpdate)
-            throw Exception("Must call Begin before Copy");
-
-        if (_offset + src.size() > _desc.Width) {
-            throw Exception("Out of space in upload buffer");
-        }
-
-        memcpy(_mappedPtr + _offset, src.data(), src.size() * sizeof(T));
-        auto offset = _offset;
-        _offset += src.size();
-        return offset;
-        //_buffer.insert(_buffer.end(), src.begin(), src.end());
-    }
-
-    void EndCopy() {
-        _inUpdate = false;
-        _offset = 0;
-        _resource->Unmap(0, nullptr);
-    }
-
-    //void CopyTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest) {
-    //    Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
-
-    //    cmdList->CopyBufferRegion(dest.Get(), 0, _resource.Get(), 0, size);
-    //    Transition(cmdList, D3D12_RESOURCE_STATE_COMMON);
-    //}
-
-    //void CopyTo(ID3D12GraphicsCommandList* cmdList, GpuResource& dest) {
-    //    dest.Transition(cmdList, D3D12_RESOURCE_STATE_COPY_DEST);
-    //    Transition(cmdList, D3D12_RESOURCE_STATE_COPY_SOURCE);
-    //    cmdList->CopyResource(dest.Get(), _resource.Get());
-    //}
-};
-
-class ByteAddressBuffer final : public GpuBuffer {
-    uint _elementCount = 0; // elementCount / 4
-
-protected:
-    D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() override {
-        D3D12_SHADER_RESOURCE_VIEW_DESC desc{};
-        desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        desc.Format = DXGI_FORMAT_R32_TYPELESS;
-        desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        desc.Buffer.NumElements = _elementCount;
-        desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
-        return desc;
-    }
-
-    D3D12_UNORDERED_ACCESS_VIEW_DESC GetUavDesc() override {
-        D3D12_UNORDERED_ACCESS_VIEW_DESC desc{};
-        desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-        desc.Format = DXGI_FORMAT_R32_TYPELESS;
-        desc.Buffer.NumElements = _elementCount;
-        desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
-        return desc;
-    }
-
-    //void Create(string_view name, uint32 elementSize, uint32 elementCount) {
-    //    _desc = CD3DX12_RESOURCE_DESC::Buffer(elementSize * elementCount, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-
-    //    _srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-    //    _srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-    //    _srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    //    _srvDesc.Buffer.NumElements = elementCount / 4;
-    //    _srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
-
-    //    D3D12MA::ALLOCATION_DESC allocDesc = {};
-    //    allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
-
-    //    ThrowIfFailed(Render::Allocator->CreateResource(
-    //        &allocDesc,
-    //        &_desc,
-    //        D3D12_RESOURCE_STATE_COMMON,
-    //        nullptr,
-    //        _allocation.ReleaseAndGetAddressOf(),
-    //        IID_PPV_ARGS(_resource.ReleaseAndGetAddressOf())
-    //    ));
-
-    //    //if (!_srv) _srv = Render::Heaps->Reserved.Allocate();
-
-    //    _uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-    //    _uavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-    //    _uavDesc.Buffer.NumElements = elementCount / 4;
-    //    _uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
-
-    //    //if (!_uav) _uav = Render::Heaps->Reserved.Allocate();
-    //    SetName(name);
-
-    //    //D3D12_RESOURCE_DESC ResourceDesc = DescribeBuffer();
-
-    //    //D3D12_HEAP_PROPERTIES HeapProps;
-    //    //HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-    //    //HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-    //    //HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-    //    //HeapProps.CreationNodeMask = 1;
-    //    //HeapProps.VisibleNodeMask = 1;
-
-
-    //    //if (initialData)
-    //    //    CommandContext::InitializeBuffer(*this, initialData, m_BufferSize);
-
-    //    //Render::Device->CreateUnorderedAccessView(Get(), nullptr, &uavDesc, _uav.GetCpuHandle());
-    //    //_resource->SetName(name.data());
-    //}
-};
-
-class StructuredBuffer final : public GpuBuffer {
-    ByteAddressBuffer _counterBuffer;
-    uint32 _elementSize = 0;
-    uint32 _elementCount = 0;
-
-protected:
-    D3D12_SHADER_RESOURCE_VIEW_DESC GetSrvDesc() override {
-        D3D12_SHADER_RESOURCE_VIEW_DESC desc{};
-        desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        desc.Format = DXGI_FORMAT_UNKNOWN;
-        desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        desc.Buffer.NumElements = _elementCount;
-        desc.Buffer.StructureByteStride = _elementSize;
-        desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-        return desc;
-    }
-
-    D3D12_UNORDERED_ACCESS_VIEW_DESC GetUavDesc() override {
-        D3D12_UNORDERED_ACCESS_VIEW_DESC desc{};
-        desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-        desc.Format = DXGI_FORMAT_UNKNOWN;
-        desc.Buffer.CounterOffsetInBytes = 0;
-        desc.Buffer.NumElements = _elementCount;
-        desc.Buffer.StructureByteStride = _elementSize;
-        desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-        return desc;
-    }
-
-
-    //void Create(string_view name, uint32 elementSize, uint32 elementCount) {
-    //    _desc = CD3DX12_RESOURCE_DESC::Buffer(elementSize * elementCount, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-
-    //    if (!_srv) _srv = Render::Descriptors->reserved.Allocate();
-
-    //    D3D12MA::ALLOCATION_DESC allocDesc = {};
-    //    allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
-
-    //    ThrowIfFailed(Render::Allocator->CreateResource(
-    //        &allocDesc,
-    //        &_desc,
-    //        D3D12_RESOURCE_STATE_COMMON,
-    //        nullptr,
-    //        _allocation.ReleaseAndGetAddressOf(),
-    //        IID_PPV_ARGS(_resource.ReleaseAndGetAddressOf())
-    //    ));
-
-    //    SetName(name);
-
-    //    //_counterBuffer.Create("StructuredBuffer::Counter", 1, 4);
-    //}
 };
 
 class PixelBuffer : public GpuResource {

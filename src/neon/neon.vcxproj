@@ -168,6 +168,7 @@
     <ClCompile Include="d3\OutrageModel.cpp" />
     <ClCompile Include="d3\OutrageTable.cpp" />
     <ClCompile Include="Graphics\CommandQueue.cpp" />
+    <ClCompile Include="Graphics\CycleBuffer.cpp" />
     <ClCompile Include="Graphics\DescriptorTable.cpp" />
     <ClCompile Include="Graphics\DeviceResources.cpp" />
     <ClCompile Include="Graphics\GpuBuffer.cpp" />
@@ -199,6 +200,7 @@
     <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Graphics\CycleBuffer.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />
     <ClInclude Include="gsl\assert.h" />
     <ClInclude Include="gsl\pointers.h" />

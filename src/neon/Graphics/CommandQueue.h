@@ -3,10 +3,8 @@
 #define NOMINMAX
 
 #include <mutex>
-
 #include "neon-graphics.h"
 #include "neon-types.h"
-
 
 namespace neon::gfx {
     // Wrapper for ID3D12CommandQueue that supports waiting
@@ -14,7 +12,6 @@ namespace neon::gfx {
         D3D12_COMMAND_LIST_TYPE _type;
         ComPtr<ID3D12CommandQueue> _queue;
         ComPtr<ID3D12Fence> _fence;
-        //Microsoft::WRL::Wrappers::Event _fenceEvent; // todo: rewrite this? the corewrapper.h is quite large
         uint64 _nextFenceValue = 1, _lastCompletedValue = 0;
         std::mutex _eventMutex;
 

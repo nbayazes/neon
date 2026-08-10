@@ -3,9 +3,11 @@
 #include <directxtk12/CommonStates.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
+#include "CycleBuffer.h"
 #include "d3/OutrageModel.h"
 #include "DescriptorTable.h"
 #include "neon-graphics.h"
+#include "shaders/Model.h"
 #include "Texture.h"
 //#include "UploadBuffer.h"
 
@@ -35,7 +37,10 @@ struct GpuMesh {
 
 // Resources alive for the duration of the device
 struct DeviceResources {
-    Ptr<CommandQueue> commandQueue;
+    Ptr<CommandQueue> graphicsQueue;
+    Ptr<CommandQueue> copyQueue;
+    Ptr<CommandContext> textureCopyContext;
+
     Ptr<DescriptorHeap> shaderVisibleHeap;
     Ptr<DescriptorHeap> renderTargetHeap;
     Ptr<DescriptorHeap> depthStencilHeap;
@@ -50,8 +55,6 @@ struct DeviceResources {
     Ptr<DescriptorRange> frameDescriptors[BACK_BUFFER_COUNT]; // per-frame descriptors. Resets after a new frame.
 
     Ptr<DirectX::CommonStates> states;
-    Ptr<CommandQueue> textureCopyQueue;
-    Ptr<CommandContext> textureCopyContext;
 
     // todo: split textures and meshes into separate resource groups based on type (menu, UI, level, object)
     List<Texture> textures;
@@ -61,9 +64,16 @@ struct DeviceResources {
     //GpuUploadBuffer frameConstants[BACK_BUFFER_COUNT];
     //FrameRingBuffer frameRingBuffer;
     GpuBuffer frameBuffer[BACK_BUFFER_COUNT]; // buffer for per-frame data
+
+    gfx::GpuBuffer meshUploadBuffer;
+    gfx::GpuBuffer textureInfoUploadBuffer;
+
+    GpuBuffer textureInfo;
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureInfoView; // points at the latest copy of the texture info
+
     //GpuBuffer frameRingBuffer;
 
-    D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT];
+    D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT] = {};
 
     Texture* whiteTexture = nullptr;
 
