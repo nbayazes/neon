@@ -304,14 +304,14 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
             if (vclipIndex == -1) continue;
 
             auto& vclip = _vclips[vclipIndex];
-         
+
             if (_textureLookup.contains(vclip.fileName)) {
                 SPDLOG_INFO("vclip `{}` is already loaded", entry.fileName);
                 continue;
             }
 
             SPDLOG_INFO("Loading vclip {} with {} frames", vclip.fileName, vclip.frames.size());
-            
+
 
             auto textureInfoIndex = (int)_loadedTextures.size();
             _textureLookup[vclip.fileName] = (LoadedTexHandle)textureInfoIndex;
@@ -320,37 +320,63 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 .entry = index,
                 .handle = textureInfoIndex,
                 .vclipHandle = (int)_loadedVClips.size(),
-                .vclip =vclipIndex 
+                .vclip = vclipIndex
             });
 
             auto& loaded = _loadedVClips.emplace_back();
 
+            List<List<span<uint>>> textureArray;
 
-            //auto startHandle = -1;
-   
-            // Load the individual frames
             for (auto& frame : vclip.frames) {
-                if (_textureLookup.contains(frame.name)) {
-                    SPDLOG_INFO("texture {} is already loaded", frame.name);
-                    continue;
+                auto& fd = textureArray.emplace_back();
+
+                for (auto& mip : frame.mips) {
+                    fd.push_back(mip);
                 }
 
+                // todo: resize if frame sizes don't match (shouldn't happen, but it could for user textures)
+            }
+
+            {
                 gfx::Image image;
-                image.LoadMipmapped<uint>(frame.mips, frame.width, frame.height);
+                image.LoadArray2D<uint>(textureArray, vclip.frames[0].width, vclip.frames[0].height);
 
+                auto handle = gfx::CreateTexture(image, vclip.fileName);
                 loaded.handles.push_back((int)_loadedTextures.size());
-
-                auto handle = gfx::CreateTexture(image, frame.name);
                 _loadedTextures.push_back(handle);
-                SPDLOG_INFO("Loaded {} - idx: {}", frame.name, handle);
+                SPDLOG_INFO("Loaded {} - idx: {}", vclip.fileName, handle);
 
-                // load each individual frame into the texture info table
                 auto& info = _textureInfoTable.emplace_back();
                 info.frames = (int)vclip.frames.size();
                 info.frameTime = vclip.frameTime;
                 info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
                 info.index = textureInfoIndex;
+
             }
+
+            // Load the individual frames
+            //for (auto& frame : vclip.frames) {
+            //    if (_textureLookup.contains(frame.name)) {
+            //        SPDLOG_INFO("texture {} is already loaded", frame.name);
+            //        continue;
+            //    }
+
+            //    gfx::Image image;
+            //    image.LoadMipmapped<uint>(frame.mips, frame.width, frame.height);
+
+            //    loaded.handles.push_back((int)_loadedTextures.size());
+
+            //    auto handle = gfx::CreateTexture(image, frame.name);
+            //    _loadedTextures.push_back(handle);
+            //    SPDLOG_INFO("Loaded {} - idx: {}", frame.name, handle);
+
+            //    // load each individual frame into the texture info table
+            //    auto& info = _textureInfoTable.emplace_back();
+            //    info.frames = (int)vclip.frames.size();
+            //    info.frameTime = vclip.frameTime;
+            //    info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
+            //    info.index = textureInfoIndex;
+            //}
 
             //SPDLOG_INFO("Setting vclip info index to {}", textureInfoIndex);
         }
@@ -369,7 +395,7 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
 
                 auto handle = gfx::CreateTexture(image, entry.fileName);
                 auto& info = _textureInfoTable.emplace_back();
-                info.index = _loadedTextures.size();
+                info.index = (int)_loadedTextures.size();
                 _textures.push_back({ index, (int)_loadedTextures.size() });
                 _textureLookup[entry.fileName] = (LoadedTexHandle)_loadedTextures.size();
                 _loadedTextures.push_back(handle);
@@ -480,9 +506,10 @@ void Init() {
 
     ReadVClips(hog, _gameTable);
 
-    //auto modelName = "shield.OOF"; "flareyellowbright.oof"
+    auto modelName = "shield.OOF"; 
+    //auto modelName = "flareyellowbright.oof";
     //auto modelName = "forcefieldswitch.oof";
-    auto modelName = "4packconc.oof";
+    //auto modelName = "4packconc.oof";
     auto model = ReadModel(hog, modelName);
     auto mesh = LoadModel(hog, _gameTable, model);
     mesh.name = modelName;
@@ -546,7 +573,7 @@ void ModelBrowser() {
             gfx::UploadMeshes(upload);
             //auto bounds = CalculateModelBounds(mesh);
             //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
-            _cameraDistance = std::max(model.radius, 2.5f) * 2;
+            _cameraDistance = std::max(model.radius, 2.5f) * 3;
         }
     }
 
@@ -589,7 +616,7 @@ void TextureDebugWindow() {
         else {
             auto& vclip = _vclips[entry.vclip];
             auto frame = vclip.GetFrame(Clock.GetTotalTimeSeconds());
-            handle = _loadedVClips[entry.vclipHandle].handles[frame];
+            handle = _loadedVClips[entry.vclipHandle].handles[0];
             //handle = vclips[entry.vclip].frames[0].name;    
         }
 
@@ -617,7 +644,7 @@ void Update(float /*dt*/) {
 }
 
 void Render() {
-    Vector3 dir(5.5, 2.5, 3.5);
+    Vector3 dir(5.5, 5.5, 5.5);
     dir.Normalize();
 
     _camera.Position = dir * _cameraDistance;

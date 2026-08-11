@@ -38,10 +38,9 @@ struct TextureInfo {
 
     int GetFrame(float time) {
         if (frames <= 1)
-            return index;
+            return 0;
 
-        //if (NumFrames == 0) return 0;
-        int frame = (int)floor(abs(time) / frameTime);
+        int frame = (int)(abs(time) / frameTime);
 
         if (pingpong) {
             frame %= frames * 2;
@@ -51,10 +50,33 @@ struct TextureInfo {
             else
                 frame %= frames;
 
-            return index + frame;
+            return frame;
         }
         else {
-            return index + frame % frames;
+            return frame % frames;
+        }
+    }
+
+    float GetFrameBlend(float time) {
+        if (frames <= 1)
+            return 0;
+
+        float frame = abs(time) / frameTime;
+
+        if (pingpong) {
+            float cycle = fmod(frame, frames * 2);
+
+            if (cycle >= frames)
+                cycle = (frames - 1) - fmod(cycle, frames);
+            else
+                cycle = fmod(cycle, frames);
+
+            return cycle;
+        }
+        else {
+// check if frame is past the end and wrap it
+// for 5 frames, act like there's a 6th and return a negative value
+            return fmod(frame, frames);
         }
     }
 };
@@ -64,7 +86,7 @@ ConstantBuffer<Constants> Object : register(b1);
 StructuredBuffer<int> TextureIndices : register(t0); // mapping to texture table
 StructuredBuffer<TextureInfo> TextureInfoTable : register(t1); // Texture / material information
 
-Texture2D TextureTable[] : register(t0, space1);
+Texture2DArray TextureTable[] : register(t0, space1);
 
 // lighting constants are register b2
 
@@ -107,9 +129,38 @@ float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     uint textureIndex = TextureIndices[NonUniformResourceIndex(primitiveID)];
     TextureInfo info = TextureInfoTable[NonUniformResourceIndex(textureIndex)];
     // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
-    Texture2D tex = TextureTable[NonUniformResourceIndex(info.GetFrame(Frame.Time))];
-    // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
-    float3 rgb = tex.Sample(Sampler, input.uv).rgb;
+    float3 rgb = float3(1, 1, 1);
+
+    if (info.frames > 1) {
+        // float blend = info.GetFrameBlend(Frame.Time);
+
+        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+
+        // "strong blink" behavior, skips to the first frame and then smoothly transitions. Looks good on the antenna / switch animation.
+        //float3 rgb0 = tex.Sample(Sampler, float3(input.uv, floor(blend))).rgb;
+        //float3 rgb1 = tex.Sample(Sampler, float3(input.uv, ceil(blend))).rgb;
+        //rgb = lerp(rgb0, rgb1, fmod(blend, 1));
+
+        int f0 = info.GetFrame(Frame.Time);
+        // int f1 = (f0 + 1) % info.frames;
+        int f1 = info.GetFrame(Frame.Time + info.frameTime);
+
+        float3 rgb0 = tex.Sample(Sampler, float3(input.uv, f0)).rgb;
+        float3 rgb1 = tex.Sample(Sampler, float3(input.uv, f1)).rgb;
+
+        float blend = fmod(Frame.Time / info.frameTime, 1);
+
+        rgb = lerp(rgb0, rgb1, blend);
+
+        // Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        // rgb = tex.Sample(Sampler, float3(input.uv, info.GetFrame(Frame.Time))).rgb;
+    }
+    else {
+        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
+        rgb = tex.Sample(Sampler, float3(input.uv, 0)).rgb;
+    }
+
     rgb = pow(rgb, 1 / 2.2);
 
     float3 l = normalize(float3(4, 1, 5));

@@ -78,7 +78,7 @@ IntermediateResource::IntermediateResource(const D3D12_RESOURCE_DESC& desc) {
     D3D12MA::ALLOCATION_DESC heapDesc{ .HeapType = D3D12_HEAP_TYPE_UPLOAD };
 
     UINT64 uploadBufferSize;
-    neon::gfx::GetDevice()->GetCopyableFootprints(&desc, 0, desc.MipLevels, 0, nullptr, nullptr, nullptr, &uploadBufferSize);
+    neon::gfx::GetDevice()->GetCopyableFootprints(&desc, 0, desc.MipLevels * desc.DepthOrArraySize, 0, nullptr, nullptr, nullptr, &uploadBufferSize);
     auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
     ThrowIfFailed(GetMemoryAllocator()->CreateResource(

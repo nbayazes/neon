@@ -87,22 +87,9 @@ void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
     desc.Format = DXGI_FORMAT_UNKNOWN;
     desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
     desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    // desc.Buffer.FirstElement = allocation.Offset / sizeof(shaders::model::TextureInfo);
     desc.Buffer.FirstElement = allocation.Offset / sizeof(shaders::model::TextureInfo);
     desc.Buffer.NumElements = (uint)textures.size();
     desc.Buffer.StructureByteStride = sizeof(shaders::model::TextureInfo);
-
-    //auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
-    //auto srcOffset = uploadBuffer.Copy(span{ submesh.textureIndices });
-    //uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
-
-    //auto& desc = gpuSubmesh.textureIndicesView;
-    //desc.Format = DXGI_FORMAT_UNKNOWN;
-    //desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-    //desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    //desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
-    //desc.Buffer.NumElements = (uint)submesh.textureIndices.size();
-    //desc.Buffer.StructureByteStride = sizeof(int32);
 }
 
 D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_0;
