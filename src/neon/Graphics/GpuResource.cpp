@@ -34,6 +34,11 @@ void GpuBuffer::Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType) 
     _desc = CD3DX12_RESOURCE_DESC::Buffer(size);
     _heapType = heapType;
 
+    if (size == 0) {
+        __debugbreak();
+        return;
+    }
+
     if (heapType == D3D12_HEAP_TYPE_UPLOAD)
         _state = D3D12_RESOURCE_STATE_GENERIC_READ;
 

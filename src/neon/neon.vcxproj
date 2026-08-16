@@ -164,6 +164,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="d3\Hog2.cpp" />
     <ClCompile Include="d3\OutrageBitmap.cpp" />
     <ClCompile Include="d3\OutrageModel.cpp" />
     <ClCompile Include="d3\OutrageTable.cpp" />
@@ -175,13 +176,17 @@
     <ClCompile Include="Graphics\GpuResource.cpp" />
     <ClCompile Include="Graphics\Graphics.cpp" />
     <ClCompile Include="Graphics\Image.cpp" />
+    <ClCompile Include="Graphics\Mesh.cpp" />
+    <ClCompile Include="Graphics\MeshPool.cpp" />
     <ClCompile Include="Graphics\Render.cpp" />
     <ClCompile Include="Graphics\ShaderCompiler.cpp" />
     <ClCompile Include="Graphics\Texture.cpp" />
+    <ClCompile Include="Graphics\TextureCache.cpp" />
     <ClCompile Include="Graphics\UploadBuffer.cpp" />
     <ClCompile Include="imgui_local.cpp" />
     <ClCompile Include="Logging.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ModelCache.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -191,6 +196,7 @@
     <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="SetWindowsTimePeriod.cpp" />
     <ClCompile Include="SystemClock.cpp" />
+    <ClCompile Include="TextureRegistry.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="Widechar.cpp" />
@@ -202,8 +208,13 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Graphics\CycleBuffer.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />
+    <ClInclude Include="Graphics\GraphicsHandles.h" />
+    <ClInclude Include="Graphics\MeshPool.h" />
+    <ClInclude Include="Graphics\TextureCache.h" />
     <ClInclude Include="gsl\assert.h" />
     <ClInclude Include="gsl\pointers.h" />
+    <ClInclude Include="Handles.h" />
+    <ClInclude Include="ModelCache.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
@@ -213,7 +224,7 @@
     <ClInclude Include="d3\OutrageModel.h" />
     <ClInclude Include="d3\OutrageTable.h" />
     <ClInclude Include="Graphics\GpuBuffer.h" />
-    <ClInclude Include="Graphics\ObjectMesh.h" />
+    <ClInclude Include="Graphics\Mesh.h" />
     <ClInclude Include="Graphics\PackedBuffer.h" />
     <ClInclude Include="scoped-enum.h" />
     <ClInclude Include="DirectoryWatcher.h" />
@@ -248,6 +259,7 @@
     <ClInclude Include="shaders\neon-shaders.h" />
     <ClInclude Include="Shell.h" />
     <ClInclude Include="Streams.h" />
+    <ClInclude Include="TextureRegistry.h" />
     <ClInclude Include="ui\menu.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="VClip.h" />

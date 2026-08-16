@@ -1,0 +1,46 @@
+﻿#pragma once
+#include "GpuResource.h"
+#include "neon-types.h"
+#include "shaders/ModelVertex.h"
+
+namespace neon::gfx {
+
+struct GpuSubmesh {
+    D3D12_VERTEX_BUFFER_VIEW vbv{};
+    D3D12_INDEX_BUFFER_VIEW ibv{};
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureIndicesView{};
+    uint elementCount = 0;
+};
+
+// GPU instanced mesh
+struct GpuMesh {
+    gfx::GpuBuffer meshData;
+    gfx::GpuBuffer textureIndices;
+    List<GpuSubmesh> submeshes;
+};
+
+// Submesh upload
+struct Submesh {
+    List<gfx::shaders::ModelVertex> vertices;
+    List<uint16> indices;
+    List<int32> textureHandles; // local texture index for each triangle
+};
+
+// Mesh upload
+struct Mesh {
+    string name;
+    List<Submesh> submeshes;
+    bool IsTransparent = false; // contains transparent textures
+};
+
+//gfx::Mesh CreateMesh(d3::Model& model);
+
+
+//void UploadMeshes(span<Mesh> meshes);
+
+//void UploadModel(ModelID id);
+
+// todo: must have a way to reassign textures without stalling
+//void UpdateMeshTextures(Mesh& mesh);
+
+}

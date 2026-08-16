@@ -3,11 +3,10 @@
 #include <directxtk12/CommonStates.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
-#include "CycleBuffer.h"
-#include "d3/OutrageModel.h"
 #include "DescriptorTable.h"
+#include "Mesh.h"
+#include "MeshPool.h"
 #include "neon-graphics.h"
-#include "shaders/Model.h"
 #include "Texture.h"
 //#include "UploadBuffer.h"
 
@@ -18,22 +17,6 @@ using Microsoft::WRL::ComPtr;
 // Back buffer count is also used as frames as flight, although technically not correct
 constexpr size_t BACK_BUFFER_COUNT = 2;
 
-struct GpuSubmesh {
-    D3D12_VERTEX_BUFFER_VIEW vbv{};
-    D3D12_INDEX_BUFFER_VIEW ibv{};
-    D3D12_SHADER_RESOURCE_VIEW_DESC textureIndicesView{};
-    uint elementCount = 0;
-    d3::Submodel model{}; // HACK: remove asap
-};
-
-// GPU instanced mesh
-struct GpuMesh {
-    GpuBuffer meshData;
-    GpuBuffer textureIndices;
-    List<GpuSubmesh> submeshes;
-    d3::Model model{}; // HACK: remove asap
-    //StructuredBuffer textureMap; // buffer containing texture index for each geometry element
-};
 
 // Resources alive for the duration of the device
 struct DeviceResources {
@@ -58,7 +41,9 @@ struct DeviceResources {
 
     // todo: split textures and meshes into separate resource groups based on type (menu, UI, level, object)
     List<Texture> textures;
-    List<GpuMesh> meshes;
+    List<Texture> reservedTextures;
+    Ptr<MeshPool> meshPool;
+    //List<GpuMesh> meshes;
     Ptr<GraphicsContext> graphicsContext[BACK_BUFFER_COUNT];
 
     //GpuUploadBuffer frameConstants[BACK_BUFFER_COUNT];

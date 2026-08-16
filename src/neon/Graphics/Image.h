@@ -82,6 +82,11 @@ public:
         return GetMetadata().mipLevels > 1;
     }
 
+    uint GetArraySize() const {
+        auto& metadata = GetMetadata();
+        return (uint)metadata.arraySize;
+    }
+
     bool GenerateMipmaps(bool wrapu = true, bool wrapv = true) {
         if (Empty()) return false;
 

@@ -30,11 +30,20 @@ struct Constants {
     //float PhaseAmount;
 };
 
+float InOutCubic(float x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2;
+}
+
+float InOutQuad(float x) {
+    return x < 0.5 ? 2 * x * x : 1 - pow(-2 * x + 2, 2) / 2;
+}
+
 struct TextureInfo {
     int index;
     int frames; // for animations
     float frameTime;
     int pingpong;
+    // int blendFunc; // frame blend function for animations
 
     int GetFrame(float time) {
         if (frames <= 1)
@@ -74,8 +83,8 @@ struct TextureInfo {
             return cycle;
         }
         else {
-// check if frame is past the end and wrap it
-// for 5 frames, act like there's a 6th and return a negative value
+            // check if frame is past the end and wrap it
+            // for 5 frames, act like there's a 6th and return a negative value
             return fmod(frame, frames);
         }
     }
@@ -131,10 +140,14 @@ float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
     float3 rgb = float3(1, 1, 1);
 
+    // todo: uv scroll from texture info
+    float2 uv = input.uv + float2(0, 0) * Frame.Time;
+
     if (info.frames > 1) {
         // float blend = info.GetFrameBlend(Frame.Time);
 
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        // tex = TextureTable[3];
 
         // "strong blink" behavior, skips to the first frame and then smoothly transitions. Looks good on the antenna / switch animation.
         //float3 rgb0 = tex.Sample(Sampler, float3(input.uv, floor(blend))).rgb;
@@ -145,11 +158,12 @@ float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
         // int f1 = (f0 + 1) % info.frames;
         int f1 = info.GetFrame(Frame.Time + info.frameTime);
 
-        float3 rgb0 = tex.Sample(Sampler, float3(input.uv, f0)).rgb;
-        float3 rgb1 = tex.Sample(Sampler, float3(input.uv, f1)).rgb;
+        float3 rgb0 = tex.Sample(Sampler, float3(uv, f0)).rgb;
+        float3 rgb1 = tex.Sample(Sampler, float3(uv, f1)).rgb;
 
         float blend = fmod(Frame.Time / info.frameTime, 1);
-
+        // todo: vclip blend mode
+        //blend = InOutCubic(blend);
         rgb = lerp(rgb0, rgb1, blend);
 
         // Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
@@ -157,8 +171,9 @@ float4 psmain(PS_INPUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     }
     else {
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        // tex = TextureTable[10];
         // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
-        rgb = tex.Sample(Sampler, float3(input.uv, 0)).rgb;
+        rgb = tex.Sample(Sampler, float3(uv, 0)).rgb;
     }
 
     rgb = pow(rgb, 1 / 2.2);

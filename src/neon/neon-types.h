@@ -3,10 +3,15 @@
 #include <ranges>
 #include <string>
 #include <filesystem>
-#include <unordered_map>
 #include <string_view>
 #include <span>
 #include <array>
+
+#ifdef _DEBUG
+#define ASSERT(x) (void)( (!!(x)) || (__debugbreak(), 0))
+#else
+#define ASSERT(x)
+#endif
 
 namespace neon {
 // Typed concept that allows iterating over a range
@@ -78,7 +83,7 @@ static_assert(sizeof(int) == 4);
 static_assert(sizeof(long long) == 8);
 
 using sbyte = char;
-using ubyte = unsigned char; // 'byte' in C#
+using ubyte = unsigned char;
 using int8 = int8_t;
 using uint8 = uint8_t;
 using int16 = int16_t;

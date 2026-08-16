@@ -136,6 +136,9 @@ public:
 
     // Allocates a block of memory in the buffer. Wrapping = true will free the oldest allocations to make space for new ones.
     D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size, bool allowWrapping = true, uint alignment = 4) {
+        ASSERT(size > 0);
+        if (size == 0) return {};
+
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = size;
         allocDesc.Alignment = alignment;

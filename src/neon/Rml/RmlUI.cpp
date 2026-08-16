@@ -11,6 +11,7 @@
 #include "shaders/rmlui.h"
 #include "vfs/FileSystem.h"
 #include "vfs/VirtualFileSystem.h"
+#include "Graphics/Texture.h"
 
 namespace neon::rml {
     namespace {
@@ -85,7 +86,7 @@ namespace neon::rml {
 
         context->SetPipelineState(gfx::pipelines::rmlui);
 
-        auto diffuse = gfx::GetTexture((uint)texture);
+        auto diffuse = gfx::GetTexture((TexID)texture, true);
         if (diffuse) {
             gfx::shaders::rmlui::SetDiffuse(cmdList, diffuse->GetSRV());
         }
@@ -145,17 +146,17 @@ namespace neon::rml {
 
         gfx::Image image;
         image.Load<ubyte>(data, texture_dimensions.x, texture_dimensions.y);
-        return gfx::CreateTexture(image, "rml texture", true);
+        return (int)gfx::UploadTexture(image, "rml texture", true);
     }
 
     Rml::TextureHandle RmlRenderInterface::GenerateTexture(Rml::Span<const unsigned char> source, Rml::Vector2i source_dimensions) {
         gfx::Image image;
         image.Load(std::span(source.data(), source.size()), source_dimensions.x, source_dimensions.y);
-        return gfx::CreateTexture(image, "rml texture", true);
+        return (int)gfx::UploadTexture(image, "rml texture", true);
     }
 
     void RmlRenderInterface::ReleaseTexture(Rml::TextureHandle texture) {
-        gfx::FreeTexture((uint)texture);
+        gfx::FreeTexture((TexID)texture);
     }
 
     void RmlRenderInterface::EnableScissorRegion(bool enable) {

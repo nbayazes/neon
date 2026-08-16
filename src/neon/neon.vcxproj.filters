@@ -29,6 +29,12 @@
     <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="SetWindowsTimePeriod.cpp" />
     <ClCompile Include="Graphics\CycleBuffer.cpp" />
+    <ClCompile Include="Graphics\Mesh.cpp" />
+    <ClCompile Include="ModelCache.cpp" />
+    <ClCompile Include="d3\Hog2.cpp" />
+    <ClCompile Include="TextureRegistry.cpp" />
+    <ClCompile Include="Graphics\TextureCache.cpp" />
+    <ClCompile Include="Graphics\MeshPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -73,7 +79,7 @@
     <ClInclude Include="shaders\Model.h" />
     <ClInclude Include="shaders\ModelPrepass.h" />
     <ClInclude Include="shaders\ModelVertex.h" />
-    <ClInclude Include="Graphics\ObjectMesh.h" />
+    <ClInclude Include="Graphics\Mesh.h" />
     <ClInclude Include="Graphics\PackedBuffer.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Graphics\GpuBuffer.h" />
@@ -91,6 +97,12 @@
     <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="ankerl\ankerl.h" />
     <ClInclude Include="Graphics\CycleBuffer.h" />
+    <ClInclude Include="ModelCache.h" />
+    <ClInclude Include="TextureRegistry.h" />
+    <ClInclude Include="Graphics\TextureCache.h" />
+    <ClInclude Include="Graphics\MeshPool.h" />
+    <ClInclude Include="Graphics\GraphicsHandles.h" />
+    <ClInclude Include="Handles.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

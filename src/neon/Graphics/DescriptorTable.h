@@ -107,6 +107,7 @@ namespace neon::gfx {
         uint _descriptors = 0; // number of descriptors
         std::mutex _indexLock;
         D3D12MA::VirtualBlock* _block = nullptr;
+        uint _count = 0; // number of allocated descriptors
 
     public:
         DescriptorRange(DescriptorHeap* heap, uint descriptors = UINT32_MAX)
@@ -120,8 +121,9 @@ namespace neon::gfx {
             ThrowIfFailed(CreateVirtualBlock(&blockDesc, &_block));
         }
 
-        void Clear() const {
+        void Clear() {
             _block->Clear();
+            _count = 0;
         }
 
         D3D12_GPU_DESCRIPTOR_HANDLE AddSRV(GpuResource& resource) {
@@ -150,9 +152,12 @@ namespace neon::gfx {
             D3D12MA::VirtualAllocation alloc;
             uint64 offset;
             ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
+            _count++;
 
             return (uint32)offset;
         }
+
+        uint32 Count() const { return _count; }
 
         DescriptorHandle GetHandle(uint index) const { return _heap->GetHandle(_offset + index); }
         DescriptorHandle GetNextHandle() { return _heap->GetHandle(_offset + Next()); }
@@ -166,6 +171,6 @@ namespace neon::gfx {
             return _heap->GetHandle(_offset + index).GetCpuHandle();
         }
 
-        size_t GetSize() const { return _descriptors; }
+        //size_t GetSize() const { return _descriptors; }
     };
 }

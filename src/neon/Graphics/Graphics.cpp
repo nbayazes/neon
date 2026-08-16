@@ -12,6 +12,7 @@
 #include "imgui.h"
 #include "imgui_local.h"
 #include "Logging.h"
+#include "MeshPool.h"
 #include "neon-graphics.h"
 #include "neon-types.h"
 #include "Rml/RmlUI.h"
@@ -22,6 +23,7 @@
 #include "SystemClock.h"
 #include "Utility.h"
 #include "Widechar.h"
+#include "ModelCache.h"
 
 namespace neon::gfx {
 
@@ -71,6 +73,8 @@ void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
     auto cmdList = uploadContext.GetCommandList();
 
     //auto sizeInBytes = GetVectorSizeInBytes(textures);
+
+    if (textures.size_bytes() == 0) return;
 
     // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
     auto allocation = resources.textureInfo.Allocate(textures.size_bytes());
@@ -406,6 +410,7 @@ void CreateDeviceResources() {
 
     resources.meshUploadBuffer.Create("Mesh upload buffer", 1024 * 1024 * 2, D3D12_HEAP_TYPE_UPLOAD);
     resources.textureInfoUploadBuffer.Create("Texture info upload buffer", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
+    resources.meshPool = std::make_unique<MeshPool>();
 
     {
         // create white texture
@@ -414,8 +419,8 @@ void CreateDeviceResources() {
         image.Load<uint32>(data, 2, 2);
 
         // todo: this should not be mixed with the other textures
-        auto handle = CreateTexture(image, "white", true);
-        resources.whiteTexture = GetTexture(handle);
+        auto handle = UploadTexture(image, "white", true);
+        resources.whiteTexture = GetTexture(handle, true);
         resources.reservedDescriptors->AddSRV(*resources.whiteTexture);
     }
 
@@ -687,7 +692,7 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     //dest.End();
 }
 
-void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
+void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::model);
 
@@ -714,17 +719,30 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
     // Set frame constants
     context.SetConstantBuffer(shaders::model::FrameConstants, frameConstants);
 
-    for (auto& submesh : mesh.submeshes) {
+    auto entry = g_ModelCache.Get(modelId);
+    if (!entry) return;
+
+    auto& model = entry->model;
+    auto m = resources.meshPool->Get(entry->mesh);
+    if (!m) return;
+    auto& mesh = *m;
+
+    ASSERT(mesh.submeshes.size() == model.submodels.size());
+
+    for (int sm = 0; sm < entry->model.submodels.size(); ++sm) {
+        auto& submesh = mesh.submeshes[sm];
+        if (submesh.elementCount == 0) continue;
+        auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
         auto handle = frameDescriptors.GetNextHandle();
         frameDescriptors.Next();
         frameDescriptors.Next();
 
         auto submodelOffset = Vector3::Zero;
-        auto* smc = &submesh.model;
+        auto* smc = &submodel;
         while (smc->parent != -1) {
             submodelOffset += smc->offset;
-            smc = &mesh.model.submodels[smc->parent];
+            smc = &model.submodels[smc->parent];
         }
 
         // the first handle is the object constants
@@ -755,14 +773,13 @@ void DrawMesh(GraphicsContext& context, const GpuMesh& mesh) {
         // Three consecutive handles in the table
         cmdList->SetGraphicsRootDescriptorTable(1, handle.GetGpuHandle());
 
-
         cmdList->IASetIndexBuffer(&submesh.ibv);
         cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
         cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
     }
 }
 
-void Render(Camera& camera, RenderTarget& renderTarget, uint meshid) {
+void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(0.1, 1000);
@@ -786,9 +803,8 @@ void Render(Camera& camera, RenderTarget& renderTarget, uint meshid) {
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
-    if (Seq::inRange(resources.meshes, meshid))
-        DrawMesh(context, resources.meshes[meshid]);
-
+    //if (Seq::inRange(resources.meshes, meshid))
+    DrawMesh(context, modelid);
 
     context.SetRenderTarget(sizedResources.uiRenderTarget);
     context.ClearRenderTarget(sizedResources.uiRenderTarget, nullptr);
@@ -819,9 +835,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, uint meshid) {
     context.Execute();
 }
 
-void RenderView(Camera& camera, uint meshid) {
+void RenderView(Camera& camera, ModelID modelid) {
     auto& renderTarget = sizedResources.backBuffers[_backBufferIndex];
-    Render(camera, renderTarget, meshid);
+    Render(camera, renderTarget, modelid);
 }
 
 // Present the contents of the swap chain to the screen.
@@ -857,164 +873,6 @@ void Present() {
             ThrowIfFailed(CreateDXGIFactory2(m_dxgiFactoryFlags, IID_PPV_ARGS(resources.dxgiFactory.ReleaseAndGetAddressOf())));
         }
     }
-}
-
-TexHandle CreateTexture(const Image& image, std::string_view name, bool reserved) {
-    auto index = resources.textures.size();
-    auto& texture = resources.textures.emplace_back();
-    resources.textureCopyContext->Reset();
-    auto intermediate = texture.Create(resources.textureCopyContext->GetCommandList(), image, name);
-    resources.textureCopyContext->Execute();
-    resources.textureCopyContext->WaitForIdle();
-
-    if (reserved) {
-        resources.reservedDescriptors->AddSRV(texture).ptr;
-    }
-    else {
-        resources.textureDescriptors->AddSRV(texture).ptr;
-    }
-
-    return (TexHandle)index;
-}
-
-Texture* GetTexture(TexHandle index) {
-    if (index >= resources.textures.size()) return nullptr;
-    return &resources.textures[index];
-}
-
-void FreeTexture(TexHandle index) {
-    // todo: this should queue the resource to be freed
-    if (index >= resources.textures.size()) return;
-    resources.textures[index] = {};
-}
-
-GpuMeshHandle CreateMesh() {
-    return {};
-}
-
-uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
-    uint64 totalSize = 0;
-
-    for (auto& submesh : mesh.submeshes) {
-        totalSize += GetVectorSizeInBytes(submesh.vertices);
-        totalSize = AlignTo(totalSize, alignment);
-
-        totalSize += GetVectorSizeInBytes(submesh.indices);
-        totalSize = AlignTo(totalSize, alignment);
-
-        //totalSize += GetVectorSizeInBytes(submesh.textures);
-        //totalSize = AlignTo(totalSize, alignment);
-    }
-
-    return totalSize;
-}
-
-uint64 CalculateTextureIndexSize(const Mesh& mesh) {
-    uint64 totalSize = 0;
-
-    for (auto& submesh : mesh.submeshes) {
-        totalSize += GetVectorSizeInBytes(submesh.textureIndices);
-        totalSize = AlignTo(totalSize, 4);
-    }
-
-    return totalSize;
-}
-
-std::mutex _uploadMutex;
-
-void UploadMeshes(span<Mesh> meshes) {
-    int64 time = 0;
-    ScopedTimer timer(time);
-
-    auto device = GetDevice();
-    ASSERT(device);
-    std::lock_guard lock(_uploadMutex);
-
-    gfx::CommandContext uploadContext = { device, resources.copyQueue.get(), "Mesh upload command list" };
-    uploadContext.Reset();
-
-    auto cmdList = uploadContext.GetCommandList();
-
-    auto& uploadBuffer = resources.meshUploadBuffer;
-    uploadBuffer.Clear();
-
-    // All buffers must use CBV alignment if they are packed in a single shared buffer
-
-    for (int i = 0; i < meshes.size(); ++i) {
-        auto& mesh = meshes[i];
-        auto meshBufferSize = CalculateMeshSize(mesh, 4);
-
-        auto& gpuMesh = resources.meshes.emplace_back();
-        gpuMesh.meshData.Create(mesh.name, meshBufferSize);
-        gpuMesh.textureIndices.Create(mesh.name + " texture indices", CalculateTextureIndexSize(mesh));
-        gpuMesh.model = mesh.model;
-
-        for (int j = 0; j < mesh.submeshes.size(); ++j) {
-            auto& submesh = mesh.submeshes[j];
-            if (submesh.vertices.size() == 0 || submesh.indices.size() == 0) continue;
-            submesh.handle = (int)resources.meshes.size();
-
-            auto& gpuSubmesh = gpuMesh.submeshes.emplace_back();
-            gpuSubmesh.model = submesh.model;
-
-            {
-                auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
-
-                //gpuSubmesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
-                auto srcOffset = uploadBuffer.Copy(span{ submesh.vertices });
-                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
-                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-                //uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.vertexBuffer, 0, srcOffset, sizeInBytes);
-
-                auto& vbv = gpuSubmesh.vbv;
-                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
-                vbv.SizeInBytes = (uint)sizeInBytes;
-                vbv.StrideInBytes = sizeof(shaders::ModelVertex);
-
-                gpuSubmesh.elementCount = (uint)submesh.vertices.size();
-            }
-
-            {
-                auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
-
-                // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
-                auto srcOffset = uploadBuffer.Copy(span{ submesh.indices });
-                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
-                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-                // uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
-
-                auto& vbv = gpuSubmesh.ibv;
-                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-                // vbv.BufferLocation = gpuSubmesh.indexBuffer->GetGPUVirtualAddress();
-                vbv.SizeInBytes = (uint)sizeInBytes;
-                vbv.Format = DXGI_FORMAT_R16_UINT;
-            }
-
-            {
-                auto sizeInBytes = GetVectorSizeInBytes(submesh.textureIndices);
-
-                // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
-                auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
-                auto srcOffset = uploadBuffer.Copy(span{ submesh.textureIndices });
-                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
-
-                auto& desc = gpuSubmesh.textureIndicesView;
-                desc.Format = DXGI_FORMAT_UNKNOWN;
-                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
-                desc.Buffer.NumElements = (uint)submesh.textureIndices.size();
-                desc.Buffer.StructureByteStride = sizeof(int32);
-            }
-        }
-    }
-
-    uploadContext.Execute();
-    uploadContext.WaitForIdle();
-
-    timer.Stop();
-    SPDLOG_INFO("Model upload time: {:.2f} ms", time / 1000.0f);
 }
 
 }

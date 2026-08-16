@@ -217,11 +217,11 @@ void CreateFontTexture() {
     //auto copyQueue = std::make_unique<CommandQueue>(device, D3D12_COMMAND_LIST_TYPE_COPY, "imgui upload queue");
     //auto copyContext = std::make_unique<CommandContext>(device, copyQueue.get(), "imgui upload context");
 
-    auto handle = gfx::CreateTexture(fontImage, "imgui font", true);
-
+    auto handle = gfx::UploadTexture(fontImage, "imgui font", true);
+    
     // Store the handle
     static_assert(sizeof(ImTextureID) >= sizeof(handle), "Can't pack descriptor handle into TexID");
-    io.Fonts->TexID = handle;
+    io.Fonts->TexID = gfx::GetDeviceResources().reservedDescriptors->GetGpuHandle((int)handle).ptr;
 }
 
 void Initialize(SDL_Window* window, float fontSize) {
@@ -434,12 +434,13 @@ void RenderDrawData(const ImDrawData* drawData, GraphicsContext* context) {
                     continue;
 
                 // Apply scissor/clipping rectangle
-                const D3D12_RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+                const auto r = CD3DX12_RECT((LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y);
                 cmdList->RSSetScissorRects(1, &r);
 
-                if (auto tex = gfx::GetTexture((uint)pcmd->GetTexID())) {
-                    shaders::imgui::SetDiffuse(cmdList, tex->GetSRV());
-                }
+                //if (auto tex = gfx::GetTexture((TexID)pcmd->GetTexID(), true)) {
+                //    shaders::imgui::SetDiffuse(cmdList, tex->GetSRV());
+                //}
+                shaders::imgui::SetDiffuse(cmdList, (D3D12_GPU_DESCRIPTOR_HANDLE)pcmd->GetTexID());
 
                 cmdList->DrawIndexedInstanced(pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
             }

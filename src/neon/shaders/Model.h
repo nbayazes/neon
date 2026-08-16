@@ -6,10 +6,10 @@
 namespace neon::gfx::shaders::model {
 
 struct TextureInfo {
-    int index;
+    int handle; // the index of the texture in the TextureTable
     int frames; // for animations
-    float frameTime;
-    int pingpong;
+    float frameTime; // for animations
+    int pingpong; // for animations
 };
 
 enum RootParameters : uint {

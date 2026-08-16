@@ -8,115 +8,38 @@
 #include "d3/OutrageModel.h"
 #include "d3/OutrageTable.h"
 #include "Graphics/CommandContext.h"
+#include "Graphics/DeviceResources.h"
 #include "Graphics/Graphics.h"
 #include "Graphics/Image.h"
+#include "Graphics/Mesh.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "ModelCache.h"
 #include "Scene.h"
 #include "ScopedTimer.h"
 #include "shaders/Model.h"
 #include "shaders/ModelVertex.h"
 #include "SystemClock.h"
+#include "TextureRegistry.h"
+
+namespace neon {
+gfx::Mesh CreateMesh(d3::Model& model);
+}
 
 namespace neon::app {
 
 namespace {
     Camera _camera;
     Scene _scene;
+    //VClipTable vclipTable;
 }
 
-void PopulateTangents(span<gfx::shaders::ModelVertex> verts) {
-    auto edge1 = verts[1].position - verts[0].position;
-    auto edge2 = verts[2].position - verts[0].position;
-    auto deltaUV1 = verts[1].uv - verts[0].uv;
-    auto deltaUV2 = verts[2].uv - verts[0].uv;
-
-    static_assert(std::numeric_limits<float>::is_iec559); // Check that nan / inf behavior is defined
-    float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-    if (std::isnan(f) || std::isinf(f)) {
-        // Invalid UVs or untextured side
-        edge1.Normalize(verts[0].tangent);
-        verts[1].tangent = verts[2].tangent = verts[0].tangent;
-        auto bitangent = verts[0].tangent.Cross(verts[0].normal);
-        verts[0].bitangent = verts[1].bitangent = verts[2].bitangent = bitangent;
-    }
-    else {
-        Vector3 tangent = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * f;
-        tangent.Normalize();
-
-        Vector3 bitangent = (edge2 * deltaUV1.x - edge1 * deltaUV2.x) * f;
-        bitangent.Normalize();
-
-        verts[0].tangent = verts[1].tangent = verts[2].tangent = tangent;
-        verts[0].bitangent = verts[1].bitangent = verts[2].bitangent = bitangent;
-    }
-}
 
 //struct Submesh {
 //    List<gfx::shaders::ModelVertex> vertices;
 //    List<uint16> indices;
 //    List<short> textures; // local texture index for each triangle
 //};
-
-gfx::Mesh CreateMesh(d3::Model& model) {
-    gfx::Mesh mesh;
-    mesh.model = model;
-
-    for (int smIndex = 0; auto& submodel : model.submodels) {
-        auto& submesh = mesh.submeshes.emplace_back();
-        int16 index = 0;
-
-        // combine uvs from faces with the vertices
-        for (auto& face : submodel.faces) {
-            if (face.texNum == -1) continue; // Skip untextured faces as they are metadata such as gunpoints or glows
-            // todo: split meshes based on transparency - were the original models designed with this in mind?
-            Color color = face.color;
-
-            const auto& fv0 = face.vertices[0];
-            const auto& v0 = submodel.vertices[fv0.index];
-
-            auto fvx = &face.vertices[1];
-            auto vx = &submodel.vertices[fvx->index];
-
-            // convert triangle fans to triangle lists
-            for (int i = 2; i < face.vertices.size(); i++) {
-                auto& fv = face.vertices[i];
-                auto& v = submodel.vertices[fv.index];
-                auto startSize = submesh.vertices.size();
-
-                auto addVert = [&](const d3::Submodel::Vertex& vtx, const Vector2& uv) {
-                    color.A(vtx.alpha);
-
-                    submesh.vertices.push_back(gfx::shaders::ModelVertex{
-                        .position = vtx.position,
-                        .uv = uv,
-                        .color = color,
-                        .normal = vtx.normal,
-                    });
-                    submesh.indices.push_back(index++);
-                };
-
-                addVert(v0, fv0.uv);
-                addVert(*vx, fvx->uv);
-                addVert(v, fv.uv);
-
-                PopulateTangents(std::span{ &submesh.vertices[startSize], 3 });
-
-                fvx = &fv;
-                vx = &v;
-
-                // Map the local indices to global ones
-                submesh.textureIndices.push_back(model.textureHandles[face.texNum]);
-                submesh.model = submodel;
-            }
-        }
-
-        smIndex++;
-    }
-
-    return mesh;
-}
 
 // todo: must handle d1/d2/d3 and loose resources
 
@@ -128,10 +51,10 @@ enum class LoadedTexHandle : int16 {};
 // the index is then assigned to the model texture slots
 //      0 -> 3
 // and used in the shader to fetch the correct texture
-CaseInsensitiveDictionary<LoadedTexHandle> _textureLookup;
+//CaseInsensitiveDictionary<LoadedTexHandle> _textureLookup;
 
-List<d3::VClip> _vclips;
-CaseInsensitiveDictionary<string> _vclipFrameLookup; // maps vclip frames to the vclip file name
+//List<d3::VClip> _vclips;
+//CaseInsensitiveDictionary<string> _vclipFrameLookup; // maps vclip frames to the vclip file name
 
 struct TextureEntry {
     int entry = -1; // Game table texture entry
@@ -147,11 +70,11 @@ struct LoadedVClip {
     List<int> handles; // loaded texture handle for each frame
 };
 
-List<LoadedVClip> _loadedVClips;
+//List<LoadedVClip> _loadedVClips;
 
-List<TextureEntry> _textures; // maps info for global texture indices
+//List<TextureEntry> _textures; // maps info for global texture indices
 
-List<gfx::TexHandle> _loadedTextures;
+//List<gfx::TexID> _loadedTextures;
 
 //Option<d3::Bitmap> ReadOutrageBitmap(const d3::Hog2& hog, const d3::GameTable& gameTable, const string& fileName) {
 //    for (auto& tex : gameTable.Textures) {
@@ -186,11 +109,13 @@ void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
             auto vclip = d3::VClip::Read(reader);
             vclip.fileName = tex.fileName;
             vclip.frameTime = tex.speed / vclip.frames.size();
-            _vclips.push_back(vclip);
 
-            for (auto& frame : vclip.frames) {
-                _vclipFrameLookup[frame.name] = vclip.fileName;
-            }
+            g_VClips.Add(vclip);
+            //_vclips.push_back(vclip);
+
+            //for (auto& frame : vclip.frames) {
+            //    _vclipFrameLookup[frame.name] = vclip.fileName;
+            //}
         }
     }
 }
@@ -200,11 +125,14 @@ string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName
 
     for (auto& tex : gameTable.textures) {
         if (HasFlag(tex.flags, d3::TextureFlag::Animated)) {
-            if (auto f = _vclipFrameLookup.find(fileName); f != _vclipFrameLookup.end())
-                return f->second;
+            if (auto vclip = g_VClips.FindByFrame(fileName))
+                return *vclip;
 
-            if (auto f = _vclipFrameLookup.find(fileNameOgf); f != _vclipFrameLookup.end())
-                return f->second;
+            //if (auto f = _vclipFrameLookup.find(fileName); f != _vclipFrameLookup.end())
+            //    return f->second;
+
+            //if (auto f = _vclipFrameLookup.find(fileNameOgf); f != _vclipFrameLookup.end())
+            //    return f->second;
         }
         else {
             string name;
@@ -219,13 +147,13 @@ string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName
 }
 
 
-int FindVClip(string_view name) {
-    for (int i = 0; i < _vclips.size(); ++i) {
-        if (_vclips[i].fileName == name) return i;
-    }
-
-    return -1;
-}
+//int FindVClip(string_view name) {
+//    for (int i = 0; i < _vclips.size(); ++i) {
+//        if (_vclips[i].fileName == name) return i;
+//    }
+//
+//    return -1;
+//}
 
 //bool VClipContainsFrame(const d3::VClip& vclip, string_view name) {
 //    for (auto& frame : vclip.frames) {
@@ -241,18 +169,20 @@ int FindVClip(string_view name) {
 //}
 
 int FindVClipFrame(const d3::GameTable& gameTable, const string& name) {
-    auto nameOgf = name + ".ogf";
+    //auto nameOgf = name + ".ogf";
 
-    string file;
+    //string file;
 
-    if (auto vclipName = _vclipFrameLookup.find(nameOgf); vclipName != _vclipFrameLookup.end()) {
-        file = vclipName->second;
-    }
-    else if (vclipName = _vclipFrameLookup.find(name); vclipName != _vclipFrameLookup.end()) {
-        file = vclipName->second;
-    }
+    //if (auto vclipName = _vclipFrameLookup.find(nameOgf); vclipName != _vclipFrameLookup.end()) {
+    //    file = vclipName->second;
+    //}
+    //else if (vclipName = _vclipFrameLookup.find(name); vclipName != _vclipFrameLookup.end()) {
+    //    file = vclipName->second;
+    //}
 
-    if (file.empty()) return -1;
+    auto file = g_VClips.FindByFrame(name);
+
+    if (!file) return -1;
 
     for (int i = 0; i < gameTable.textures.size(); ++i) {
         auto& entry = gameTable.textures[i];
@@ -280,8 +210,8 @@ int FindTextureEntry(const d3::GameTable& gameTable, const string& name) {
     return vclipFrame;
 }
 
-List<gfx::shaders::model::TextureInfo> _textureInfoTable;
-List<char> _textureLoadIndicator;
+//List<gfx::shaders::model::TextureInfo> _textureInfoTable;
+//List<char> _textureLoadIndicator;
 
 void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<string> textures) {
     // locate textures and upload them to the GPU
@@ -294,40 +224,45 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
             continue;
         }
 
-        if (_textureLoadIndicator[index]) continue;
+        if (g_TextureRegistry.IsLoaded(texture)) continue;
 
-        _textureLoadIndicator[index] = true;
+
+        //if (_textureLoadIndicator[index]) continue;
+
+        //_textureLoadIndicator[index] = true;
         auto& entry = gameTable.textures[index];
 
         if (HasFlag(entry.flags, d3::TextureFlag::Animated)) {
-            auto vclipIndex = FindVClip(entry.fileName);
+            auto vclipIndex = g_VClips.FindIndex(entry.fileName);
             if (vclipIndex == -1) continue;
 
-            auto& vclip = _vclips[vclipIndex];
+            auto vclip = g_VClips.Get(vclipIndex);
+            if (!vclip) continue;
 
-            if (_textureLookup.contains(vclip.fileName)) {
+            if (g_TextureRegistry.IsLoaded(vclip->fileName)) {
                 SPDLOG_INFO("vclip `{}` is already loaded", entry.fileName);
                 continue;
             }
 
-            SPDLOG_INFO("Loading vclip {} with {} frames", vclip.fileName, vclip.frames.size());
+            SPDLOG_INFO("Loading vclip {} with {} frames", vclip->fileName, vclip->frames.size());
 
 
-            auto textureInfoIndex = (int)_loadedTextures.size();
-            _textureLookup[vclip.fileName] = (LoadedTexHandle)textureInfoIndex;
+            //auto textureInfoIndex = (int)_loadedTextures.size();
+            //_textureLookup[vclip->fileName] = (LoadedTexHandle)textureInfoIndex;
 
-            _textures.push_back({
-                .entry = index,
-                .handle = textureInfoIndex,
-                .vclipHandle = (int)_loadedVClips.size(),
-                .vclip = vclipIndex
-            });
 
-            auto& loaded = _loadedVClips.emplace_back();
+            //_textures.push_back({
+            //    .entry = index,
+            //    .handle = textureInfoIndex,
+            //    .vclipHandle = (int)_loadedVClips.size(),
+            //    .vclip = vclipIndex
+            //});
 
-            List<List<span<uint>>> textureArray;
+            //auto& loaded = _loadedVClips.emplace_back();
 
-            for (auto& frame : vclip.frames) {
+            List<List<span<const uint>>> textureArray;
+
+            for (auto& frame : vclip->frames) {
                 auto& fd = textureArray.emplace_back();
 
                 for (auto& mip : frame.mips) {
@@ -337,51 +272,25 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 // todo: resize if frame sizes don't match (shouldn't happen, but it could for user textures)
             }
 
-            {
-                gfx::Image image;
-                image.LoadArray2D<uint>(textureArray, vclip.frames[0].width, vclip.frames[0].height);
 
-                auto handle = gfx::CreateTexture(image, vclip.fileName);
-                loaded.handles.push_back((int)_loadedTextures.size());
-                _loadedTextures.push_back(handle);
-                SPDLOG_INFO("Loaded {} - idx: {}", vclip.fileName, handle);
+            gfx::Image image;
+            image.LoadArray2D<const uint>(textureArray, vclip->frames[0].width, vclip->frames[0].height);
 
-                auto& info = _textureInfoTable.emplace_back();
-                info.frames = (int)vclip.frames.size();
-                info.frameTime = vclip.frameTime;
-                info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
-                info.index = textureInfoIndex;
+            //auto handle = gfx::UploadTexture(image, vclip->fileName);
+            //loaded.handles.push_back((int)_loadedTextures.size());
+            //_loadedTextures.push_back(handle);
+            //SPDLOG_INFO("Loaded {} - idx: {}", vclip->fileName, (int)handle);
 
-            }
+            //auto& info = _textureInfoTable.emplace_back();
+            //info.frames = (int)vclip->frames.size();
+            //info.frameTime = vclip->frameTime;
+            //info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
+            //info.index = textureInfoIndex;
 
-            // Load the individual frames
-            //for (auto& frame : vclip.frames) {
-            //    if (_textureLookup.contains(frame.name)) {
-            //        SPDLOG_INFO("texture {} is already loaded", frame.name);
-            //        continue;
-            //    }
-
-            //    gfx::Image image;
-            //    image.LoadMipmapped<uint>(frame.mips, frame.width, frame.height);
-
-            //    loaded.handles.push_back((int)_loadedTextures.size());
-
-            //    auto handle = gfx::CreateTexture(image, frame.name);
-            //    _loadedTextures.push_back(handle);
-            //    SPDLOG_INFO("Loaded {} - idx: {}", frame.name, handle);
-
-            //    // load each individual frame into the texture info table
-            //    auto& info = _textureInfoTable.emplace_back();
-            //    info.frames = (int)vclip.frames.size();
-            //    info.frameTime = vclip.frameTime;
-            //    info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
-            //    info.index = textureInfoIndex;
-            //}
-
-            //SPDLOG_INFO("Setting vclip info index to {}", textureInfoIndex);
+            g_TextureRegistry.Upload(vclip->fileName, image, vclipIndex);
         }
         else {
-            if (_textureLookup.contains(entry.fileName)) {
+            if (g_TextureRegistry.IsLoaded(entry.fileName)) {
                 SPDLOG_INFO("texture {} is already loaded", entry.fileName);
                 continue;
             }
@@ -392,19 +301,22 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
 
                 gfx::Image image;
                 image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
+                g_TextureRegistry.Upload(entry.fileName, image);
 
-                auto handle = gfx::CreateTexture(image, entry.fileName);
-                auto& info = _textureInfoTable.emplace_back();
-                info.index = (int)_loadedTextures.size();
-                _textures.push_back({ index, (int)_loadedTextures.size() });
-                _textureLookup[entry.fileName] = (LoadedTexHandle)_loadedTextures.size();
-                _loadedTextures.push_back(handle);
-                SPDLOG_INFO("Loaded {} - idx: {}", entry.fileName, handle);
+                //auto handle = gfx::UploadTexture(image, entry.fileName);
+                // auto& info = _textureInfoTable.emplace_back();
+                // info.index = (int)_loadedTextures.size();
+                // _textures.push_back({ index, (int)_loadedTextures.size() });
+                // _textureLookup[entry.fileName] = (LoadedTexHandle)_loadedTextures.size();
+                // _loadedTextures.push_back(handle);
+                //SPDLOG_INFO("Loaded {} - idx: {}", entry.fileName, (uint)handle);
             }
         }
     }
 
-    gfx::UpdateTextureInfo(_textureInfoTable);
+
+    auto table = g_TextureRegistry.BuildTextureTable(g_VClips.Entries());
+    gfx::UpdateTextureInfo(table);
 }
 
 
@@ -432,9 +344,10 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
         auto& texture = model.textures[i];
         auto name = ResolveTextureName(gameTable, texture);
 
-        if (auto find = _textureLookup.find(name); find != _textureLookup.end()) {
-            model.textureHandles[i] = (int)find->second;
-            SPDLOG_INFO("Mapping model texture {} to {}", i, (int)find->second);
+        if (auto entry = g_TextureRegistry.Find(name)) {
+            model.textureHandles[i] = entry->handle;
+            // SPDLOG_INFO("Mapping model texture {} to {}", i, (int)entry->texid);
+            SPDLOG_INFO("Mapping model texture {} to {}", model.textures[i], entry->name);
         }
         else {
             SPDLOG_WARN("Unable to find texture {}", texture);
@@ -451,7 +364,7 @@ List<gfx::Mesh> _meshes;
 d3::GameTable _gameTable;
 List<d3::Hog2::Entry> _modelEntries;
 d3::Hog2 _d3Hog;
-uint _meshid = (uint)-1;
+auto _meshid = ModelID::None;
 
 d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
     auto modelData = hog.ReadEntry(name);
@@ -463,9 +376,13 @@ d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
     return model;
 }
 
-gfx::Mesh LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model) {
+// todo: superthiefemitter.oof has no geometry at all?
+ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model, string_view name) {
     int64 time = 0;
     ScopedTimer timer(time);
+
+    if (auto existing = g_ModelCache.Find(name); existing != ModelID::None)
+        return existing;
 
     timer.Start();
     LoadTextures(hog, gameTable, model.textures);
@@ -477,12 +394,18 @@ gfx::Mesh LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Mod
     timer.Stop();
     SPDLOG_INFO("Texture map time: {:.2f} ms", time / 1000.0f);
 
+    timer.Start();
     auto mesh = CreateMesh(model);
     timer.Stop();
     SPDLOG_INFO("Mesh load time: {:.2f} ms", time / 1000.0f);
 
+    //std::array upload = { mesh };
+    auto& resources = gfx::GetDeviceResources();
+    auto meshId = resources.meshPool->Upload(mesh);
+    //gfx::UploadMeshes(upload);
 
-    return mesh;
+    auto modelId = g_ModelCache.Add(model, name, meshId);
+    return modelId;
 }
 
 float _cameraDistance = 5;
@@ -502,22 +425,19 @@ void Init() {
     StreamReader tableReader(*tableData);
     _gameTable = d3::GameTable::Read(tableReader);
 
-    _textureLoadIndicator.resize(_gameTable.textures.size());
+    //_textureLoadIndicator.resize(_gameTable.textures.size());
 
     ReadVClips(hog, _gameTable);
 
-    auto modelName = "shield.OOF"; 
-    //auto modelName = "flareyellowbright.oof";
+    // auto modelName = "shield.OOF"; 
+    auto modelName = "flareyellowbright.oof";
     //auto modelName = "forcefieldswitch.oof";
     //auto modelName = "4packconc.oof";
     auto model = ReadModel(hog, modelName);
-    auto mesh = LoadModel(hog, _gameTable, model);
-    mesh.name = modelName;
-    _cameraDistance = std::max(model.radius, 2.5f) * 2;
 
-    _meshid = 0;
-    std::array upload = { mesh };
-    gfx::UploadMeshes(upload);
+    _meshid = LoadModel(hog, _gameTable, model, modelName);
+    //mesh.name = modelName;
+    _cameraDistance = std::max(model.radius, 2.5f) * 2;
 
     _d3Hog = std::move(hog);
 }
@@ -541,8 +461,6 @@ DirectX::BoundingBox CalculateModelBounds(const gfx::Mesh& mesh) {
 void ModelBrowser() {
     ImGui::Begin("Models");
 
-    ImGui::BeginChild("models", { -1, -1 }, true);
-
     static int _selection = 0;
     static List<char> _search;
     _search.resize(50);
@@ -552,6 +470,8 @@ void ModelBrowser() {
     ImGui::SetNextItemWidth(-1);
     ImGui::InputText("##Search", _search.data(), _search.capacity());
     auto searchstr = String::ToLower(string(_search.data()));
+
+    ImGui::BeginChild("models", { -1, -1 }, true);
 
     for (int i = 0; i < _modelEntries.size(); ++i) {
         auto& entry = _modelEntries[i];
@@ -565,12 +485,13 @@ void ModelBrowser() {
             _selection = i;
 
             auto model = ReadModel(_d3Hog, entry.name);
-            auto mesh = LoadModel(_d3Hog, _gameTable, model);
-            mesh.name = entry.name;
+            //auto mesh = LoadModel(_d3Hog, _gameTable, model, entry.name);
+            _meshid = LoadModel(_d3Hog, _gameTable, model, entry.name);
+            //mesh.name = entry.name;
 
-            _meshid++;
-            std::array upload = { mesh };
-            gfx::UploadMeshes(upload);
+            //_meshid++;
+            //std::array upload = { mesh };
+            //gfx::UploadMeshes(upload);
             //auto bounds = CalculateModelBounds(mesh);
             //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
             _cameraDistance = std::max(model.radius, 2.5f) * 3;
@@ -603,28 +524,26 @@ void TextureDebugWindow() {
 
     ImGuiStyle& style = ImGui::GetStyle();
     uint i = 0;
-    auto count = (uint)_textureLookup.size();
+    auto count = (uint)g_TextureRegistry.Entries().size();
     float contentWidth = ImGui::GetWindowContentRegionMax().x;
     float availableWidth = ImGui::GetWindowPos().x + contentWidth;
 
-    for (auto& entry : _textures) {
-        int handle = 0;
+    for (auto& entry : g_TextureRegistry.Entries()) {
+        //handle = entry.handle;
 
-        if (entry.vclip == -1) {
-            handle = entry.handle;
-        }
-        else {
-            auto& vclip = _vclips[entry.vclip];
-            auto frame = vclip.GetFrame(Clock.GetTotalTimeSeconds());
-            handle = _loadedVClips[entry.vclipHandle].handles[0];
-            //handle = vclips[entry.vclip].frames[0].name;    
-        }
+        //if (entry.vclip == -1) {
+        //}
+        //else {
+        //    if(auto  vclip = g_VClips.Get(entry.vclip)) {
+        //        //handle = _loadedVClips[entry.vclipHandle].handles[0];
+        //    }
+        //    //auto& vclip = vclipTable.Get(entry.vclip);
+        //    //auto frame = vclip.GetFrame(Clock.GetTotalTimeSeconds());
+        //    
+        //    //handle = vclips[entry.vclip].frames[0].name;    
+        //}
 
-
-        auto texid = _loadedTextures[handle];
-
-        auto& tableEntry = _gameTable.textures[entry.entry];
-        ImGui::ImageButton(tableEntry.name.c_str(), { texid }, tileSize, { 0, 0 }, { 1, 1 }, bg);
+        ImGui::ImageButton(entry.name.c_str(), { entry.descriptor }, tileSize, { 0, 0 }, { 1, 1 }, bg);
 
         float spacing = style.ItemSpacing.x / 2.0f;
         float xLast = ImGui::GetItemRectMax().x;
