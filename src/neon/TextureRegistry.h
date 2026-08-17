@@ -62,6 +62,7 @@ struct TextureEntry {
     int handle = -1; // Index in the global texture descriptor table
     int vclip = -1; // vclip table index for this entry
     uint64 descriptor = 0; // GPU descriptor handle
+    float opacity = 1;
 };
 
 class TextureRegistry {
@@ -79,12 +80,9 @@ public:
         }
 
         return nullptr;
-        /*if(_textureLookup.contains(name)) {
-            return _textures[
-        }*/
     }
 
-    void Upload(string_view name, const gfx::Image& image, int vclip = -1);
+    void Upload(string_view name, const gfx::Image& image, float opacity = 1, int vclip = -1);
 
     void Clear() {
         for (auto& texture : _textures) {
@@ -110,11 +108,12 @@ public:
                     .handle = texture.handle,
                     .frames = (int)vclip->frames.size(),
                     .frameTime = vclip->frameTime,
-                    .pingpong = vclip->pingPong
+                    .pingpong = vclip->pingPong,
+                    .opacity = texture.opacity
                 });
             }
             else {
-                table.push_back({ .handle = texture.handle, });
+                table.push_back({ .handle = texture.handle, .opacity = texture.opacity });
             }
         }
 

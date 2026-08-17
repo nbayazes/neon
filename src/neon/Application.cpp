@@ -31,79 +31,11 @@ namespace neon::app {
 namespace {
     Camera _camera;
     Scene _scene;
-    //VClipTable vclipTable;
-}
-
-
-//struct Submesh {
-//    List<gfx::shaders::ModelVertex> vertices;
-//    List<uint16> indices;
-//    List<short> textures; // local texture index for each triangle
-//};
-
-// todo: must handle d1/d2/d3 and loose resources
-
-enum class LoadedTexHandle : int16 {};
-
-// mapping of texture names to indices in the global texture buffer (descriptor handles)
-//      "texture" -> 3
-// 
-// the index is then assigned to the model texture slots
-//      0 -> 3
-// and used in the shader to fetch the correct texture
-//CaseInsensitiveDictionary<LoadedTexHandle> _textureLookup;
-
-//List<d3::VClip> _vclips;
-//CaseInsensitiveDictionary<string> _vclipFrameLookup; // maps vclip frames to the vclip file name
-
-struct TextureEntry {
-    int entry = -1; // Game table texture entry
-    int handle = -1; // loaded texture handle 
-    int vclipHandle = -1; // vclip table
-    //bool animated; // index into vclips instead of textures
-    int vclip = -1; // vclip table index for this entry
-    // int vclipHandle = -1; // loaded vclip handle
-    // destroyed
-};
-
-struct LoadedVClip {
-    List<int> handles; // loaded texture handle for each frame
-};
-
-//List<LoadedVClip> _loadedVClips;
-
-//List<TextureEntry> _textures; // maps info for global texture indices
-
-//List<gfx::TexID> _loadedTextures;
-
-//Option<d3::Bitmap> ReadOutrageBitmap(const d3::Hog2& hog, const d3::GameTable& gameTable, const string& fileName) {
-//    for (auto& tex : gameTable.Textures) {
-//        string name;
-//        if (String::EqualsIgnoreCase(tex.FileName, fileName)) name = fileName;
-//        else if (String::EqualsIgnoreCase(tex.FileName, fileName + ".ogf")) name = fileName + ".ogf";
-//        else continue;
-//
-//        if (auto data = hog.ReadEntry(name)) {
-//            auto reader = StreamReader(std::move(*data), name);
-//            return d3::Bitmap::Read(reader);
-//        }
-//    }
-//
-//    return {};
-//}
-
-Option<d3::Bitmap> ReadOutrageBitmap(const d3::Hog2& hog, const string& fileName) {
-    if (auto data = hog.ReadEntry(fileName)) {
-        auto reader = StreamReader(std::move(*data), fileName);
-        return d3::Bitmap::Read(reader);
-    }
-
-    return {};
 }
 
 void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
     for (auto& tex : gameTable.textures) {
-        if (!tex.Animated()) continue;
+        if (!HasFlag(tex.flags, d3::TextureFlag::Animated)) continue;
         if (auto data = hog.ReadEntry(tex.fileName)) {
             auto reader = StreamReader(std::move(*data), tex.fileName);
             auto vclip = d3::VClip::Read(reader);
@@ -111,11 +43,6 @@ void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
             vclip.frameTime = tex.speed / vclip.frames.size();
 
             g_VClips.Add(vclip);
-            //_vclips.push_back(vclip);
-
-            //for (auto& frame : vclip.frames) {
-            //    _vclipFrameLookup[frame.name] = vclip.fileName;
-            //}
         }
     }
 }
@@ -244,21 +171,7 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 continue;
             }
 
-            SPDLOG_INFO("Loading vclip {} with {} frames", vclip->fileName, vclip->frames.size());
-
-
-            //auto textureInfoIndex = (int)_loadedTextures.size();
-            //_textureLookup[vclip->fileName] = (LoadedTexHandle)textureInfoIndex;
-
-
-            //_textures.push_back({
-            //    .entry = index,
-            //    .handle = textureInfoIndex,
-            //    .vclipHandle = (int)_loadedVClips.size(),
-            //    .vclip = vclipIndex
-            //});
-
-            //auto& loaded = _loadedVClips.emplace_back();
+            SPDLOG_INFO("Loading vclip {} with {} frames - alpha {}", vclip->fileName, vclip->frames.size(), entry.color.w);
 
             List<List<span<const uint>>> textureArray;
 
@@ -272,22 +185,9 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 // todo: resize if frame sizes don't match (shouldn't happen, but it could for user textures)
             }
 
-
             gfx::Image image;
             image.LoadArray2D<const uint>(textureArray, vclip->frames[0].width, vclip->frames[0].height);
-
-            //auto handle = gfx::UploadTexture(image, vclip->fileName);
-            //loaded.handles.push_back((int)_loadedTextures.size());
-            //_loadedTextures.push_back(handle);
-            //SPDLOG_INFO("Loaded {} - idx: {}", vclip->fileName, (int)handle);
-
-            //auto& info = _textureInfoTable.emplace_back();
-            //info.frames = (int)vclip->frames.size();
-            //info.frameTime = vclip->frameTime;
-            //info.pingpong = HasFlag(entry.flags, d3::TextureFlag::PingPong);
-            //info.index = textureInfoIndex;
-
-            g_TextureRegistry.Upload(vclip->fileName, image, vclipIndex);
+            g_TextureRegistry.Upload(vclip->fileName, image, entry.color.w, vclipIndex);
         }
         else {
             if (g_TextureRegistry.IsLoaded(entry.fileName)) {
@@ -301,40 +201,17 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
 
                 gfx::Image image;
                 image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
-                g_TextureRegistry.Upload(entry.fileName, image);
+                g_TextureRegistry.Upload(entry.fileName, image, entry.color.w);
 
-                //auto handle = gfx::UploadTexture(image, entry.fileName);
-                // auto& info = _textureInfoTable.emplace_back();
-                // info.index = (int)_loadedTextures.size();
-                // _textures.push_back({ index, (int)_loadedTextures.size() });
-                // _textureLookup[entry.fileName] = (LoadedTexHandle)_loadedTextures.size();
-                // _loadedTextures.push_back(handle);
-                //SPDLOG_INFO("Loaded {} - idx: {}", entry.fileName, (uint)handle);
+                SPDLOG_INFO("Loading vclip {} - alpha {}", entry.fileName, entry.color.w);
             }
         }
     }
-
 
     auto table = g_TextureRegistry.BuildTextureTable(g_VClips.Entries());
     gfx::UpdateTextureInfo(table);
 }
 
-
-//Option<Outrage::Bitmap> ReadOutrageBitmap(const string& fileName) {
-//    for (auto& tex : GameTable.Textures) {
-//        string name;
-//        if (String::EqualsIgnoreCase(tex.FileName, fileName)) name = fileName;
-//        else if (String::EqualsIgnoreCase(tex.FileName, fileName + ".ogf")) name = fileName + ".ogf";
-//        else continue;
-//
-//        if (auto data = Descent3Hog.ReadEntry(name)) {
-//            auto reader = StreamReader(std::move(*data), name);
-//            return Outrage::Bitmap::Read(reader);
-//        }
-//    }
-//
-//    return {};
-//}
 
 // maps the local texture indices to global textures
 void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
@@ -355,12 +232,6 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
     }
 }
 
-//struct LoadedMesh {
-//    string name;
-//    List<gfx::Submesh> mesh;
-//};
-
-List<gfx::Mesh> _meshes;
 d3::GameTable _gameTable;
 List<d3::Hog2::Entry> _modelEntries;
 d3::Hog2 _d3Hog;
@@ -399,10 +270,8 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
     timer.Stop();
     SPDLOG_INFO("Mesh load time: {:.2f} ms", time / 1000.0f);
 
-    //std::array upload = { mesh };
     auto& resources = gfx::GetDeviceResources();
     auto meshId = resources.meshPool->Upload(mesh);
-    //gfx::UploadMeshes(upload);
 
     auto modelId = g_ModelCache.Add(model, name, meshId);
     return modelId;

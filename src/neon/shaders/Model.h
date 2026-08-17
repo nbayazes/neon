@@ -10,6 +10,7 @@ struct TextureInfo {
     int frames; // for animations
     float frameTime; // for animations
     int pingpong; // for animations
+    float opacity = 1;
 };
 
 enum RootParameters : uint {
@@ -169,9 +170,20 @@ inline PipelineInfo model = {
     .name = "model",
     .shader = &shaders::model::info,
     .format = DXGI_FORMAT_R11G11B10_FLOAT,
-    .blend = BlendMode::Opaque, // Alpha?
+    .blend = BlendMode::Opaque,
     .culling = CullMode::None,
     .depth = DepthMode::ReadWrite,
+    .stencil = StencilMode::PortalRead,
+    .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+};
+
+inline PipelineInfo modelAdditive = {
+    .name = "model additive",
+    .shader = &shaders::model::info,
+    .format = DXGI_FORMAT_R11G11B10_FLOAT,
+    .blend = BlendMode::Additive,
+    .culling = CullMode::None,
+    .depth = DepthMode::Read,
     .stencil = StencilMode::PortalRead,
     .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 };

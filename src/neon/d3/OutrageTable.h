@@ -67,7 +67,7 @@ enum class TextureFlag {
     Breakable = 1 << 20,
     Saturate = 1 << 21, // Additive
     Alpha = 1 << 22, // Use the alpha value in the tablefile
-    Dontuse = 1 << 23, // Not intended for levels? Hidden in texture browser?
+    DontUse = 1 << 23, // Not intended for levels? Hidden in texture browser?
     Procedural = 1 << 24,
     WaterProcedural = 1 << 25,
     ForceLightmap = 1 << 26,
@@ -151,12 +151,6 @@ struct TextureInfo {
     int damage;
     ProceduralInfo procedural;
     string sound;
-
-    constexpr bool Saturate() const { return bool(flags & TextureFlag::Saturate); }
-    constexpr bool Alpha() const { return bool(flags & TextureFlag::Alpha); }
-    constexpr bool Animated() const { return bool(flags & TextureFlag::Animated); }
-    constexpr bool IsProcedural() const { return bool(flags & TextureFlag::Procedural); }
-    constexpr bool IsWaterProcedural() const { return bool(flags & TextureFlag::WaterProcedural); }
 
     uint16 GetSize() const {
         if (HasFlag(flags, d3::TextureFlag::Texture32))

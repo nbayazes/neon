@@ -4,7 +4,7 @@
 
 namespace neon {
 
-void TextureRegistry::Upload(string_view name, const gfx::Image& image, int vclip) {
+void TextureRegistry::Upload(string_view name, const gfx::Image& image, float opacity, int vclip) {
     auto& entry = GetEntry(name);
     gfx::FreeTexture(entry.texid);
 
@@ -13,8 +13,9 @@ void TextureRegistry::Upload(string_view name, const gfx::Image& image, int vcli
     entry.handle = resources.textureDescriptors->Count() - 1;
     entry.vclip = vclip;
     entry.name = name;
+    entry.opacity = opacity;
     entry.descriptor = resources.textureDescriptors->GetHandle(entry.handle).GetGpuHandle().ptr;
-    SPDLOG_INFO("Loaded {} - idx: {} - handle: {}", name, (uint)entry.texid, entry.handle);
+    //SPDLOG_INFO("Loaded {} - idx: {} - handle: {}", name, (uint)entry.texid, entry.handle);
 }
 TextureRegistry g_TextureRegistry;
 

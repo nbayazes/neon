@@ -35,7 +35,7 @@ struct VClip {
     // Returns the frame for the vclip based on elapsed time
     int GetFrame(float time) {
         //if (NumFrames == 0) return 0;
-        int frame = (int) floor(abs(time) / frameTime) % numFrames;
+        int frame = (int)floor(abs(time) / frameTime) % numFrames;
         return frames[frame];
     }
 };
@@ -152,12 +152,65 @@ float Luminance(float3 v) {
     return dot(v, float3(0.2126f, 0.7152f, 0.0722f));
 }
 
-#define SPRITE_RS "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "\
-    "CBV(b0),"\
-    "RootConstants(b1, num32BitConstants = 7), " \
-    "DescriptorTable(SRV(t0), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "DescriptorTable(SRV(t1), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "DescriptorTable(SRV(t2), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "DescriptorTable(Sampler(s0), visibility=SHADER_VISIBILITY_PIXEL)"
+float InOutCubic(float x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2;
+}
+
+float InOutQuad(float x) {
+    return x < 0.5 ? 2 * x * x : 1 - pow(-2 * x + 2, 2) / 2;
+}
+
+struct TextureInfo {
+    int index;
+    int frames; // for animations
+    float frameTime;
+    int pingpong;
+    float opacity;
+    // int blendFunc; // frame blend function for animations
+
+    int GetFrame(float time) {
+        if (frames <= 1)
+            return 0;
+
+        int frame = (int)(abs(time) / frameTime);
+
+        if (pingpong) {
+            frame %= frames * 2;
+
+            if (frame >= frames)
+                frame = (frames - 1) - (frame % frames);
+            else
+                frame %= frames;
+
+            return frame;
+        }
+        else {
+            return frame % frames;
+        }
+    }
+
+    float GetFrameBlend(float time) {
+        if (frames <= 1)
+            return 0;
+
+        float frame = abs(time) / frameTime;
+
+        if (pingpong) {
+            float cycle = fmod(frame, frames * 2);
+
+            if (cycle >= frames)
+                cycle = (frames - 1) - fmod(cycle, frames);
+            else
+                cycle = fmod(cycle, frames);
+
+            return cycle;
+        }
+        else {
+            // check if frame is past the end and wrap it
+            // for 5 frames, act like there's a 6th and return a negative value
+            return fmod(frame, frames);
+        }
+    }
+};
 
 #endif

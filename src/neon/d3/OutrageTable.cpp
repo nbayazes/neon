@@ -64,16 +64,17 @@ TextureInfo ReadTexturePage(StreamReader& r) {
 
     tex.flags = (TextureFlag)r.ReadInt32();
 
-    if (tex.IsProcedural()) {
+    if (HasFlag(tex.flags, TextureFlag::Procedural)) {
         auto& proc = tex.procedural;
         for (auto& p : tex.procedural.palette)
             p = r.ReadUInt16();
 
-        proc.IsWater = tex.IsWaterProcedural();
+        proc.IsWater = HasFlag(tex.flags, TextureFlag::WaterProcedural);
         proc.heat = r.ReadByte();
         proc.light = r.ReadByte();
         proc.thickness = r.ReadByte();
         proc.evalTime = r.ReadFloat();
+
         if (proc.evalTime <= 0.001f)
             proc.evalTime = 1 / 30.0f; // Default to 30 FPS if eval time is near 0
 
