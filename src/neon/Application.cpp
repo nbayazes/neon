@@ -74,39 +74,7 @@ string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName
 }
 
 
-//int FindVClip(string_view name) {
-//    for (int i = 0; i < _vclips.size(); ++i) {
-//        if (_vclips[i].fileName == name) return i;
-//    }
-//
-//    return -1;
-//}
-
-//bool VClipContainsFrame(const d3::VClip& vclip, string_view name) {
-//    for (auto& frame : vclip.frames) {
-//        if (String::EqualsIgnoreCase(frame.name, name)) {
-//            return true;
-//        }
-//        else if (String::EqualsIgnoreCase(frame.name, name + ".ogf")) {
-//            return true;
-//        }
-//    }
-//
-//    return false;
-//}
-
 int FindVClipFrame(const d3::GameTable& gameTable, const string& name) {
-    //auto nameOgf = name + ".ogf";
-
-    //string file;
-
-    //if (auto vclipName = _vclipFrameLookup.find(nameOgf); vclipName != _vclipFrameLookup.end()) {
-    //    file = vclipName->second;
-    //}
-    //else if (vclipName = _vclipFrameLookup.find(name); vclipName != _vclipFrameLookup.end()) {
-    //    file = vclipName->second;
-    //}
-
     auto file = g_VClips.FindByFrame(name);
 
     if (!file) return -1;

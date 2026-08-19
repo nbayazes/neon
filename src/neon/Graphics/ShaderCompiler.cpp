@@ -284,9 +284,11 @@ CompiledShader CompileShader(const ShaderInfo& shader) {
         return compiled;
     }
     catch (std::exception& e) {
-        SPDLOG_ERROR(e.what());
+        auto msg = fmt::format("Unable to compile {}\n{}", shader.file, e.what());
+        SPDLOG_ERROR(msg);
+        OutputDebugString(Widen(msg).c_str());
+
         if (!compiled.vertexShader || !compiled.pixelShader) {
-            auto msg = fmt::format("Unable to compile {}\n\n{}", shader.file, e.what());
             throw std::exception(msg.c_str()); // never initialized, crash
         }
 

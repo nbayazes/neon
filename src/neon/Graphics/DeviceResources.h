@@ -54,11 +54,13 @@ struct DeviceResources {
     gfx::GpuBuffer textureInfoUploadBuffer;
 
     GpuBuffer textureInfo;
-    D3D12_SHADER_RESOURCE_VIEW_DESC textureInfoView; // points at the latest copy of the texture info
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureInfoView{}; // points at the latest copy of the texture info
 
     //GpuBuffer frameRingBuffer;
 
     D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT] = {};
+    
+    DescriptorHandle CommonShaderTable[BACK_BUFFER_COUNT] = {};
 
     Texture* whiteTexture = nullptr;
 

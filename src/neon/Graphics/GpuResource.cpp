@@ -75,7 +75,8 @@ void GpuBuffer::Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType) 
     SetName(_resource, name);
 
     if(_heapType == D3D12_HEAP_TYPE_UPLOAD) {
-        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
+        Map();
+        //ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
     }
 }
 

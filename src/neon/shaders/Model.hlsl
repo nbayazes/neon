@@ -56,40 +56,6 @@ VS_OUT vsmain(ObjectVertex input) {
     return output;
 }
 
-float4 SampleTexture(TextureInfo info, float2 uv) {
-    if (info.frames > 1) {
-        // float blend = info.GetFrameBlend(Frame.Time);
-
-        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-        // tex = TextureTable[3];
-
-        // "strong blink" behavior, skips to the first frame and then smoothly transitions. Looks good on the antenna / switch animation.
-        //float3 rgb0 = tex.Sample(Sampler, float3(input.uv, floor(blend))).rgb;
-        //float3 rgb1 = tex.Sample(Sampler, float3(input.uv, ceil(blend))).rgb;
-        //rgb = lerp(rgb0, rgb1, fmod(blend, 1));
-
-        int f0 = info.GetFrame(Frame.Time);
-        int f1 = info.GetFrame(Frame.Time + info.frameTime);
-
-        float4 rgb0 = tex.Sample(Sampler, float3(uv, f0));
-        float4 rgb1 = tex.Sample(Sampler, float3(uv, f1));
-
-        float blend = fmod(Frame.Time / info.frameTime, 1);
-        // todo: vclip blend mode
-        //blend = InOutCubic(blend);
-        return lerp(rgb0, rgb1, blend);
-
-        // Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-        // rgb = tex.Sample(Sampler, float3(input.uv, info.GetFrame(Frame.Time))).rgb;
-    }
-    else {
-        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-        // tex = TextureTable[10];
-        // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
-        return tex.Sample(Sampler, float3(uv, 0));
-    }
-}
-
 float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     uint textureIndex = TextureIndices[NonUniformResourceIndex(primitiveID)];
     TextureInfo info = TextureInfoTable[NonUniformResourceIndex(textureIndex)];
@@ -99,41 +65,18 @@ float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     // todo: uv scroll from texture info
     float2 uv = input.uv + float2(0, 0) * Frame.Time;
 
-    float4 color = SampleTexture(info, input.uv);
+    float4 color = float4(1, 1, 1, 1);
+
+    if (info.frames > 1) {
+        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        color = BlendTextureFrames(info, tex, Sampler, Frame.Time, uv, 0);
+    }
+    else {
+        Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
+        color = tex.Sample(Sampler, float3(uv, 0));
+    }
+
     color.a *= info.opacity;
-
-    //if (info.frames > 1) {
-    //    // float blend = info.GetFrameBlend(Frame.Time);
-
-    //    Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-    //    // tex = TextureTable[3];
-
-    //    // "strong blink" behavior, skips to the first frame and then smoothly transitions. Looks good on the antenna / switch animation.
-    //    //float3 rgb0 = tex.Sample(Sampler, float3(input.uv, floor(blend))).rgb;
-    //    //float3 rgb1 = tex.Sample(Sampler, float3(input.uv, ceil(blend))).rgb;
-    //    //rgb = lerp(rgb0, rgb1, fmod(blend, 1));
-
-    //    int f0 = info.GetFrame(Frame.Time);
-    //    int f1 = info.GetFrame(Frame.Time + info.frameTime);
-
-    //    float4 rgb0 = tex.Sample(Sampler, float3(uv, f0));
-    //    float4 rgb1 = tex.Sample(Sampler, float3(uv, f1));
-
-    //    float blend = fmod(Frame.Time / info.frameTime, 1);
-    //    // todo: vclip blend mode
-    //    //blend = InOutCubic(blend);
-    //    color = lerp(rgb0, rgb1, blend);
-
-    //    // Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-    //    // rgb = tex.Sample(Sampler, float3(input.uv, info.GetFrame(Frame.Time))).rgb;
-    //}
-    //else {
-    //    Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-    //    // tex = TextureTable[10];
-    //    // Texture2D tex = TextureTable[NonUniformResourceIndex(textureIndex)];
-    //    color = tex.Sample(Sampler, float3(uv, 0));
-    //}
-
     color.rgb = pow(color.rgb, 1 / 2.2);
 
     float3 l = normalize(float3(4, 1, 5));

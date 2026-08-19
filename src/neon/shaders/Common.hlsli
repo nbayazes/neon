@@ -15,6 +15,7 @@ static const int VCLIP_RANGE = 10000;
 struct FrameConstants {
     float4x4 ViewProj; // Camera view * proj matrix
     float4x4 View; // Camera view matrix
+    float4x4 Projection; // Camera view matrix
     float3 Eye; // Camera position
     float Time; // elapsed game time in seconds
     float2 Size; // Frame width and height
@@ -212,5 +213,19 @@ struct TextureInfo {
         }
     }
 };
+
+
+float4 BlendTextureFrames(TextureInfo info, Texture2DArray tex, SamplerState samplerState, float time, float2 uv, int mode) {
+    int f0 = info.GetFrame(time);
+    int f1 = info.GetFrame(time + info.frameTime);
+
+    float4 rgb0 = tex.Sample(samplerState, float3(uv, f0));
+    float4 rgb1 = tex.Sample(samplerState, float3(uv, f1));
+
+    float blend = fmod(time / info.frameTime, 1);
+    // todo: vclip blend mode
+    //blend = InOutCubic(blend);
+    return lerp(rgb0, rgb1, blend);
+}
 
 #endif

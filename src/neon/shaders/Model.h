@@ -5,14 +5,6 @@
 
 namespace neon::gfx::shaders::model {
 
-struct TextureInfo {
-    int handle; // the index of the texture in the TextureTable
-    int frames; // for animations
-    float frameTime; // for animations
-    int pingpong; // for animations
-    float opacity = 1;
-};
-
 enum RootParameters : uint {
     FrameConstants, // b0
     ObjectConstants, // b1
@@ -173,6 +165,17 @@ inline PipelineInfo model = {
     .blend = BlendMode::Opaque,
     .culling = CullMode::None,
     .depth = DepthMode::ReadWrite,
+    .stencil = StencilMode::PortalRead,
+    .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+};
+
+inline PipelineInfo modelTransparent = {
+    .name = "model transparent",
+    .shader = &shaders::model::info,
+    .format = DXGI_FORMAT_R11G11B10_FLOAT,
+    .blend = BlendMode::Alpha,
+    .culling = CullMode::None,
+    .depth = DepthMode::Read,
     .stencil = StencilMode::PortalRead,
     .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 };

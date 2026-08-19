@@ -195,6 +195,7 @@
     <ClCompile Include="Rml\RmlUi_Platform_SDL.cpp" />
     <ClCompile Include="DirectoryWatcher.cpp" />
     <ClCompile Include="SetWindowsTimePeriod.cpp" />
+    <ClCompile Include="shaders\neon-shaders.cpp" />
     <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="TextureRegistry.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="Graphics\FrameConstants.h" />
     <ClInclude Include="Graphics\GraphicsHandles.h" />
     <ClInclude Include="Graphics\MeshPool.h" />
+    <ClInclude Include="Graphics\DrawCommand.h" />
     <ClInclude Include="Graphics\TextureCache.h" />
     <ClInclude Include="gsl\assert.h" />
     <ClInclude Include="gsl\pointers.h" />
@@ -218,6 +220,7 @@
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
+    <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />
     <ClInclude Include="d3\OutrageBitmap.h" />
@@ -348,6 +351,16 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\Sprite.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <FileType>Document</FileType>
+      <DeploymentContent>true</DeploymentContent>
     </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

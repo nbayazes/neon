@@ -134,6 +134,14 @@ public:
     // Creates a general purpose GPU buffer. Size in bytes.
     void Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT);
 
+    void Map() {
+        ThrowIfFailed(_resource->Map(0, &CPU_READ_NONE, (void**)&_mappedPtr));
+    }
+
+    void Unmap() const {
+        _resource->Unmap(0, nullptr);
+    }
+
     // Allocates a block of memory in the buffer. Wrapping = true will free the oldest allocations to make space for new ones.
     D3D12MA::VIRTUAL_ALLOCATION_INFO Allocate(uint64 size, bool allowWrapping = true, uint alignment = 4) {
         ASSERT(size > 0);
@@ -190,7 +198,7 @@ public:
 
     // Copies data into the buffer. Returns the offset.
     template <typename T>
-    int64 Copy(span<T> src, uint64 alignment = 4) {
+    int64 CopyRange(span<T> src, uint64 alignment = 4) {
         ASSERT(_heapType == D3D12_HEAP_TYPE_UPLOAD); // CPU copies are only supported for upload buffers!
         D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
         allocDesc.Size = src.size_bytes();
@@ -202,6 +210,16 @@ public:
 
         memcpy(_mappedPtr + offset, src.data(), allocDesc.Size);
         return offset;
+    }
+
+    // Copies data into the buffer without internal tracking.
+    template <typename T>
+    void CopyRaw(T& data, uint64 offset) {
+        ASSERT(_heapType == D3D12_HEAP_TYPE_UPLOAD); // CPU copies are only supported for upload buffers!
+        D3D12MA::VIRTUAL_ALLOCATION_DESC allocDesc = {};
+        allocDesc.Size = sizeof(data);
+        // allocDesc.Alignment = 0;
+        memcpy(_mappedPtr + offset, &data, allocDesc.Size);
     }
 
     // Resets the internal allocations to the start of the buffer

@@ -8,6 +8,7 @@
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
 #include "DeviceResources.h"
+#include "DrawCommand.h"
 #include "FrameConstants.h"
 #include "imgui.h"
 #include "imgui_local.h"
@@ -24,6 +25,9 @@
 #include "Utility.h"
 #include "Widechar.h"
 #include "ModelCache.h"
+#include "ShaderCompiler.h"
+#include "shaders/imgui.h"
+#include "shaders/Sprite.h"
 
 namespace neon::gfx {
 
@@ -53,6 +57,129 @@ namespace {
     }
 }
 
+
+struct SpriteBatchInfo {
+    shaders::sprite::Vertex vertex;
+    float depth;
+    TexID texture;
+};
+
+class SpriteBatch {
+    List<SpriteBatchInfo> _sprites;
+    GpuBuffer _vertices;
+    GpuBuffer _textureHandles;
+    //Ptr<gfx::CommandContext> _uploadContext;
+    uint64 _sizeInBytes = 0;
+    uint _vertexOffset = 0;
+    uint _handleOffset = 0;
+
+    List<shaders::sprite::Vertex> _stagingVertexBuffer;
+    List<TexID> _stagingTextureHandles;
+
+public:
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
+    D3D12_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
+
+    void Create(uint64 capacity) {
+        _vertices.Create("sprite batch", sizeof(shaders::sprite::Vertex) * capacity, D3D12_HEAP_TYPE_UPLOAD);
+        _textureHandles.Create("sprite batch handles", sizeof(int32) * capacity, D3D12_HEAP_TYPE_UPLOAD);
+        //_vertices.Unmap();
+        //auto& resources = GetDeviceResources();
+        //_uploadContext = make_unique<gfx::CommandContext>(GetDevice(), resources.copyQueue.get(), "Sprite upload command list");
+        //_uploadContext->Reset();
+
+        _stagingVertexBuffer.reserve(capacity / 2);
+        _stagingTextureHandles.reserve(capacity / 2);
+        _sprites.reserve(capacity / 2);
+    }
+
+    void Add(const SpriteBatchInfo& sprite) {
+        _sprites.push_back(sprite);
+    }
+
+    D3D12_GPU_VIRTUAL_ADDRESS GetTextureHandleAddress() {
+        return _textureHandles->GetGPUVirtualAddress();
+    }
+
+    D3D12_GPU_VIRTUAL_ADDRESS GetVerticesAddress() {
+        return _vertices->GetGPUVirtualAddress();
+    }
+
+    //void Clear() {
+    //    _sprites.clear();
+    //}
+
+    //void Sort() {
+    //    Seq::sortBy(_sprites, [](auto& a, auto& b) { return a.depth < b.depth; });
+    //}
+
+    //span<SpriteBatchInfo> Sprites() { return _sprites; }
+
+    void Upload() {
+        Count = (uint)_sprites.size();
+        if (Count == 0) return;
+
+        Seq::sortBy(_sprites, [](auto& a, auto& b) { return a.depth < b.depth; });
+
+        _stagingVertexBuffer.clear();
+        _stagingTextureHandles.clear();
+
+        _stagingVertexBuffer.resize(_sprites.size());
+        _stagingTextureHandles.resize(_sprites.size());
+
+        for (int i = 0; i < _sprites.size(); ++i) {
+            _stagingVertexBuffer[i] = _sprites[i].vertex;
+            _stagingTextureHandles[i] = _sprites[i].texture;
+        }
+
+        _vertices.Clear();
+        _vertices.CopyRange(span{ _stagingVertexBuffer });
+
+        _textureHandles.Clear();
+        _textureHandles.CopyRange(span{ _stagingTextureHandles });
+
+        vertexBufferView = {
+            .BufferLocation = _vertices->GetGPUVirtualAddress(),
+            .SizeInBytes = (uint)GetVectorSizeInBytes(_stagingVertexBuffer),
+            .StrideInBytes = sizeof(shaders::sprite::Vertex)
+        };
+
+        textureViewDesc.Format = DXGI_FORMAT_UNKNOWN;
+        textureViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+        textureViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        textureViewDesc.Buffer.FirstElement = 0;
+        textureViewDesc.Buffer.NumElements = (uint)_sprites.size();
+        textureViewDesc.Buffer.StructureByteStride = sizeof(int32);
+
+        _sprites.clear();
+    }
+
+    uint Count = 0;
+
+    //void Upload(const shaders::sprite::Vertex& vertex, TexID texture) {
+    //    //_sizeInBytes += 
+    //    _vertices.CopyRaw(vertex, _vertexOffset);
+    //    _vertexOffset += sizeof(vertex);
+
+    //    // todo: texture handles
+    //    _textureHandles.CopyRaw(texture, _handleOffset);
+    //    _handleOffset += sizeof(int);
+    //}
+
+    //D3D12_VERTEX_BUFFER_VIEW CreateView() {
+    //    D3D12_VERTEX_BUFFER_VIEW vbv{};
+    //    vbv.BufferLocation = _vertices->GetGPUVirtualAddress();
+    //    // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
+    //    vbv.SizeInBytes = GetVectorSizeInBytes(_stagingVertexBuffer);
+    //    vbv.StrideInBytes = sizeof(shaders::sprite::Vertex);
+
+    //    _uploadContext->Reset();
+    //    _sizeInBytes = 0;
+    //}
+};
+
+SpriteBatch g_SpriteBatch[BACK_BUFFER_COUNT];
+
 DeviceResources& GetDeviceResources() { return resources; }
 WindowSizeResources& GetWindowSizeResources() { return sizedResources; }
 
@@ -62,7 +189,7 @@ D3D12MA::Allocator* GetMemoryAllocator() {
 
 ID3D12Device* GetDevice() { return resources.d3dDevice.Get(); }
 
-void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
+void UpdateTextureInfo(const span<TextureInfo>& textures) {
     auto& uploadBuffer = resources.textureInfoUploadBuffer;
     uploadBuffer.Clear();
 
@@ -78,7 +205,7 @@ void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
 
     // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
     auto allocation = resources.textureInfo.Allocate(textures.size_bytes());
-    uploadBuffer.Copy(textures);
+    uploadBuffer.CopyRange(textures);
     //uploadBuffer.Copy(textures, AlignTo(sizeof(shaders::model::TextureInfo), 256));
     uploadBuffer.CopyRegionTo(cmdList, resources.textureInfo, allocation.Offset, 0, textures.size_bytes());
 
@@ -91,9 +218,9 @@ void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures) {
     desc.Format = DXGI_FORMAT_UNKNOWN;
     desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
     desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    desc.Buffer.FirstElement = allocation.Offset / sizeof(shaders::model::TextureInfo);
+    desc.Buffer.FirstElement = allocation.Offset / sizeof(TextureInfo);
     desc.Buffer.NumElements = (uint)textures.size();
-    desc.Buffer.StructureByteStride = sizeof(shaders::model::TextureInfo);
+    desc.Buffer.StructureByteStride = sizeof(TextureInfo);
 }
 
 D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_0;
@@ -412,6 +539,10 @@ void CreateDeviceResources() {
     resources.textureInfoUploadBuffer.Create("Texture info upload buffer", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
     resources.meshPool = std::make_unique<MeshPool>();
 
+    for (auto& batch : g_SpriteBatch) {
+        batch.Create(1024);
+    }
+
     {
         // create white texture
         Image image;
@@ -571,8 +702,16 @@ DescriptorRange& GetFrameDescriptors() {
     return *resources.frameDescriptors[_frame % BACK_BUFFER_COUNT];
 }
 
+DescriptorHandle& GetCommonDescriptorTable() {
+    return resources.CommonShaderTable[_frame % BACK_BUFFER_COUNT];
+}
+
 GpuBuffer& GetFrameBuffer() {
     return resources.frameBuffer[_frame % BACK_BUFFER_COUNT];
+}
+
+SpriteBatch& GetSpriteBatch() {
+    return g_SpriteBatch[_frame % BACK_BUFFER_COUNT];
 }
 
 void MoveToNextFrame() {
@@ -650,6 +789,10 @@ void ScreenSizeChanged(unsigned int width, unsigned int height) {
 
 void Shutdown() {
     resources.graphicsQueue->WaitForIdle();
+    for (auto& batch : g_SpriteBatch) {
+        batch = {};
+    }
+
     FreeShaderCompiler();
     FreeResources();
 }
@@ -666,6 +809,7 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     frameConstants.ElapsedTime = (float)Clock.GetTotalTimeSeconds();
     frameConstants.ViewProjection = camera.ViewProjection;
     frameConstants.View = camera.View;
+    frameConstants.Projection = camera.Projection;
     frameConstants.NearClip = camera.GetNearClip();
     frameConstants.FarClip = camera.GetFarClip();
     frameConstants.Eye = camera.Position;
@@ -674,12 +818,29 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     frameConstants.Size = Vector2{ size.x * renderScale, size.y * renderScale };
     frameConstants.RenderScale = renderScale;
 
-    //auto offset = resources.frameRingBuffer.Copy(_frame, fenceValue, frameConstants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    //GetFrameConstants() = resources.frameRingBuffer->GetGPUVirtualAddress() + offset;
     auto& frameBuffer = GetFrameBuffer();
     auto offset = frameBuffer.Copy(frameConstants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
     GetFrameConstants() = frameBuffer->GetGPUVirtualAddress() + offset;
 
+    auto device = GetDevice();
+    auto commonTable = GetFrameDescriptors().AllocateTable(2);
+
+    D3D12_CONSTANT_BUFFER_VIEW_DESC frameConstantsDesc = {
+        .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
+        .SizeInBytes = (uint)AlignTo(sizeof(FrameConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+    };
+
+    device->CreateConstantBufferView(&frameConstantsDesc, commonTable.GetCpuHandle());
+    device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(1).GetCpuHandle());
+
+    GetCommonDescriptorTable() = commonTable;
+
+    // the second handle is the texture indices
+    //device->CreateShaderResourceView(resources.textures.), &submesh.textureIndicesView, commonTable.Offset(1).GetCpuHandle());
+    //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
+
+    // the third handle is the texture table
+    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(2).GetCpuHandle());
 
     //frameConstants.GlobalDimming = Game::GlobalDimming;
     //frameConstants.NewLightMode = Settings::Graphics.NewLightMode && Settings::Editor.RenderMode == RenderMode::Shaded;
@@ -692,6 +853,105 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     //dest.End();
 }
 
+//void DrawSprite(GraphicsContext& context, const DrawCommand& command) {
+//    auto cmdList = context.GetCommandList();
+//
+//    cmdList->IASetVertexBuffers(0, 1, &command.vertexBuffer);
+//    cmdList->DrawInstanced(3, command.count * 6, 0, 0);
+//}
+
+void DrawSprites(GraphicsContext& context) {
+    auto& sprites = GetSpriteBatch();
+    if (sprites.Count == 0) return;
+
+    auto cmdList = context.GetCommandList();
+    context.SetPipelineState(pipelines::spriteAdditive);
+
+    //auto& frameDescriptors = GetFrameDescriptors();
+    //auto commonTable = frameDescriptors.AllocateTable(3);
+    //auto instanceTable = frameDescriptors.AllocateTable(1);
+
+    //auto device = GetDevice();
+
+    //auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    //auto& frameBuffer = GetFrameBuffer();
+
+    //D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
+    //    .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
+    //    .SizeInBytes = (uint)AlignTo(sizeof(constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+    //};
+
+    //context.SetConstantBuffer(shaders::model::FrameConstants, GetFrameConstants());
+    //cmdList->SetGraphicsRootConstantBufferView(rootIndex, GetFrameConstants());
+
+    //device->CreateConstantBufferView(&desc, commonTable.GetCpuHandle());
+    //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+
+    // the second handle is the texture handles
+    //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, commonTable.Offset(1).GetCpuHandle());
+    //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
+
+    // the third handle is the texture table
+    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(2).GetCpuHandle());
+
+    cmdList->SetGraphicsRootDescriptorTable(0, GetCommonDescriptorTable().GetGpuHandle());
+    cmdList->SetGraphicsRootDescriptorTable(1, resources.textureDescriptors->GetGpuHandle());
+    //cmdList->SetGraphicsRootDescriptorTable(2, instanceTable.GetGpuHandle());
+    cmdList->SetGraphicsRootShaderResourceView(2, sprites.GetTextureHandleAddress());
+    cmdList->SetGraphicsRootShaderResourceView(3, sprites.GetVerticesAddress());
+    //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
+
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    cmdList->DrawInstanced(4, sprites.Count, 0, 0);
+}
+
+void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, RenderPass pass) {
+    auto cmdList = context.GetCommandList();
+
+    switch (command.type) {
+        case DrawCommandType::Mesh:
+            ASSERT(command.indexBuffer.BufferLocation);
+            ASSERT(command.vertexBuffer.BufferLocation);
+
+            if (pass == RenderPass::Additive)
+                context.SetPipelineState(pipelines::modelAdditive);
+            else if (pass == RenderPass::Transparent)
+                context.SetPipelineState(pipelines::modelTransparent);
+            else
+                context.SetPipelineState(pipelines::model);
+
+            context.SetPipelineState(pass == RenderPass::Opaque ? pipelines::model : pipelines::modelAdditive);
+
+            // Set the texture table
+            cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+
+            // Set frame constants
+            context.SetConstantBuffer(shaders::model::FrameConstants, GetFrameConstants());
+
+            // Three consecutive handles in the table
+            cmdList->SetGraphicsRootDescriptorTable(1, command.descriptorTable);
+
+            cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            cmdList->IASetIndexBuffer(&command.indexBuffer);
+            cmdList->IASetVertexBuffers(0, 1, &command.vertexBuffer);
+            cmdList->DrawIndexedInstanced(command.count, 1, 0, 0, 0);
+            break;
+
+        case DrawCommandType::Sprite:
+            ASSERT(command.vertexBuffer.BufferLocation);
+
+            context.SetPipelineState(pass == RenderPass::Additive ? pipelines::spriteAdditive : pipelines::sprite);
+
+            cmdList->SetGraphicsRootDescriptorTable(0, resources.textureDescriptors->GetGpuHandle());
+
+            cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            cmdList->IASetVertexBuffers(0, 1, &command.vertexBuffer);
+            cmdList->DrawInstanced(3, command.count * 2, 0, 0);
+            break;
+    }
+}
+
+
 void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::model);
@@ -700,8 +960,6 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto& frameDescriptors = GetFrameDescriptors();
     auto& frameBuffer = GetFrameBuffer();
 
-    // cmdList->SetGraphicsRootConstantBufferView(0, resources.meshes[0].textureData->GetGPUVirtualAddress());
-    //cmdList->SetGraphicsRootConstantBufferView(0, resources.frameRingBuffer->GetGPUVirtualAddress());
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     //SPDLOG_INFO("Creating view at GPU address {} (offset {})", fmt::ptr((void*)(frameBuffer->GetGPUVirtualAddress() + offset)), offset);
@@ -734,9 +992,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         if (submesh.elementCount == 0) continue;
         auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
-        auto handle = frameDescriptors.GetNextHandle();
-        frameDescriptors.Next();
-        frameDescriptors.Next();
+        auto handle = frameDescriptors.AllocateTable(3);
 
         auto submodelOffset = Vector3::Zero;
         auto* smc = &submodel;
@@ -752,19 +1008,39 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         //constants.world = Matrix::Identity * Matrix::CreateTranslation(submesh.model.offset) * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
         constants.world = Matrix::Identity * translation * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
 
+
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Facing)) {
+            ASSERT((int)submesh.texture >= 0);
+
+            auto size = submodel.max - submodel.min;
+
+            // todo: depth is only needed for alpha sprites, not additive
+            GetSpriteBatch().Add({
+                .vertex = {
+                    .position = constants.world.Translation(),
+                    .color = Color(1, 1, 1, 1),
+                    .size = Vector2(std::max(size.x, size.z) * 0.5f, size.y * 0.5f), // todo: derive from mesh size, there is a function for this in D3 / D3edit
+                },
+                .depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                //.texture = model.textureHandles[submodel.faces[0].texNum]
+                .texture = submesh.texture
+            });
+            continue;
+        }
+
         auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
         D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
             .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
-            .SizeInBytes = (uint)AlignTo(sizeof(constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+            .SizeInBytes = (uint)AlignTo(sizeof(shaders::model::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
         };
 
         // Create three consecutive descriptors
         device->CreateConstantBufferView(&desc, handle.GetCpuHandle());
         //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
 
-        // the second handle is the texture indices
-        device->CreateShaderResourceView(mesh.textureIndices.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
+        // the second handle is the texture handles
+        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
         //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
 
         // the third handle is the texture table
@@ -783,7 +1059,6 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(0.1, 1000);
-
 
     auto& context = *resources.graphicsContext[_backBufferIndex];
     context.Reset();
@@ -805,6 +1080,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
 
     //if (Seq::inRange(resources.meshes, meshid))
     DrawMesh(context, modelid);
+
+    GetSpriteBatch().Upload();
+    DrawSprites(context);
 
     context.SetRenderTarget(sizedResources.uiRenderTarget);
     context.ClearRenderTarget(sizedResources.uiRenderTarget, nullptr);

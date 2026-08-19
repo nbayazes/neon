@@ -13,6 +13,7 @@ enum class TextureFilterMode {
 struct FrameConstants {
     Matrix ViewProjection;
     Matrix View;
+    Matrix Projection;
     Vector3 Eye;
     float ElapsedTime;
     Vector2 Size;

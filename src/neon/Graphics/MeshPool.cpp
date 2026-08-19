@@ -61,7 +61,7 @@ MeshID MeshPool::Upload(Mesh& mesh) {
     auto handle = (MeshID)_meshes.size();
     auto& gpuMesh = _meshes.emplace_back();
     gpuMesh.meshData.Create(mesh.name, meshBufferSize);
-    gpuMesh.textureIndices.Create(mesh.name + " texture indices", CalculateTextureIndexSize(mesh));
+    gpuMesh.textureHandles.Create(mesh.name + " texture indices", CalculateTextureIndexSize(mesh));
     //gpuMesh.model = mesh.model;
 
     for (int j = 0; j < mesh.submeshes.size(); ++j) {
@@ -76,7 +76,7 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
 
             //gpuSubmesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
-            auto srcOffset = uploadBuffer.Copy(span{ submesh.vertices });
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.vertices });
             auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
             uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
             //uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.vertexBuffer, 0, srcOffset, sizeInBytes);
@@ -94,7 +94,7 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
 
             // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
-            auto srcOffset = uploadBuffer.Copy(span{ submesh.indices });
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.indices });
             auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
             uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
             // uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
@@ -110,9 +110,9 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.textureHandles);
 
             // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
-            auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
-            auto srcOffset = uploadBuffer.Copy(span{ submesh.textureHandles });
-            uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
+            auto allocation = gpuMesh.textureHandles.Allocate(sizeInBytes);
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.textureHandles });
+            uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureHandles, allocation.Offset, srcOffset, sizeInBytes);
 
             auto& desc = gpuSubmesh.textureIndicesView;
             desc.Format = DXGI_FORMAT_UNKNOWN;
@@ -121,6 +121,8 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
             desc.Buffer.NumElements = (uint)submesh.textureHandles.size();
             desc.Buffer.StructureByteStride = sizeof(int32);
+
+            gpuSubmesh.texture = (TexID)submesh.textureHandles[0];
         }
     }
 

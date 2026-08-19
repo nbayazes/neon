@@ -38,6 +38,6 @@ void Present();
 
 ID3D12Device* GetDevice();
 
-void UpdateTextureInfo(const span<shaders::model::TextureInfo>& textures);
+void UpdateTextureInfo(const span<TextureInfo>& textures);
 
 }

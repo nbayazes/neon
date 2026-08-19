@@ -35,6 +35,7 @@
     <ClCompile Include="TextureRegistry.cpp" />
     <ClCompile Include="Graphics\TextureCache.cpp" />
     <ClCompile Include="Graphics\MeshPool.cpp" />
+    <ClCompile Include="shaders\neon-shaders.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -103,6 +104,8 @@
     <ClInclude Include="Graphics\MeshPool.h" />
     <ClInclude Include="Graphics\GraphicsHandles.h" />
     <ClInclude Include="Handles.h" />
+    <ClInclude Include="Graphics\DrawCommand.h" />
+    <ClInclude Include="shaders\Sprite.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />
@@ -114,5 +117,6 @@
     <None Include="shaders\ObjectVertex.hlsli" />
     <None Include="shaders\Common.hlsli" />
     <None Include="Graphics\architecture.md" />
+    <None Include="shaders\Sprite.hlsl" />
   </ItemGroup>
 </Project>

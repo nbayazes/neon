@@ -78,7 +78,7 @@ gfx::Mesh CreateMesh(d3::Model& model) {
                         .uv = uv,
                         .color = color,
                         .normal = vtx.normal,
-                                               });
+                    });
                     submesh.indices.push_back(index++);
                 };
 

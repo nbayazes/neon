@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "GpuResource.h"
+#include "GraphicsHandles.h"
 #include "neon-types.h"
 #include "shaders/ModelVertex.h"
 
@@ -10,12 +11,13 @@ struct GpuSubmesh {
     D3D12_INDEX_BUFFER_VIEW ibv{};
     D3D12_SHADER_RESOURCE_VIEW_DESC textureIndicesView{};
     uint elementCount = 0;
+    TexID texture = TexID::None; // for sprites
 };
 
 // GPU instanced mesh
 struct GpuMesh {
     gfx::GpuBuffer meshData;
-    gfx::GpuBuffer textureIndices;
+    gfx::GpuBuffer textureHandles;
     List<GpuSubmesh> submeshes;
 };
 

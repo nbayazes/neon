@@ -66,8 +66,8 @@ struct TextureEntry {
 };
 
 class TextureRegistry {
-    CaseInsensitiveDictionary<int> _textureLookup;
-    List<TextureEntry> _textures;
+    CaseInsensitiveDictionary<int> _textureLookup; // name -> texture index lookup
+    List<TextureEntry> _textures; // texture with stable indices
 
 public:
     bool IsLoaded(string_view name) const {
@@ -99,8 +99,8 @@ public:
     //    gfx::UnloadTexture(entry.handle); // queue unload
     //}
 
-    List<gfx::shaders::model::TextureInfo> BuildTextureTable(span<d3::VClip> vclips) {
-        List<gfx::shaders::model::TextureInfo> table;
+    List<gfx::TextureInfo> BuildTextureTable(span<d3::VClip> vclips) {
+        List<gfx::TextureInfo> table;
 
         for (auto& texture : _textures) {
             if (auto vclip = Seq::tryItem(vclips, texture.vclip)) {

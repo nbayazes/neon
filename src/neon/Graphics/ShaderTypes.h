@@ -49,4 +49,12 @@ namespace neon::gfx {
         PipelineInfo* info = nullptr;
         ID3D12RootSignature* rootSignature = nullptr;
     };
+
+    struct TextureInfo {
+        int handle; // the index of the texture in the TextureTable
+        int frames; // for animations
+        float frameTime; // for animations
+        int pingpong; // for animations
+        float opacity = 1;
+    };
 }
