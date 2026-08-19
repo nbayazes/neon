@@ -68,10 +68,6 @@ class SpriteBatch {
     List<SpriteBatchInfo> _sprites;
     GpuBuffer _vertices;
     GpuBuffer _textureHandles;
-    //Ptr<gfx::CommandContext> _uploadContext;
-    uint64 _sizeInBytes = 0;
-    uint _vertexOffset = 0;
-    uint _handleOffset = 0;
 
     List<shaders::sprite::Vertex> _stagingVertexBuffer;
     List<TexID> _stagingTextureHandles;
@@ -91,6 +87,11 @@ public:
         _stagingVertexBuffer.reserve(capacity / 2);
         _stagingTextureHandles.reserve(capacity / 2);
         _sprites.reserve(capacity / 2);
+
+        //D3D12_VERTEX_BUFFER_VIEW dummyVBV = {};
+        //dummyVBV.BufferLocation = _vertices->GetGPUVirtualAddress();
+        //dummyVBV.StrideInBytes = 1;
+        //dummyVBV.SizeInBytes = 1;
     }
 
     void Add(const SpriteBatchInfo& sprite) {
@@ -140,9 +141,15 @@ public:
 
         vertexBufferView = {
             .BufferLocation = _vertices->GetGPUVirtualAddress(),
-            .SizeInBytes = (uint)GetVectorSizeInBytes(_stagingVertexBuffer),
+            .SizeInBytes = (uint)GetVectorSizeInBytes(_stagingVertexBuffer) * 4,
             .StrideInBytes = sizeof(shaders::sprite::Vertex)
         };
+
+        //vertexBufferView = {
+        //    .BufferLocation = _vertices->GetGPUVirtualAddress(),
+        //    .SizeInBytes = 4,
+        //    .StrideInBytes = 4
+        //};
 
         textureViewDesc.Format = DXGI_FORMAT_UNKNOWN;
         textureViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -902,6 +909,8 @@ void DrawSprites(GraphicsContext& context) {
     //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
 
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    cmdList->IASetVertexBuffers(0, 0, nullptr);
+    cmdList->IASetIndexBuffer(nullptr);
     cmdList->DrawInstanced(4, sprites.Count, 0, 0);
 }
 
