@@ -27,6 +27,7 @@
 #include "ModelCache.h"
 #include "ShaderCompiler.h"
 #include "shaders/imgui.h"
+#include "shaders/ModelPrepass.h"
 #include "shaders/Sprite.h"
 
 namespace neon::gfx {
@@ -712,6 +713,10 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     sizedResources.uiRenderTarget.Create("ui render target", width, height, pipelines::imgui.format, Color(0, 0, 0, 0));
     resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.uiRenderTarget);
     resources.sizedDescriptors->AddSRV(sizedResources.uiRenderTarget);
+
+    sizedResources.linearDepthBuffer.Create("linear depth buffer", width, height, LINEAR_DEPTH_FORMAT, Color(0, 0, 0, 0));
+    resources.sizedRenderTargetDescriptors->AddRTV(sizedResources.linearDepthBuffer);
+    resources.sizedDescriptors->AddSRV(sizedResources.linearDepthBuffer);
 }
 
 //struct FrameAllocations {
@@ -826,6 +831,7 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     frameConstants.RenderScale = renderScale;
 
     auto& frameBuffer = GetFrameBuffer();
+    frameBuffer.Clear();
     auto offset = frameBuffer.Copy(frameConstants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
     GetFrameConstants() = frameBuffer->GetGPUVirtualAddress() + offset;
 
@@ -877,6 +883,10 @@ void DrawSprites(GraphicsContext& context) {
     SetCommonShaderParmeters(cmdList);
     cmdList->SetGraphicsRootShaderResourceView(3, sprites.GetTextureHandleAddress());
     cmdList->SetGraphicsRootShaderResourceView(4, sprites.GetVerticesAddress());
+
+    sizedResources.linearDepthBuffer.Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    //cmdList->SetGraphicsRootShaderResourceView(5, sizedResources.linearDepthBuffer->GetGPUVirtualAddress());
+    cmdList->SetGraphicsRootDescriptorTable(5, sizedResources.linearDepthBuffer.GetSRV());
     //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
 
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -932,6 +942,77 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
     }
 }
 
+
+void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
+    auto cmdList = context.GetCommandList();
+    context.SetPipelineState(pipelines::modelPrepass);
+
+    auto& frameDescriptors = GetFrameDescriptors();
+    auto& frameBuffer = GetFrameBuffer();
+
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    auto device = GetDevice();
+
+    SetCommonShaderParmeters(cmdList);
+
+    auto entry = g_ModelCache.Get(modelId);
+    if (!entry) return;
+
+    auto& model = entry->model;
+    auto m = resources.meshPool->Get(entry->mesh);
+    if (!m) return;
+    auto& mesh = *m;
+
+    ASSERT(mesh.submeshes.size() == model.submodels.size());
+
+    for (int sm = 0; sm < entry->model.submodels.size(); ++sm) {
+        auto& submesh = mesh.submeshes[sm];
+        if (submesh.elementCount == 0) continue;
+        auto& submodel = model.submodels[sm];
+        // allocate three handles for the submesh
+
+        auto submodelOffset = Vector3::Zero;
+        auto* smc = &submodel;
+        while (smc->parent != -1) {
+            submodelOffset += smc->offset;
+            smc = &model.submodels[smc->parent];
+        }
+
+        // todo: these transforms could be shared between both passes. no need to upload twice.
+        // the first handle is the object constants
+        shaders::model::Constants constants = {};
+        auto translation = Matrix::CreateTranslation(submodelOffset);
+
+        constants.world = Matrix::Identity * translation * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
+
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Facing)) {
+            continue;
+        }
+
+        auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+
+        D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
+            .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
+            .SizeInBytes = (uint)AlignTo(sizeof(shaders::model::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+        };
+
+        // Allocate descriptors
+        auto table = frameDescriptors.AllocateTable(2);
+
+        // first is the texture handles
+        device->CreateConstantBufferView(&desc, table.GetCpuHandle());
+
+        // the second handle is the texture handles
+        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, table.Offset(1).GetCpuHandle());
+
+        cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle()); // bind the table
+
+        cmdList->IASetIndexBuffer(&submesh.ibv);
+        cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
+        cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
+    }
+}
 
 void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
@@ -1038,6 +1119,13 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     ID3D12DescriptorHeap* heaps[] = { resources.shaderVisibleHeap->Heap(), resources.states->Heap() };
     cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
 
+    // depth prepass
+    context.SetRenderTarget(sizedResources.linearDepthBuffer, sizedResources.sceneDepthBuffer);
+    context.ClearRenderTarget(sizedResources.linearDepthBuffer, nullptr);
+    context.ClearDepth(sizedResources.sceneDepthBuffer);
+    DrawMeshPrepass(context, modelid);
+
+    // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
     Color background(0.05f, 0.05f, 0.05f);
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
@@ -1046,6 +1134,7 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     //if (Seq::inRange(resources.meshes, meshid))
     DrawMesh(context, modelid);
 
+    // additive pass
     GetSpriteBatch().Upload();
     DrawSprites(context);
 

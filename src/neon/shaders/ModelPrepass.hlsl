@@ -1,43 +1,39 @@
 #include "Common.hlsli"
 #include "ObjectVertex.hlsli"
 
-#define RS \
-    "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "\
-    "CBV(b0),"\
-    "DescriptorTable(SRV(t0, space = 1, numDescriptors = unbounded, flags = DESCRIPTORS_VOLATILE), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "CBV(b1), " \
-    "DescriptorTable(SRV(t0), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "DescriptorTable(SRV(t1), visibility=SHADER_VISIBILITY_PIXEL), " \
-    "DescriptorTable(Sampler(s0), visibility=SHADER_VISIBILITY_PIXEL), "
+//struct ObjectArgs {
+//    float4x4 world;
+//    float dissolve;
+//    float timeOffset;
+//};
 
-struct ObjectArgs {
-    float4x4 world;
-    float dissolve;
-    float timeOffset;
+struct InstanceConstants {
+    float4x4 World;
 };
 
-ConstantBuffer<FrameConstants> Frame : register(b0);
-ConstantBuffer<ObjectArgs> Object : register(b1);
-Texture2D DissolveTexture : register(t0); // texture used for the dissolve effect
-SamplerState Sampler : register(s0);
-Texture2D TextureTable[] : register(t0, space1);
-StructuredBuffer<VClip> VClips : register(t1);
+ConstantBuffer<FrameConstants> Frame : register(b0, space1);
+StructuredBuffer<TextureInfo> TextureInfoTable : register(t0, space1); // Texture / material information
+Texture2DArray TextureTable[] : register(t1, space1);
+
+ConstantBuffer<InstanceConstants> Instance : register(b0);
+StructuredBuffer<int> TextureHandles : register(t0); // mapping to texture table
 
 struct PS_INPUT {
     centroid float4 position : SV_Position;
     float2 uv : TEXCOORD0;
+    float depth : TEXCOORD1;
 };
 
-[RootSignature(RS)]
 PS_INPUT vsmain(ObjectVertex input) {
-    float4x4 wvp = mul(Frame.viewProj, Object.world);
+    float4x4 wvp = mul(Frame.ViewProj, Instance.World);
     PS_INPUT output;
     output.position = mul(wvp, float4(input.position, 1));
     output.uv = input.uv;
+    output.depth = output.position.w; // W before perspective divide
     return output;
 }
 
-float psmain(PS_INPUT input) : SV_Target {
+float psmain(PS_INPUT pixel) : SV_Target {
     //if (Object.dissolve > 0)
     //{
     //    float dissolveTex = 1 - Sample2D(DissolveTexture, input.uv + float2(Object.timeOffset, Object.timeOffset), Sampler, Frame.FilterMode).r;
@@ -56,5 +52,6 @@ float psmain(PS_INPUT input) : SV_Target {
     //if (alpha < 1)
     //    discard;
 
-    return LinearizeDepth(Frame.NearClip, Frame.FarClip, input.position.z);
+    //return LinearizeDepth(Frame.NearClip, pixel.depth);
+    return pixel.depth;
 }

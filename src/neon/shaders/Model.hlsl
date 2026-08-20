@@ -17,7 +17,7 @@ StructuredBuffer<TextureInfo> TextureInfoTable : register(t0, space1); // Textur
 Texture2DArray TextureTable[] : register(t1, space1);
 
 ConstantBuffer<Constants> Instance : register(b0);
-StructuredBuffer<int> TextureIndices : register(t0); // mapping to texture table
+StructuredBuffer<int> TextureHandles : register(t0); // mapping to texture table
 
 
 // lighting constants are register b2
@@ -57,14 +57,14 @@ VS_OUT vsmain(ObjectVertex input) {
     return output;
 }
 
-float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
-    uint textureIndex = TextureIndices[NonUniformResourceIndex(primitiveID)];
-    TextureInfo info = TextureInfoTable[NonUniformResourceIndex(textureIndex)];
+float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
+    uint handle = TextureHandles[NonUniformResourceIndex(primitiveID)];
+    TextureInfo info = TextureInfoTable[NonUniformResourceIndex(handle)];
     // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
     //float4 color = float4(1, 1, 1, 1);
 
     // todo: uv scroll from texture info
-    float2 uv = input.uv + float2(0, 0) * Frame.Time;
+    float2 uv = pixel.uv + float2(0, 0) * Frame.Time;
 
     float4 color = float4(1, 1, 1, 1);
 
@@ -81,6 +81,6 @@ float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     color.rgb = pow(color.rgb, 1 / 2.2);
 
     float3 l = normalize(float3(4, 1, 5));
-    color.rgb *= 1 + dot(normalize(input.normal * 2), l) * 0.5;
+    color.rgb *= 1 + dot(normalize(pixel.normal * 2), l) * 0.5;
     return color;
 }

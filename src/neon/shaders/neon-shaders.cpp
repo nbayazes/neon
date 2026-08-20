@@ -4,6 +4,7 @@
 #include "compose.h"
 #include "imgui.h"
 #include "Model.h"
+#include "ModelPrepass.h"
 #include "Sprite.h"
 #include "rmlui.h"
 
@@ -15,6 +16,7 @@ void Compile(bool ignoreCache) {
     CompileGraphicsPipeline(pipelines::compose, ignoreCache);
     CompileGraphicsPipeline(pipelines::model, ignoreCache);
     CompileGraphicsPipeline(pipelines::modelAdditive, ignoreCache);
+    CompileGraphicsPipeline(pipelines::modelPrepass, ignoreCache);
     CompileGraphicsPipeline(pipelines::sprite, ignoreCache);
     CompileGraphicsPipeline(pipelines::spriteAdditive, ignoreCache);
 }

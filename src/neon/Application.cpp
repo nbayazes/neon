@@ -267,9 +267,10 @@ void Init() {
     ReadVClips(hog, _gameTable);
 
     // auto modelName = "shield.OOF"; 
-    auto modelName = "flareyellowbright.oof";
+    // auto modelName = "flareyellowbright.oof";
     //auto modelName = "forcefieldswitch.oof";
     //auto modelName = "4packconc.oof";
+    auto modelName = "barnswallow.oof";
     auto model = ReadModel(hog, modelName);
 
     _meshid = LoadModel(hog, _gameTable, model, modelName);

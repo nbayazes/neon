@@ -171,6 +171,12 @@ public:
             throw Exception(fmt::format("Out of memory in buffer. Unable to create allocation in {}", _name));
         }
 
+#ifdef _DEBUG
+        if (_allocations.size() > 2000) {
+            __debugbreak(); // high allocation count! check that the buffer is being reset
+        }
+#endif
+
         D3D12MA::VIRTUAL_ALLOCATION_INFO info{};
         _block->GetAllocationInfo(alloc, &info);
         return info;
@@ -192,6 +198,12 @@ public:
         ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
         _allocations.push_front(alloc);
 
+#ifdef _DEBUG
+        if (_allocations.size() > 2000) {
+            __debugbreak(); // high allocation count! check that the buffer is being reset
+        }
+#endif
+
         memcpy(_mappedPtr + offset, &data, allocDesc.Size);
         return offset;
     }
@@ -208,6 +220,14 @@ public:
         UINT64 offset;
         ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
 
+#ifdef _DEBUG
+        D3D12MA::Statistics stats;
+        _block->GetStatistics(&stats);
+        if (stats.AllocationCount > 2000) {
+            __debugbreak(); // high allocation count! check that the buffer is being reset
+        }
+#endif
+
         memcpy(_mappedPtr + offset, src.data(), allocDesc.Size);
         return offset;
     }
@@ -223,8 +243,9 @@ public:
     }
 
     // Resets the internal allocations to the start of the buffer
-    void Clear() const {
+    void Clear() {
         _block->Clear();
+        _allocations.clear();
     }
 
 protected:

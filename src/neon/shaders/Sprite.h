@@ -27,14 +27,14 @@ constexpr D3D12_DESCRIPTOR_RANGE1 CommonDescriptors[] = {
 };
 
 
-//constexpr D3D12_DESCRIPTOR_RANGE1 TextureHandles[] = {
-//    {
-//        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-//        .NumDescriptors = 1,
-//        .BaseShaderRegister = 1, // t1. Texture handles
-//        .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
-//    }
-//};
+constexpr D3D12_DESCRIPTOR_RANGE1 LinearDepthBuffer[] = {
+    {
+        .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        .NumDescriptors = 1,
+        .BaseShaderRegister = 2,
+        .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
+    }
+};
 
 constexpr D3D12_DESCRIPTOR_RANGE1 TextureTableRange = {
     .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
@@ -52,15 +52,21 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
         // .DescriptorTable = { .NumDescriptorRanges = std::size(TextureHandles), .pDescriptorRanges = TextureHandles },
-        .Descriptor = { .ShaderRegister = 0 }, // Texture handles, t1
+        .Descriptor = { .ShaderRegister = 0 }, // Texture handles, t0
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
     },
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
         // .DescriptorTable = { .NumDescriptorRanges = std::size(TextureHandles), .pDescriptorRanges = TextureHandles },
-        .Descriptor = {.ShaderRegister = 1 }, // Vertices, t2
+        .Descriptor = { .ShaderRegister = 1 }, // Vertices, t1
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX
     },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        .DescriptorTable = { .NumDescriptorRanges = std::size(LinearDepthBuffer), .pDescriptorRanges = LinearDepthBuffer },
+        //.Descriptor = { .ShaderRegister = 2 }, // t2, Linear depth buffer
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    }
 };
 
 constexpr D3D12_STATIC_SAMPLER_DESC StaticLinearSampler{

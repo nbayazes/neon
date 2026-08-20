@@ -136,8 +136,8 @@ float3 SampleNormal(Texture2D tex, float2 uv, SamplerState texSampler, int filte
 //return clamp(color * 2 - 1, -1, 1);
 
 
-float LinearizeDepth(float near, float far, float depth) {
-    return near / (far + depth * (near - far));
+float LinearizeDepth(float near, float depth) {
+    return near / depth;
 }
 
 // Exponential fog factor

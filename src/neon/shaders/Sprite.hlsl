@@ -20,6 +20,7 @@ Texture2DArray TextureTable[] : register(t1, space1);
 
 StructuredBuffer<int> TextureHandles : register(t0); // mapping to texture table
 StructuredBuffer<SpriteVertex> Vertices : register(t1);
+Texture2D Depth : register(t2);
 
 SamplerState Sampler : register(s0);
 
@@ -30,6 +31,7 @@ struct VS_OUT {
     centroid float4 color : COLOR0;
     centroid float3 world : TEXCOORD1;
     nointerpolation uint instance : TEXCOORD2;
+    float depth : DEPTH;
 };
 
 static const float2 BillboardOffsets[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
@@ -41,26 +43,40 @@ VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     float4 viewPos = mul(Frame.View, float4(vertex.position, 1));
     // float4 viewPos = mul(Frame.View, float4(vertex.position, 1));
     viewPos.xy += offset * vertex.size; // expand in screen-aligned plane
+
     viewPos.z -= max(vertex.size.x, vertex.size.y); // bias the billboard. todo: only apply when flagged
     VS_OUT output;
     output.position = viewPos;
     // output.position = mul(viewPos, Frame.Projection);
     output.position = mul(Frame.Projection, viewPos);
+    output.depth = output.position.w;
     output.color = vertex.color;
     output.uv = offset * 0.5 + 0.5;
     output.instance = instance;
     return output;
 }
 
-float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
+float SaturateSoft(float fade, float contrast) {
+    float output = 0.5 * pow(saturate(2 * ((fade > 0.5) ? 1 - fade : fade)), contrast);
+    return (fade > 0.5) ? 1 - output : output;
+}
+
+float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     //return float4(1, 1, 1, 1);
-    uint textureIndex = TextureHandles[NonUniformResourceIndex(input.instance)];
+    uint textureIndex = TextureHandles[NonUniformResourceIndex(pixel.instance)];
     TextureInfo info = TextureInfoTable[NonUniformResourceIndex(textureIndex)];
     // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
 
     // todo: uv scroll from texture info
-    float2 uv = input.uv + float2(0, 0) * Frame.Time;
+    float2 uv = pixel.uv + float2(0, 0) * Frame.Time;
     float4 color = float4(1, 1, 1, 1);
+
+    //float sceneDepth = Depth.Sample(Sampler, (pixel.position.xy + 0.5) / Frame.Size).x;
+    float sceneDepth = Frame.NearClip / Depth.Sample(Sampler, pixel.position.xy / Frame.Size).r;
+    float pixelDepth = Frame.NearClip / pixel.depth;
+
+    //if (sceneDepth <= 0.0f)
+    //    return diffuse; // don't apply softening to particles against the background
 
     if (info.frames > 1) {
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
@@ -71,6 +87,23 @@ float4 psmain(VS_OUT input, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
         color = tex.Sample(Sampler, float3(uv, 0));
     }
 
+    const float DEPTH_EXPONENT = 1.5;
+    const float softness = 0.25;
+    const float fadeDistance = 0.0005;
+    //if (Args.Softness != 0) {
+    
+    float depthDelta = sceneDepth > 0.99 ? 1 : pixelDepth - sceneDepth;
+    //float depthScale = clamp(1 - softness, 0.05, 1); // sprite turns invisible under 0.05
+    //return float4(pixelDepth.xxx * 10, 1);
+    //return float4(depthDelta.xxx * 1000, 1);
+    
+    // float fade = saturate(depthDelta / fadeDistance);
+    float fade = SaturateSoft(depthDelta / fadeDistance, 1);
+    color.a *= fade;
+    //color.a *= SaturateSoft((sceneDepth - Frame.NearClip / pixel.depth) / 10000, DEPTH_EXPONENT);
+    //color.a *= SaturateSoft(depthDelta * 100, DEPTH_EXPONENT);
+    //}
+    //color.rgb = abs(sceneDepth - (Frame.NearClip / pixel.depth));
     //color.a *= info.opacity;
 
     color.rgb = pow(color.rgb, 1 / 2.2);

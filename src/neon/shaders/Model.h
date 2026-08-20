@@ -6,22 +6,16 @@
 
 namespace neon::gfx::shaders::model {
 
-constexpr D3D12_DESCRIPTOR_RANGE1 InstanceConstants = {
-    .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-    .NumDescriptors = 1,
-    .BaseShaderRegister = 1 // b1. Instance constants
-};
-
 constexpr D3D12_DESCRIPTOR_RANGE1 Descriptors[] = {
     {
         .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         .NumDescriptors = 1,
-        .BaseShaderRegister = 0 // b1. Instance constants
+        .BaseShaderRegister = 0 // b0. Instance constants
     },
     {
         .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         .NumDescriptors = 1,
-        .BaseShaderRegister = 0, // t1. Texture indices
+        .BaseShaderRegister = 0, // t0. Texture indices
         .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
     },
 };
@@ -32,7 +26,6 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
     TextureInfoTableParameter,
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        //.Descriptor = { .ShaderRegister = ObjectConstants },
         .DescriptorTable = {.NumDescriptorRanges = std::size(Descriptors), .pDescriptorRanges = Descriptors },
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
     },
@@ -55,8 +48,7 @@ constexpr D3D12_DESCRIPTOR_RANGE1 NormalSamplerDescriptor = {
     .BaseShaderRegister = NormalSampler
 };
 
-
-constexpr D3D12_STATIC_SAMPLER_DESC linearSampler{
+constexpr D3D12_STATIC_SAMPLER_DESC LinearSampler{
     .Filter = D3D12_FILTER_ANISOTROPIC,
     .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
     .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
@@ -77,7 +69,7 @@ constexpr D3D12_ROOT_SIGNATURE_DESC1 RootSignature = {
     .NumParameters = std::size(Params),
     .pParameters = Params,
     .NumStaticSamplers = 1,
-    .pStaticSamplers = &linearSampler,
+    .pStaticSamplers = &LinearSampler,
     .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
 };
 

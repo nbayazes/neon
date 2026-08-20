@@ -1,5 +1,11 @@
 ﻿#pragma once
-#include "Graphics/ShaderTypes.h"
+#include <directx/d3d12.h>
+
+namespace neon::gfx {
+
+constexpr auto LINEAR_DEPTH_FORMAT = DXGI_FORMAT_R16_FLOAT;
+
+}
 
 namespace neon::gfx::shaders {
 

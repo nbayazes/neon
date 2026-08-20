@@ -17,7 +17,6 @@ using Microsoft::WRL::ComPtr;
 // Back buffer count is also used as frames as flight, although technically not correct
 constexpr size_t BACK_BUFFER_COUNT = 2;
 
-
 // Resources alive for the duration of the device
 struct DeviceResources {
     Ptr<CommandQueue> graphicsQueue;
@@ -43,11 +42,8 @@ struct DeviceResources {
     List<Texture> textures;
     List<Texture> reservedTextures;
     Ptr<MeshPool> meshPool;
-    //List<GpuMesh> meshes;
     Ptr<GraphicsContext> graphicsContext[BACK_BUFFER_COUNT];
 
-    //GpuUploadBuffer frameConstants[BACK_BUFFER_COUNT];
-    //FrameRingBuffer frameRingBuffer;
     GpuBuffer frameBuffer[BACK_BUFFER_COUNT]; // buffer for per-frame data
 
     gfx::GpuBuffer meshUploadBuffer;
@@ -55,8 +51,6 @@ struct DeviceResources {
 
     GpuBuffer textureInfo; // texture info table
     D3D12_SHADER_RESOURCE_VIEW_DESC textureInfoView{}; // points at the latest copy of the texture info
-
-    //GpuBuffer frameRingBuffer;
 
     D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT] = {};
     
