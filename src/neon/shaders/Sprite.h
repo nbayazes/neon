@@ -46,26 +46,19 @@ constexpr D3D12_DESCRIPTOR_RANGE1 TextureTableRange = {
 };
 
 constexpr D3D12_ROOT_PARAMETER1 Params[] = {
+    FrameConstantsParameter,
+    TextureTableParameter,
+    TextureInfoTableParameter,
     {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        .DescriptorTable = { .NumDescriptorRanges = std::size(CommonDescriptors), .pDescriptorRanges = CommonDescriptors },
-        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
-    },
-    {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-        .DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &TextureTableRange },
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
+        // .DescriptorTable = { .NumDescriptorRanges = std::size(TextureHandles), .pDescriptorRanges = TextureHandles },
+        .Descriptor = { .ShaderRegister = 0 }, // Texture handles, t1
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
     },
     {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
         // .DescriptorTable = { .NumDescriptorRanges = std::size(TextureHandles), .pDescriptorRanges = TextureHandles },
-        .Descriptor = { .ShaderRegister = 1 }, // Texture handles, t1
-        .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
-    },
-    {
-        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV,
-        // .DescriptorTable = { .NumDescriptorRanges = std::size(TextureHandles), .pDescriptorRanges = TextureHandles },
-        .Descriptor = {.ShaderRegister = 2 }, // Vertices, t2
+        .Descriptor = {.ShaderRegister = 1 }, // Vertices, t2
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX
     },
 };

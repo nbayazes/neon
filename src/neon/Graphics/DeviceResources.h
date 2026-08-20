@@ -53,7 +53,7 @@ struct DeviceResources {
     gfx::GpuBuffer meshUploadBuffer;
     gfx::GpuBuffer textureInfoUploadBuffer;
 
-    GpuBuffer textureInfo;
+    GpuBuffer textureInfo; // texture info table
     D3D12_SHADER_RESOURCE_VIEW_DESC textureInfoView{}; // points at the latest copy of the texture info
 
     //GpuBuffer frameRingBuffer;
@@ -61,6 +61,8 @@ struct DeviceResources {
     D3D12_GPU_VIRTUAL_ADDRESS frameConstants[BACK_BUFFER_COUNT] = {};
     
     DescriptorHandle CommonShaderTable[BACK_BUFFER_COUNT] = {};
+    //DescriptorHandle TextureInfoDescriptor[BACK_BUFFER_COUNT] = {};
+    DescriptorHandle TextureInfoDescriptor = {};
 
     Texture* whiteTexture = nullptr;
 
@@ -76,6 +78,7 @@ struct WindowSizeResources {
     ComPtr<IDXGISwapChain3> swapChain;
 
     RenderTarget uiRenderTarget;
+    RenderTarget linearDepthBuffer;
     RenderTarget backBuffers[BACK_BUFFER_COUNT];
     // frame buffers
     RenderTarget sceneColorBuffer;

@@ -106,6 +106,7 @@
     <ClInclude Include="Handles.h" />
     <ClInclude Include="Graphics\DrawCommand.h" />
     <ClInclude Include="shaders\Sprite.h" />
+    <ClInclude Include="shaders\Common.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

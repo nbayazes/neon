@@ -57,6 +57,26 @@ namespace {
     }
 }
 
+RenderTarget& GetBackBuffer() {
+    return sizedResources.backBuffers[_backBufferIndex];
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS& GetFrameConstants() {
+    return resources.frameConstants[_frame % BACK_BUFFER_COUNT];
+}
+
+DescriptorRange& GetFrameDescriptors() {
+    return *resources.frameDescriptors[_frame % BACK_BUFFER_COUNT];
+}
+
+DescriptorHandle& GetCommonDescriptorTable() {
+    return resources.CommonShaderTable[_frame % BACK_BUFFER_COUNT];
+}
+
+GpuBuffer& GetFrameBuffer() {
+    return resources.frameBuffer[_frame % BACK_BUFFER_COUNT];
+}
+
 
 struct SpriteBatchInfo {
     shaders::sprite::Vertex vertex;
@@ -186,6 +206,10 @@ public:
 };
 
 SpriteBatch g_SpriteBatch[BACK_BUFFER_COUNT];
+
+SpriteBatch& GetSpriteBatch() {
+    return g_SpriteBatch[_frame % BACK_BUFFER_COUNT];
+}
 
 DeviceResources& GetDeviceResources() { return resources; }
 WindowSizeResources& GetWindowSizeResources() { return sizedResources; }
@@ -540,7 +564,7 @@ void CreateDeviceResources() {
     resources.frameBuffer[0].Create("frame ring buffer 0", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
     resources.frameBuffer[1].Create("frame ring buffer 1", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
 
-    resources.textureInfo.Create("texture info", 1024 * 1024 * 1);
+    resources.textureInfo.Create("texture info", sizeof(TextureInfo) * 5000);
 
     resources.meshUploadBuffer.Create("Mesh upload buffer", 1024 * 1024 * 2, D3D12_HEAP_TYPE_UPLOAD);
     resources.textureInfoUploadBuffer.Create("Texture info upload buffer", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
@@ -697,30 +721,6 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
 
 //FrameAllocations g_frameSlots[BACK_BUFFER_COUNT];
 
-RenderTarget& GetBackBuffer() {
-    return sizedResources.backBuffers[_backBufferIndex];
-}
-
-D3D12_GPU_VIRTUAL_ADDRESS& GetFrameConstants() {
-    return resources.frameConstants[_frame % BACK_BUFFER_COUNT];
-}
-
-DescriptorRange& GetFrameDescriptors() {
-    return *resources.frameDescriptors[_frame % BACK_BUFFER_COUNT];
-}
-
-DescriptorHandle& GetCommonDescriptorTable() {
-    return resources.CommonShaderTable[_frame % BACK_BUFFER_COUNT];
-}
-
-GpuBuffer& GetFrameBuffer() {
-    return resources.frameBuffer[_frame % BACK_BUFFER_COUNT];
-}
-
-SpriteBatch& GetSpriteBatch() {
-    return g_SpriteBatch[_frame % BACK_BUFFER_COUNT];
-}
-
 void MoveToNextFrame() {
     _backBufferIndex = sizedResources.swapChain->GetCurrentBackBufferIndex();
     auto& nextFrame = resources.graphicsContext[_backBufferIndex];
@@ -841,6 +841,7 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(1).GetCpuHandle());
 
     GetCommonDescriptorTable() = commonTable;
+    resources.TextureInfoDescriptor = commonTable.Offset(1);
 
     // the second handle is the texture indices
     //device->CreateShaderResourceView(resources.textures.), &submesh.textureIndicesView, commonTable.Offset(1).GetCpuHandle());
@@ -860,12 +861,11 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     //dest.End();
 }
 
-//void DrawSprite(GraphicsContext& context, const DrawCommand& command) {
-//    auto cmdList = context.GetCommandList();
-//
-//    cmdList->IASetVertexBuffers(0, 1, &command.vertexBuffer);
-//    cmdList->DrawInstanced(3, command.count * 6, 0, 0);
-//}
+void SetCommonShaderParmeters(ID3D12GraphicsCommandList* cmdList) {
+    cmdList->SetGraphicsRootConstantBufferView(0, GetFrameConstants());
+    cmdList->SetGraphicsRootDescriptorTable(1, resources.textureDescriptors->GetGpuHandle());
+    cmdList->SetGraphicsRootDescriptorTable(2, resources.TextureInfoDescriptor.GetGpuHandle());
+}
 
 void DrawSprites(GraphicsContext& context) {
     auto& sprites = GetSpriteBatch();
@@ -874,39 +874,10 @@ void DrawSprites(GraphicsContext& context) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::spriteAdditive);
 
-    //auto& frameDescriptors = GetFrameDescriptors();
-    //auto commonTable = frameDescriptors.AllocateTable(3);
-    //auto instanceTable = frameDescriptors.AllocateTable(1);
-
-    //auto device = GetDevice();
-
-    //auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    //auto& frameBuffer = GetFrameBuffer();
-
-    //D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
-    //    .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
-    //    .SizeInBytes = (uint)AlignTo(sizeof(constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
-    //};
-
-    //context.SetConstantBuffer(shaders::model::FrameConstants, GetFrameConstants());
-    //cmdList->SetGraphicsRootConstantBufferView(rootIndex, GetFrameConstants());
-
-    //device->CreateConstantBufferView(&desc, commonTable.GetCpuHandle());
-    //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
-
-    // the second handle is the texture handles
-    //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, commonTable.Offset(1).GetCpuHandle());
-    //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
-
-    // the third handle is the texture table
-    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(2).GetCpuHandle());
-
-    cmdList->SetGraphicsRootDescriptorTable(0, GetCommonDescriptorTable().GetGpuHandle());
-    cmdList->SetGraphicsRootDescriptorTable(1, resources.textureDescriptors->GetGpuHandle());
-    //cmdList->SetGraphicsRootDescriptorTable(2, instanceTable.GetGpuHandle());
-    cmdList->SetGraphicsRootShaderResourceView(2, sprites.GetTextureHandleAddress());
-    cmdList->SetGraphicsRootShaderResourceView(3, sprites.GetVerticesAddress());
-    //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
+    SetCommonShaderParmeters(cmdList);
+    cmdList->SetGraphicsRootShaderResourceView(3, sprites.GetTextureHandleAddress());
+    cmdList->SetGraphicsRootShaderResourceView(4, sprites.GetVerticesAddress());
+    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
 
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     cmdList->IASetVertexBuffers(0, 0, nullptr);
@@ -931,11 +902,12 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
 
             context.SetPipelineState(pass == RenderPass::Opaque ? pipelines::model : pipelines::modelAdditive);
 
+            SetCommonShaderParmeters(cmdList);
             // Set the texture table
-            cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+            //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
 
             // Set frame constants
-            context.SetConstantBuffer(shaders::model::FrameConstants, GetFrameConstants());
+            //context.SetConstantBuffer(0, GetFrameConstants());
 
             // Three consecutive handles in the table
             cmdList->SetGraphicsRootDescriptorTable(1, command.descriptorTable);
@@ -965,26 +937,14 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::model);
 
-    auto frameConstants = GetFrameConstants();
     auto& frameDescriptors = GetFrameDescriptors();
     auto& frameBuffer = GetFrameBuffer();
 
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    //SPDLOG_INFO("Creating view at GPU address {} (offset {})", fmt::ptr((void*)(frameBuffer->GetGPUVirtualAddress() + offset)), offset);
-
     auto device = GetDevice();
 
-    //Matrix transform = Matrix::CreateScale(object.Scale) * Matrix::Lerp(object.GetPrevTransform(), object.GetTransform(), Game::LerpAmount);
-
-    //auto model = Resources::GetOutrageModel(object.Render.Model.ID);
-    //if (model == nullptr) return;
-
-    // Set the texture table
-    cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
-
-    // Set frame constants
-    context.SetConstantBuffer(shaders::model::FrameConstants, frameConstants);
+    SetCommonShaderParmeters(cmdList);
 
     auto entry = g_ModelCache.Get(modelId);
     if (!entry) return;
@@ -1001,7 +961,6 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         if (submesh.elementCount == 0) continue;
         auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
-        auto handle = frameDescriptors.AllocateTable(3);
 
         auto submodelOffset = Vector3::Zero;
         auto* smc = &submodel;
@@ -1044,19 +1003,16 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
             .SizeInBytes = (uint)AlignTo(sizeof(shaders::model::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
         };
 
-        // Create three consecutive descriptors
-        device->CreateConstantBufferView(&desc, handle.GetCpuHandle());
-        //cmdList->SetGraphicsRootDescriptorTable(2, resources.textureDescriptors->GetGpuHandle());
+        // Allocate descriptors
+        auto table = frameDescriptors.AllocateTable(2);
+
+        // first is the texture handles
+        device->CreateConstantBufferView(&desc, table.GetCpuHandle());
 
         // the second handle is the texture handles
-        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, handle.Offset(1).GetCpuHandle());
-        //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
+        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, table.Offset(1).GetCpuHandle());
 
-        // the third handle is the texture table
-        device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
-
-        // Three consecutive handles in the table
-        cmdList->SetGraphicsRootDescriptorTable(1, handle.GetGpuHandle());
+        cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle()); // bind the table
 
         cmdList->IASetIndexBuffer(&submesh.ibv);
         cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);

@@ -168,7 +168,7 @@ public:
         }
 
         if (hr == E_OUTOFMEMORY) {
-            throw Exception(fmt::format("Unable to create allocation in {}", _name));
+            throw Exception(fmt::format("Out of memory in buffer. Unable to create allocation in {}", _name));
         }
 
         D3D12MA::VIRTUAL_ALLOCATION_INFO info{};

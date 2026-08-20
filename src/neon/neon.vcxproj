@@ -220,6 +220,7 @@
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
+    <ClInclude Include="shaders\Common.h" />
     <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />

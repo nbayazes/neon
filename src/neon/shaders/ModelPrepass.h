@@ -15,9 +15,16 @@ struct Arguments {
     Vector2 translation;
 };
 
-constexpr void SetProjectionMatrix(ID3D12GraphicsCommandList* commandList, const Arguments& args) {
-    commandList->SetGraphicsRoot32BitConstants(Constants, sizeof(args) / 4, &args, 0);
-}
+constexpr D3D12_ROOT_PARAMETER1 Params[] = {
+    FrameConstantsParameter,
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+        //.Descriptor = { .ShaderRegister = ObjectConstants },
+        .DescriptorTable = {.NumDescriptorRanges = std::size(Descriptors), .pDescriptorRanges = Descriptors },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
+    },
+    TextureTableParameter,
+};
 
 constexpr ShaderInfo info = {
     .file = "shaders/model_prepass.hlsl",
