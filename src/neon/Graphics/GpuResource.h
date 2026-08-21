@@ -153,7 +153,6 @@ public:
 
         D3D12MA::VirtualAllocation alloc;
         UINT64 allocOffset;
-
         auto hr = _block->Allocate(&allocDesc, &alloc, &allocOffset);
 
         if (allowWrapping) {
@@ -168,8 +167,13 @@ public:
         }
 
         if (hr == E_OUTOFMEMORY) {
+            D3D12MA::DetailedStatistics stats;
+            _block->CalculateStatistics(&stats);
             throw Exception(fmt::format("Out of memory in buffer. Unable to create allocation in {}", _name));
         }
+
+        // Push after wrapping, otherwise it would free the allocation we just made
+        _allocations.push_front(alloc);
 
 #ifdef _DEBUG
         if (_allocations.size() > 2000) {
@@ -193,10 +197,9 @@ public:
         allocDesc.Size = sizeof(data);
         allocDesc.Alignment = alignment;
 
-        D3D12MA::VirtualAllocation alloc;
+        auto& alloc = _allocations.emplace_front();
         UINT64 offset;
         ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
-        _allocations.push_front(alloc);
 
 #ifdef _DEBUG
         if (_allocations.size() > 2000) {
@@ -216,7 +219,7 @@ public:
         allocDesc.Size = src.size_bytes();
         allocDesc.Alignment = alignment;
 
-        D3D12MA::VirtualAllocation alloc;
+        auto& alloc = _allocations.emplace_front();
         UINT64 offset;
         ThrowIfFailed(_block->Allocate(&allocDesc, &alloc, &offset));
 
