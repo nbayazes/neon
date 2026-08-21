@@ -54,12 +54,6 @@ string ResolveTextureName(const d3::GameTable& gameTable, const string& fileName
         if (HasFlag(tex.flags, d3::TextureFlag::Animated)) {
             if (auto vclip = g_VClips.FindByFrame(fileName))
                 return *vclip;
-
-            //if (auto f = _vclipFrameLookup.find(fileName); f != _vclipFrameLookup.end())
-            //    return f->second;
-
-            //if (auto f = _vclipFrameLookup.find(fileNameOgf); f != _vclipFrameLookup.end())
-            //    return f->second;
         }
         else {
             string name;
@@ -89,7 +83,7 @@ int FindVClipFrame(const d3::GameTable& gameTable, const string& name) {
     return -1;
 }
 
-int FindTextureEntry(const d3::GameTable& gameTable, const string& name) {
+int FindGameTableTextureIndex(const d3::GameTable& gameTable, const string& name) {
     for (int i = 0; i < gameTable.textures.size(); ++i) {
         auto& entry = gameTable.textures[i];
 
@@ -101,8 +95,7 @@ int FindTextureEntry(const d3::GameTable& gameTable, const string& name) {
         }
     }
 
-    auto vclipFrame = FindVClipFrame(gameTable, name);
-    return vclipFrame;
+    return FindVClipFrame(gameTable, name);
 }
 
 //List<gfx::shaders::model::TextureInfo> _textureInfoTable;
@@ -112,7 +105,7 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
     // locate textures and upload them to the GPU
 
     for (auto& texture : textures) {
-        auto index = FindTextureEntry(gameTable, texture);
+        auto index = FindGameTableTextureIndex(gameTable, texture);
 
         if (index == -1) {
             SPDLOG_WARN("Unable to find gametable entry for texture `{}`", texture);
@@ -171,7 +164,7 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
                 g_TextureRegistry.Upload(entry.fileName, image, entry.color.w);
 
-                SPDLOG_INFO("Loading vclip {} - alpha {}", entry.fileName, entry.color.w);
+                SPDLOG_INFO("Loading texture {} - alpha {}", entry.fileName, entry.color.w);
             }
         }
     }
@@ -180,6 +173,18 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
     gfx::UpdateTextureInfo(table);
 }
 
+void LoadHogTexture(const d3::Hog2& hog, string_view file) {
+    if (auto data = hog.ReadEntry(file)) {
+        auto reader = StreamReader(std::move(*data));
+        auto bitmap = d3::Bitmap::Read(reader);
+
+        gfx::Image image;
+        image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
+        g_TextureRegistry.Upload(file, image);
+
+        SPDLOG_INFO("Loading texture {}", file);
+    }
+}
 
 // maps the local texture indices to global textures
 void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
@@ -187,10 +192,35 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
 
     for (int i = 0; i < model.textures.size(); ++i) {
         auto& texture = model.textures[i];
-        auto name = ResolveTextureName(gameTable, texture);
+        //auto name = ResolveTextureName(gameTable, texture);
+        auto textureIndex = FindGameTableTextureIndex(gameTable, texture);
 
-        if (auto entry = g_TextureRegistry.Find(name)) {
+        string registryEntry = texture;
+
+        if (textureIndex >= 0) {
+            auto& tableEntry = gameTable.textures[textureIndex];
+            registryEntry = tableEntry.fileName;
+
+            // Mark any submodels containing saturated (additive) textures as additive
+            if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate) || HasFlag(tableEntry.flags, d3::TextureFlag::Alpha)) {
+                for (auto& submodel : model.submodels) {
+                    for (auto& face : submodel.faces) {
+                        if (face.texNum == i) {
+                            if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate))
+                                SetFlag(submodel.flags, d3::SubmodelFlag::Additive);
+
+                            if (HasFlag(tableEntry.flags, d3::TextureFlag::Alpha))
+                                SetFlag(submodel.flags, d3::SubmodelFlag::Alpha);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (auto entry = g_TextureRegistry.Find(registryEntry)) {
             model.textureHandles[i] = entry->handle;
+
             // SPDLOG_INFO("Mapping model texture {} to {}", i, (int)entry->texid);
             SPDLOG_INFO("Mapping model texture {} to {}", model.textures[i], entry->name);
         }
@@ -211,6 +241,27 @@ d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
 
     StreamReader reader(*modelData);
     auto model = d3::Model::Read(reader);
+
+    auto glowIndex = model.textures.size();
+    bool addedGlow = false;
+
+    for (auto& submodel : model.submodels) {
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Glow)) {
+            if (!addedGlow) {
+                // hard code the texture for glowing submodels
+                model.textures.push_back("thrustball.ogf");
+            }
+
+            for (auto& face : submodel.faces) {
+                face.texNum = glowIndex;
+            }
+        }
+    }
+
+    if (!g_TextureRegistry.IsLoaded("thrustball.ogf")) {
+        LoadHogTexture(hog, "thrustball.ogf");
+    }
+
     SPDLOG_INFO("Read model with {} submodels and {} textures", model.submodels.size(), model.textures.size());
     return model;
 }
@@ -266,11 +317,13 @@ void Init() {
 
     ReadVClips(hog, _gameTable);
 
-    // auto modelName = "shield.OOF"; 
+    //auto modelName = "shield.OOF"; 
     // auto modelName = "flareyellowbright.oof";
     //auto modelName = "forcefieldswitch.oof";
     //auto modelName = "4packconc.oof";
-    auto modelName = "barnswallow.oof";
+    //auto modelName = "barnswallow.oof";
+    //auto modelName = "fusionblobnewj.oof";
+    auto modelName = "vausstracer.oof";
     auto model = ReadModel(hog, modelName);
 
     _meshid = LoadModel(hog, _gameTable, model, modelName);

@@ -844,7 +844,8 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
     };
 
     device->CreateConstantBufferView(&frameConstantsDesc, commonTable.GetCpuHandle());
-    device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(1).GetCpuHandle());
+    if (resources.textureInfoView.Buffer.NumElements > 0)
+        device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(1).GetCpuHandle());
 
     GetCommonDescriptorTable() = commonTable;
     resources.TextureInfoDescriptor = commonTable.Offset(1);
@@ -906,7 +907,7 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
             if (pass == RenderPass::Additive)
                 context.SetPipelineState(pipelines::modelAdditive);
             else if (pass == RenderPass::Transparent)
-                context.SetPipelineState(pipelines::modelTransparent);
+                context.SetPipelineState(pipelines::modelAlpha);
             else
                 context.SetPipelineState(pipelines::model);
 
@@ -971,6 +972,11 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
         if (submesh.elementCount == 0) continue;
         auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
+
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha) ||
+            HasFlag(submodel.flags, d3::SubmodelFlag::Additive) ||
+            HasFlag(submodel.flags, d3::SubmodelFlag::Glow))
+            continue;
 
         auto submodelOffset = Vector3::Zero;
         auto* smc = &submodel;
@@ -1057,21 +1063,39 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         //constants.world = Matrix::Identity * Matrix::CreateTranslation(submesh.model.offset) * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
         constants.world = Matrix::Identity * translation * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
 
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Glow)) {
+            // glows are basically sprites, but use a hard coded texture (thrustball.ogf)
+            // the color and size are read from the submodel name
 
+            GetSpriteBatch().Add({
+                .vertex = {
+                    .position = constants.world.Translation(),
+                    .color = submodel.glow,
+                    .size = Vector2(submodel.glowSize * 0.5f, submodel.glowSize * 0.5f),
+                },
+                // todo: depth is only needed for alpha sprites, not additive
+                .depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                .texture = submesh.texture
+            });
+
+            continue;
+        }
+
+
+        // todo: not all facing submodels are sprites?
         if (HasFlag(submodel.flags, d3::SubmodelFlag::Facing)) {
             ASSERT((int)submesh.texture >= 0);
 
             auto size = submodel.max - submodel.min;
 
-            // todo: depth is only needed for alpha sprites, not additive
             GetSpriteBatch().Add({
                 .vertex = {
                     .position = constants.world.Translation(),
                     .color = Color(1, 1, 1, 1),
-                    .size = Vector2(std::max(size.x, size.z) * 0.5f, size.y * 0.5f), // todo: derive from mesh size, there is a function for this in D3 / D3edit
+                    .size = Vector2(std::max(size.x, size.z) * 0.5f, size.y * 0.5f), // todo: there is a more robust function for this in D3 / D3edit
                 },
+                // todo: depth is only needed for alpha sprites, not additive
                 .depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
-                //.texture = model.textureHandles[submodel.faces[0].texNum]
                 .texture = submesh.texture
             });
             continue;
@@ -1083,6 +1107,11 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
             .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
             .SizeInBytes = (uint)AlignTo(sizeof(shaders::model::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
         };
+
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Additive))
+            context.SetPipelineState(pipelines::modelAdditive);
+        else if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha))
+            context.SetPipelineState(pipelines::modelAlpha);
 
         // Allocate descriptors
         auto table = frameDescriptors.AllocateTable(2);

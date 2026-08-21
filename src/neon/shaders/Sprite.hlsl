@@ -106,6 +106,7 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     //color.rgb = abs(sceneDepth - (Frame.NearClip / pixel.depth));
     //color.a *= info.opacity;
 
+    color.rgb *= pixel.color.rgb;
     color.rgb = pow(color.rgb, 1 / 2.2);
     return color;
 }

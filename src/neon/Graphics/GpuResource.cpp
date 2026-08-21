@@ -33,6 +33,7 @@ void GpuResource::Create(D3D12_HEAP_TYPE heapType, string_view name, const D3D12
 void GpuBuffer::Create(string_view name, uint64 size, D3D12_HEAP_TYPE heapType) {
     _desc = CD3DX12_RESOURCE_DESC::Buffer(size);
     _heapType = heapType;
+    _name = name;
 
     if (size == 0) {
         __debugbreak();

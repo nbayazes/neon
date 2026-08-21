@@ -80,7 +80,7 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     color.a *= info.opacity;
     color.rgb = pow(color.rgb, 1 / 2.2);
 
-    float3 l = normalize(float3(4, 1, 5));
-    color.rgb *= 1 + dot(normalize(pixel.normal * 2), l) * 0.5;
+    //float3 l = normalize(float3(4, 1, 5));
+    //color.rgb *= 1 + dot(normalize(pixel.normal * 2), l) * 0.5;
     return color;
 }

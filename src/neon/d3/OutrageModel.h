@@ -43,7 +43,9 @@ enum class SubmodelFlag {
     Custom = (1 << 17), // This subobject has textures/colors that are customizable
     Thruster = (1 << 18), // This is a thruster subobject
     Jitter = (1 << 19), // This object jitters by itself
-    Headlight = (1 << 20) // This suboject is a headlight
+    Headlight = (1 << 20), // This suboject is a headlight
+    Additive = 1 << 21, // NEW: Submodel contains additive textures
+    Alpha = 1 << 22 // NEW: Submodel contains alpha textures
 };
 
 struct ModelFace {

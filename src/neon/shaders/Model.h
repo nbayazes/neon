@@ -128,8 +128,8 @@ inline PipelineInfo model = {
     .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 };
 
-inline PipelineInfo modelTransparent = {
-    .name = "model transparent",
+inline PipelineInfo modelAlpha = {
+    .name = "model alpha",
     .shader = &shaders::model::info,
     .format = DXGI_FORMAT_R11G11B10_FLOAT,
     .blend = BlendMode::Alpha,
