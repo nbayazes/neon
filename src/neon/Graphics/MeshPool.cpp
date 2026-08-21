@@ -13,7 +13,13 @@ constexpr uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
         totalSize += GetVectorSizeInBytes(submesh.vertices);
         totalSize = AlignTo(totalSize, alignment);
 
-        totalSize += GetVectorSizeInBytes(submesh.indices);
+        totalSize += GetVectorSizeInBytes(submesh.opaqueIndices);
+        totalSize = AlignTo(totalSize, alignment);
+
+        totalSize += GetVectorSizeInBytes(submesh.additiveIndices);
+        totalSize = AlignTo(totalSize, alignment);
+
+        totalSize += GetVectorSizeInBytes(submesh.transparentIndices);
         totalSize = AlignTo(totalSize, alignment);
 
         //totalSize += GetVectorSizeInBytes(submesh.textures);
@@ -70,8 +76,9 @@ MeshID MeshPool::Upload(Mesh& mesh) {
 
         auto& gpuSubmesh = gpuMesh.submeshes.emplace_back();
         //gpuSubmesh.model = submesh.model;
-        if (submesh.vertices.size() == 0 || submesh.indices.size() == 0) continue;
+        if (submesh.vertices.size() == 0 || submesh.opaqueIndices.size() == 0) continue;
 
+        // Vertices
         {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
 
@@ -86,26 +93,59 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
             vbv.SizeInBytes = (uint)sizeInBytes;
             vbv.StrideInBytes = sizeof(shaders::ModelVertex);
-
-            gpuSubmesh.elementCount = (uint)submesh.vertices.size();
         }
 
+        // Opaque indices
         {
-            auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
+            auto sizeInBytes = GetVectorSizeInBytes(submesh.opaqueIndices);
 
             // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
-            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.indices });
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.opaqueIndices });
             auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
             uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
             // uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
 
-            auto& vbv = gpuSubmesh.ibv;
+            auto& vbv = gpuSubmesh.opaqueIbv;
             vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
             // vbv.BufferLocation = gpuSubmesh.indexBuffer->GetGPUVirtualAddress();
             vbv.SizeInBytes = (uint)sizeInBytes;
             vbv.Format = DXGI_FORMAT_R16_UINT;
+            gpuSubmesh.elementCount = (uint)submesh.opaqueIndices.size();
         }
 
+        // Additive indices
+        if (submesh.additiveIndices.size() > 0) {
+            auto sizeInBytes = GetVectorSizeInBytes(submesh.additiveIndices);
+
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.additiveIndices });
+            auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+            uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
+
+            auto& vbv = gpuSubmesh.additiveIbv;
+            vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+            vbv.SizeInBytes = (uint)sizeInBytes;
+            vbv.Format = DXGI_FORMAT_R16_UINT;
+
+            gpuSubmesh.additiveElementCount = (uint)submesh.additiveIndices.size();
+        }
+
+        // Transparent indices
+        if (submesh.transparentIndices.size() > 0) {
+            auto sizeInBytes = GetVectorSizeInBytes(submesh.transparentIndices);
+
+            auto srcOffset = uploadBuffer.CopyRange(span{ submesh.transparentIndices });
+            auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
+            uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
+
+            auto& vbv = gpuSubmesh.transparentIbv;
+            vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
+            vbv.SizeInBytes = (uint)sizeInBytes;
+            vbv.Format = DXGI_FORMAT_R16_UINT;
+
+            gpuSubmesh.transparentElementCount = (uint)submesh.transparentIndices.size();
+        }
+
+        // Texture handles
         {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.textureHandles);
 
@@ -114,13 +154,35 @@ MeshID MeshPool::Upload(Mesh& mesh) {
             auto srcOffset = uploadBuffer.CopyRange(span{ submesh.textureHandles });
             uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureHandles, allocation.Offset, srcOffset, sizeInBytes);
 
-            auto& desc = gpuSubmesh.textureIndicesView;
-            desc.Format = DXGI_FORMAT_UNKNOWN;
-            desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
-            desc.Buffer.NumElements = (uint)submesh.textureHandles.size();
-            desc.Buffer.StructureByteStride = sizeof(int32);
+            {
+                auto& desc = gpuSubmesh.opaqueHandles;
+                desc.Format = DXGI_FORMAT_UNKNOWN;
+                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
+                desc.Buffer.NumElements = (uint)submesh.opaqueIndices.size() / 3;
+                desc.Buffer.StructureByteStride = sizeof(int32);
+            }
+            
+            {
+                auto& desc = gpuSubmesh.alphaHandles;
+                desc.Format = DXGI_FORMAT_UNKNOWN;
+                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32) + gpuSubmesh.opaqueHandles.Buffer.NumElements;
+                desc.Buffer.NumElements = (uint)submesh.transparentIndices.size() / 3;
+                desc.Buffer.StructureByteStride = sizeof(int32);
+            }
+
+            {
+                auto& desc = gpuSubmesh.additiveHandles;
+                desc.Format = DXGI_FORMAT_UNKNOWN;
+                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32) + gpuSubmesh.opaqueHandles.Buffer.NumElements + gpuSubmesh.alphaHandles.Buffer.NumElements;
+                desc.Buffer.NumElements = (uint)submesh.additiveIndices.size() / 3;
+                desc.Buffer.StructureByteStride = sizeof(int32);
+            }
 
             gpuSubmesh.texture = (TexID)submesh.textureHandles[0];
         }

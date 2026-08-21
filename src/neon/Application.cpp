@@ -23,7 +23,7 @@
 #include "TextureRegistry.h"
 
 namespace neon {
-gfx::Mesh CreateMesh(d3::Model& model);
+gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
 }
 
 namespace neon::app {
@@ -202,20 +202,20 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
             registryEntry = tableEntry.fileName;
 
             // Mark any submodels containing saturated (additive) textures as additive
-            if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate) || HasFlag(tableEntry.flags, d3::TextureFlag::Alpha)) {
-                for (auto& submodel : model.submodels) {
-                    for (auto& face : submodel.faces) {
-                        if (face.texNum == i) {
-                            if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate))
-                                SetFlag(submodel.flags, d3::SubmodelFlag::Additive);
+            //if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate) || HasFlag(tableEntry.flags, d3::TextureFlag::Alpha)) {
+            //    for (auto& submodel : model.submodels) {
+            //        for (auto& face : submodel.faces) {
+            //            if (face.texNum == i) {
+            //                if (HasFlag(tableEntry.flags, d3::TextureFlag::Saturate))
+            //                    SetFlag(submodel.flags, d3::SubmodelFlag::Additive);
 
-                            if (HasFlag(tableEntry.flags, d3::TextureFlag::Alpha))
-                                SetFlag(submodel.flags, d3::SubmodelFlag::Alpha);
-                            break;
-                        }
-                    }
-                }
-            }
+            //                if (HasFlag(tableEntry.flags, d3::TextureFlag::Alpha))
+            //                    SetFlag(submodel.flags, d3::SubmodelFlag::Alpha);
+            //                break;
+            //            }
+            //        }
+            //    }
+            //}
         }
 
         if (auto entry = g_TextureRegistry.Find(registryEntry)) {
@@ -266,6 +266,75 @@ d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
     return model;
 }
 
+List<d3::TextureFlag> GetModelTextureFlags(const d3::GameTable& gameTable, const d3::Model& model) {
+    List<d3::TextureFlag> flags(model.textures.size());
+    for (int i = 0; i < model.textures.size(); ++i) {
+        auto textureIndex = FindGameTableTextureIndex(gameTable, model.textures[i]);
+        if (textureIndex == -1) continue;
+        auto& tableEntry = gameTable.textures[textureIndex];
+        flags[i] = tableEntry.flags;
+    }
+
+    return flags;
+}
+
+// Splits a model into additional submodels based on transparency
+void ExpandTransparentSubmodels(const d3::GameTable& gameTable, d3::Model& model) {
+    auto textureFlags = GetModelTextureFlags(gameTable, model);
+    List<d3::Submodel> newSubmodels;
+
+    for (auto& submodel : model.submodels) {
+        List<d3::ModelFace> transparentFaces;
+        List<d3::ModelFace> additiveFaces;
+
+        List<uint> facesToRemove;
+
+        for (int f = 0; f < submodel.faces.size(); ++f) {
+            auto& face = submodel.faces[f];
+            if (face.texNum < 0) continue;
+
+            auto flags = textureFlags[face.texNum];
+
+            if (HasFlag(flags, d3::TextureFlag::Saturate)) {
+                additiveFaces.push_back(face);
+                facesToRemove.push_back(f);
+            }
+            else if (HasFlag(flags, d3::TextureFlag::Alpha)) {
+                transparentFaces.push_back(face);
+                facesToRemove.push_back(f);
+            }
+        }
+
+        if (!additiveFaces.empty()) {
+            // this doesn't discard the unused vertices / indices as remapping is tedious
+            d3::Submodel newSubmodel = submodel;
+            newSubmodel.vertices = submodel.vertices;
+            newSubmodel.faces = additiveFaces;
+            SetFlag(newSubmodel.flags, d3::SubmodelFlag::Additive);
+            newSubmodels.push_back(std::move(newSubmodel));
+            SPDLOG_INFO("Added new additive submodel");
+        }
+        else if (!transparentFaces.empty()) {
+            // this doesn't discard the unused vertices / indices as remapping is tedious
+            d3::Submodel newSubmodel = submodel;
+            newSubmodel.vertices = submodel.vertices;
+            newSubmodel.faces = transparentFaces;
+            SetFlag(newSubmodel.flags, d3::SubmodelFlag::Alpha);
+            newSubmodels.push_back(std::move(newSubmodel));
+            SPDLOG_INFO("Added new transparent submodel");
+        }
+
+        Seq::sortDescending(facesToRemove);
+        for (auto& i : facesToRemove) {
+            Seq::removeAt(submodel.faces, i);
+        }
+    }
+
+    for (auto& submodel : newSubmodels) {
+        model.submodels.push_back(std::move(submodel));
+    }
+}
+
 // todo: superthiefemitter.oof has no geometry at all?
 ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model, string_view name) {
     int64 time = 0;
@@ -273,6 +342,8 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
 
     if (auto existing = g_ModelCache.Find(name); existing != ModelID::None)
         return existing;
+
+    //ExpandTransparentSubmodels(gameTable, model);
 
     timer.Start();
     LoadTextures(hog, gameTable, model.textures);
@@ -284,8 +355,10 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
     timer.Stop();
     SPDLOG_INFO("Texture map time: {:.2f} ms", time / 1000.0f);
 
+    auto textureFlags = GetModelTextureFlags(gameTable, model);
+
     timer.Start();
-    auto mesh = CreateMesh(model);
+    auto mesh = CreateMesh(model, textureFlags);
     timer.Stop();
     SPDLOG_INFO("Mesh load time: {:.2f} ms", time / 1000.0f);
 
@@ -323,7 +396,8 @@ void Init() {
     //auto modelName = "4packconc.oof";
     //auto modelName = "barnswallow.oof";
     //auto modelName = "fusionblobnewj.oof";
-    auto modelName = "vausstracer.oof";
+    // auto modelName = "vausstracer.oof";
+    auto modelName = "afterburner2.oof";
     auto model = ReadModel(hog, modelName);
 
     _meshid = LoadModel(hog, _gameTable, model, modelName);

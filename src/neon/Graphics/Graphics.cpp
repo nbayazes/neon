@@ -1010,11 +1010,11 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
         device->CreateConstantBufferView(&desc, table.GetCpuHandle());
 
         // the second handle is the texture handles
-        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, table.Offset(1).GetCpuHandle());
+        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.opaqueHandles, table.Offset(1).GetCpuHandle());
 
         cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle()); // bind the table
 
-        cmdList->IASetIndexBuffer(&submesh.ibv);
+        cmdList->IASetIndexBuffer(&submesh.opaqueIbv);
         cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
         cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
     }
@@ -1101,32 +1101,62 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
             continue;
         }
 
+
+        //if (HasFlag(submodel.flags, d3::SubmodelFlag::Additive))
+        //    continue;
+        //if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha))
+        //    continue;
+
+
+
+        //if (HasFlag(submodel.flags, d3::SubmodelFlag::Additive))
+        //    context.SetPipelineState(pipelines::modelAdditive);
+        //else if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha))
+        //    context.SetPipelineState(pipelines::modelAlpha);
+
+        // instance constants
         auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
-        D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {
+        D3D12_CONSTANT_BUFFER_VIEW_DESC constantsDesc = {
             .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
             .SizeInBytes = (uint)AlignTo(sizeof(shaders::model::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
         };
 
-        if (HasFlag(submodel.flags, d3::SubmodelFlag::Additive))
-            context.SetPipelineState(pipelines::modelAdditive);
-        else if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha))
-            context.SetPipelineState(pipelines::modelAlpha);
-
-        // Allocate descriptors
-        auto table = frameDescriptors.AllocateTable(2);
-
-        // first is the texture handles
-        device->CreateConstantBufferView(&desc, table.GetCpuHandle());
-
-        // the second handle is the texture handles
-        device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.textureIndicesView, table.Offset(1).GetCpuHandle());
-
-        cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle()); // bind the table
-
-        cmdList->IASetIndexBuffer(&submesh.ibv);
         cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
-        cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
+
+        if (submesh.elementCount > 0) {
+            // Set up descriptors
+            auto table = frameDescriptors.AllocateTable(2); 
+            device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
+            device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.opaqueHandles, table.Offset(1).GetCpuHandle());
+            cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
+
+            context.SetPipelineState(pipelines::model);
+            cmdList->IASetIndexBuffer(&submesh.opaqueIbv);
+            cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
+        }
+
+        if (submesh.transparentElementCount > 0) {
+            auto table = frameDescriptors.AllocateTable(2);
+            device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
+            device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.alphaHandles, table.Offset(1).GetCpuHandle());
+            cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
+
+            context.SetPipelineState(pipelines::modelAlpha);
+            cmdList->IASetIndexBuffer(&submesh.transparentIbv);
+            cmdList->DrawIndexedInstanced(submesh.transparentElementCount, 1, 0, 0, 0);
+        }
+
+        if (submesh.additiveElementCount > 0) {
+            auto table = frameDescriptors.AllocateTable(2);
+            device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
+            device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.additiveHandles, table.Offset(1).GetCpuHandle());
+            cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
+
+            context.SetPipelineState(pipelines::modelAdditive);
+            cmdList->IASetIndexBuffer(&submesh.additiveIbv);
+            cmdList->DrawIndexedInstanced(submesh.additiveElementCount, 1, 0, 0, 0);
+        }
     }
 }
 

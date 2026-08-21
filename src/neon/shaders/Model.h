@@ -15,7 +15,7 @@ constexpr D3D12_DESCRIPTOR_RANGE1 Descriptors[] = {
     {
         .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         .NumDescriptors = 1,
-        .BaseShaderRegister = 0, // t0. Texture indices
+        .BaseShaderRegister = 0, // t0. Texture handles
         .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND
     },
 };

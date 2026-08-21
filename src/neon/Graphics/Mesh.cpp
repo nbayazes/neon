@@ -1,19 +1,15 @@
 ﻿#include "pch.h"
 #include "Mesh.h"
 #include "d3/OutrageModel.h"
+#include "d3/OutrageTable.h"
 #include "DeviceResources.h"
 #include "ModelCache.h"
-#include "ScopedTimer.h"
 #include "Utility.h"
 
 namespace neon {
 
-namespace {
-    std::mutex _uploadMutex;
-}
-
-
 void PopulateTangents(span<gfx::shaders::ModelVertex> verts) {
+    ASSERT(verts.size() == 3);
     auto edge1 = verts[1].position - verts[0].position;
     auto edge2 = verts[2].position - verts[0].position;
     auto deltaUV1 = verts[1].uv - verts[0].uv;
@@ -41,217 +37,112 @@ void PopulateTangents(span<gfx::shaders::ModelVertex> verts) {
     }
 }
 
-gfx::Mesh CreateMesh(d3::Model& model) {
-    //auto model = g_ModelCache.Get(handle);
-    //if (!model) return {};
+List<gfx::shaders::ModelVertex> MeshifySubmodel(d3::Model& model, d3::Submodel& submodel, span<d3::ModelFace> faces, List<int32>& textureHandles) {
+    //gfx::Submesh submesh;
+    //int16 index = 0;
 
+    List<gfx::shaders::ModelVertex> vertices;
+
+    for (auto& face : faces) {
+        if (face.texNum == -1)
+            continue; // Skip untextured faces as they are metadata such as gunpoints or glows
+
+        Color color = face.color;
+
+        const auto& fv0 = face.vertices[0];
+        const auto& v0 = submodel.vertices[fv0.index];
+
+        auto fvx = &face.vertices[1];
+        auto vx = &submodel.vertices[fvx->index];
+
+        // convert triangle fans to triangle lists
+        for (int i = 2; i < face.vertices.size(); i++) {
+            auto& fv = face.vertices[i];
+            auto& v = submodel.vertices[fv.index];
+            auto startSize = vertices.size();
+
+            auto addVert = [&](const d3::Submodel::Vertex& vtx, const Vector2& uv) {
+                color.A(vtx.alpha);
+
+                vertices.push_back(gfx::shaders::ModelVertex{
+                    .position = vtx.position,
+                    .uv = uv,
+                    .color = color,
+                    .normal = vtx.normal,
+                });
+            };
+
+            addVert(v0, fv0.uv);
+            addVert(*vx, fvx->uv);
+            addVert(v, fv.uv);
+
+            textureHandles.push_back(model.textureHandles[face.texNum]);
+
+            PopulateTangents(std::span{ &vertices[startSize], 3 });
+
+            fvx = &fv;
+            vx = &v;
+        }
+    }
+
+    return vertices;
+}
+
+gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags) {
+    ASSERT(model.textures.size() == flags.size());
     gfx::Mesh mesh;
-    //mesh.model = handle;
 
     for (int smIndex = 0; auto& submodel : model.submodels) {
         auto& submesh = mesh.submeshes.emplace_back();
-        int16 index = 0;
+        //int16 index = 0;
 
-        // combine uvs from faces with the vertices
+        // split meshes into opaque, alpha, and additive so they can fit into render passes
+        List<d3::ModelFace> opaque, alpha, additive;
+
         for (auto& face : submodel.faces) {
-            if (face.texNum == -1) continue; // Skip untextured faces as they are metadata such as gunpoints or glows
-            // todo: split meshes based on transparency - were the original models designed with this in mind?
-            Color color = face.color;
+            if (face.texNum == -1)
+                continue; // Skip untextured faces as they are metadata such as gunpoints or glows
 
-            const auto& fv0 = face.vertices[0];
-            const auto& v0 = submodel.vertices[fv0.index];
-
-            auto fvx = &face.vertices[1];
-            auto vx = &submodel.vertices[fvx->index];
-
-            // convert triangle fans to triangle lists
-            for (int i = 2; i < face.vertices.size(); i++) {
-                auto& fv = face.vertices[i];
-                auto& v = submodel.vertices[fv.index];
-                auto startSize = submesh.vertices.size();
-
-                auto addVert = [&](const d3::Submodel::Vertex& vtx, const Vector2& uv) {
-                    color.A(vtx.alpha);
-
-                    submesh.vertices.push_back(gfx::shaders::ModelVertex{
-                        .position = vtx.position,
-                        .uv = uv,
-                        .color = color,
-                        .normal = vtx.normal,
-                    });
-                    submesh.indices.push_back(index++);
-                };
-
-                addVert(v0, fv0.uv);
-                addVert(*vx, fvx->uv);
-                addVert(v, fv.uv);
-
-                PopulateTangents(std::span{ &submesh.vertices[startSize], 3 });
-
-                fvx = &fv;
-                vx = &v;
-
-                // Map the local indices to global ones
-                submesh.textureHandles.push_back(model.textureHandles[face.texNum]);
-                //submesh.model = submodel;
+            if (HasFlag(flags[face.texNum], d3::TextureFlag::Saturate)) {
+                additive.push_back(face);
+            }
+            else if (HasFlag(flags[face.texNum], d3::TextureFlag::Alpha)) {
+                alpha.push_back(face);
+            }
+            else {
+                opaque.push_back(face);
             }
         }
+
+        auto opaqueVertices = MeshifySubmodel(model, submodel, opaque, submesh.textureHandles);
+        auto alphaVertices = MeshifySubmodel(model, submodel, alpha, submesh.textureHandles);
+        auto additiveVertices = MeshifySubmodel(model, submodel, additive, submesh.textureHandles);
+
+        // NOTE: texture indices will restart at zero for each submesh due to the ibv using an offset.
+        //       the vertex buffer is shared between all
+
+        // Combine the mesh data in the order: opaque, alpha, additive
+        submesh.vertices = opaqueVertices;
+        Seq::append(submesh.vertices, alphaVertices);
+        Seq::append(submesh.vertices, additiveVertices);
+
+        for (uint16 i = 0; i < opaqueVertices.size(); ++i)
+            submesh.opaqueIndices.push_back(i);
+
+        uint16 offset = (uint16)submesh.opaqueIndices.size();
+
+        for (uint16 i = 0; i < alphaVertices.size(); ++i)
+            submesh.transparentIndices.push_back(i + offset);
+
+        offset += (uint16)submesh.transparentIndices.size();
+
+        for (uint16 i = 0; i < additiveVertices.size(); ++i)
+            submesh.additiveIndices.push_back(i + offset);
 
         smIndex++;
     }
 
     return mesh;
 }
-
-//constexpr uint64 CalculateMeshSize(const gfx::Mesh& mesh, uint64 alignment) {
-//    uint64 totalSize = 0;
-//
-//    for (auto& submesh : mesh.submeshes) {
-//        totalSize += GetVectorSizeInBytes(submesh.vertices);
-//        totalSize = AlignTo(totalSize, alignment);
-//
-//        totalSize += GetVectorSizeInBytes(submesh.indices);
-//        totalSize = AlignTo(totalSize, alignment);
-//
-//        //totalSize += GetVectorSizeInBytes(submesh.textures);
-//        //totalSize = AlignTo(totalSize, alignment);
-//    }
-//
-//    return totalSize;
-//}
-//
-//constexpr uint64 CalculateTextureIndexSize(const gfx::Mesh& mesh) {
-//    uint64 totalSize = 0;
-//
-//    for (auto& submesh : mesh.submeshes) {
-//        totalSize += GetVectorSizeInBytes(submesh.textureIndices);
-//        totalSize = AlignTo(totalSize, 4);
-//    }
-//
-//    return totalSize;
-//}
-
-
-// Uploads multiple meshes and fills in their GPU views
-//void UploadMeshes(span<Mesh> meshes) {
-//    int64 time = 0;
-//    ScopedTimer timer(time);
-//
-//    auto device = GetDevice();
-//    ASSERT(device);
-//    std::lock_guard lock(_uploadMutex);
-//
-//    auto& resources = GetDeviceResources();
-//
-//    gfx::CommandContext uploadContext = { device, resources.copyQueue.get(), "Mesh upload command list" };
-//    uploadContext.Reset();
-//
-//    auto cmdList = uploadContext.GetCommandList();
-//
-//    auto& uploadBuffer = resources.meshUploadBuffer;
-//    uploadBuffer.Clear();
-//
-//    // All buffers must use CBV alignment if they are packed in a single shared buffer
-//
-//    for (int i = 0; i < meshes.size(); ++i) {
-//        auto& mesh = meshes[i];
-//        auto meshBufferSize = CalculateMeshSize(mesh, 4);
-//
-//        auto& gpuMesh = resources.meshes.emplace_back();
-//        gpuMesh.meshData.Create(mesh.name, meshBufferSize);
-//        gpuMesh.textureIndices.Create(mesh.name + " texture indices", CalculateTextureIndexSize(mesh));
-//        //gpuMesh.model = mesh.model;
-//
-//        for (int j = 0; j < mesh.submeshes.size(); ++j) {
-//            auto& submesh = mesh.submeshes[j];
-//            if (submesh.vertices.size() == 0 || submesh.indices.size() == 0) continue;
-//            submesh.handle = (int)resources.meshes.size();
-//
-//            auto& gpuSubmesh = gpuMesh.submeshes.emplace_back();
-//            //gpuSubmesh.model = submesh.model;
-//
-//            {
-//                auto sizeInBytes = GetVectorSizeInBytes(submesh.vertices);
-//
-//                //gpuSubmesh.vertexBuffer.Create(fmt::format("{} VB{:02}", mesh.name, i), sizeInBytes);
-//                auto srcOffset = uploadBuffer.Copy(span{ submesh.vertices });
-//                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
-//                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-//                //uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.vertexBuffer, 0, srcOffset, sizeInBytes);
-//
-//                auto& vbv = gpuSubmesh.vbv;
-//                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-//                // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
-//                vbv.SizeInBytes = (uint)sizeInBytes;
-//                vbv.StrideInBytes = sizeof(shaders::ModelVertex);
-//
-//                gpuSubmesh.elementCount = (uint)submesh.vertices.size();
-//            }
-//
-//            {
-//                auto sizeInBytes = GetVectorSizeInBytes(submesh.indices);
-//
-//                // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
-//                auto srcOffset = uploadBuffer.Copy(span{ submesh.indices });
-//                auto allocation = gpuMesh.meshData.Allocate(sizeInBytes);
-//                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.meshData, allocation.Offset, srcOffset, sizeInBytes);
-//                // uploadBuffer.CopyRegionTo(cmdList, gpuSubmesh.indexBuffer, 0, srcOffset, sizeInBytes);
-//
-//                auto& vbv = gpuSubmesh.ibv;
-//                vbv.BufferLocation = gpuMesh.meshData->GetGPUVirtualAddress() + allocation.Offset;
-//                // vbv.BufferLocation = gpuSubmesh.indexBuffer->GetGPUVirtualAddress();
-//                vbv.SizeInBytes = (uint)sizeInBytes;
-//                vbv.Format = DXGI_FORMAT_R16_UINT;
-//            }
-//
-//            {
-//                auto sizeInBytes = GetVectorSizeInBytes(submesh.textureIndices);
-//
-//                // gpuMesh.textureMap.Create(fmt::format("{} TB{:02}", mesh.name, i), sizeInBytes);
-//                auto allocation = gpuMesh.textureIndices.Allocate(sizeInBytes);
-//                auto srcOffset = uploadBuffer.Copy(span{ submesh.textureIndices });
-//                uploadBuffer.CopyRegionTo(cmdList, gpuMesh.textureIndices, allocation.Offset, srcOffset, sizeInBytes);
-//
-//                auto& desc = gpuSubmesh.textureIndicesView;
-//                desc.Format = DXGI_FORMAT_UNKNOWN;
-//                desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-//                desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-//                desc.Buffer.FirstElement = allocation.Offset / sizeof(int32);
-//                desc.Buffer.NumElements = (uint)submesh.textureIndices.size();
-//                desc.Buffer.StructureByteStride = sizeof(int32);
-//            }
-//        }
-//    }
-//
-//    uploadContext.Execute();
-//    uploadContext.WaitForIdle();
-//
-//    timer.Stop();
-//    SPDLOG_INFO("Model upload time: {:.2f} ms", time / 1000.0f);
-//}
-
-//void UploadModel(ModelID id) {
-//    int64 time = 0;
-//    ScopedTimer timer(time);
-//
-//    auto model = g_ModelCache.Get(id);
-//    if(!model) return;
-//
-//    timer.Start();
-//    LoadTextures(hog, gameTable, model->textures);
-//    timer.Stop();
-//    SPDLOG_INFO("Model texture load time: {:.2f} ms", time / 1000.0f);
-//
-//    timer.Start();
-//    MapTextures(gameTable, model);
-//    timer.Stop();
-//    SPDLOG_INFO("Texture map time: {:.2f} ms", time / 1000.0f);
-//
-//    auto mesh = CreateMesh(model);
-//    timer.Stop();
-//    SPDLOG_INFO("Mesh load time: {:.2f} ms", time / 1000.0f);
-//
-//    gfx::UploadMeshes(upload);
-//}
 
 }
