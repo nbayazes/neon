@@ -1045,7 +1045,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
 
     for (int sm = 0; sm < entry->model.submodels.size(); ++sm) {
         auto& submesh = mesh.submeshes[sm];
-        if (submesh.elementCount == 0) continue;
+        if (submesh.elementCount == 0 && submesh.transparentElementCount == 0 && submesh.additiveElementCount == 0) continue;
         auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
 

@@ -117,9 +117,9 @@ public:
             }
         }
 
-        for (auto& item : table) {
-            SPDLOG_INFO("Texture handle {}", item.handle);
-        }
+        //for (auto& item : table) {
+        //    SPDLOG_INFO("Texture handle {}", item.handle);
+        //}
 
         return table;
     }

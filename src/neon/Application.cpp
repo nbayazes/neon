@@ -21,6 +21,7 @@
 #include "shaders/ModelVertex.h"
 #include "SystemClock.h"
 #include "TextureRegistry.h"
+#include "vfs/FileSystem.h"
 
 namespace neon {
 gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
@@ -235,14 +236,11 @@ List<d3::Hog2::Entry> _modelEntries;
 d3::Hog2 _d3Hog;
 auto _meshid = ModelID::None;
 
-d3::Model ReadModel(const d3::Hog2& hog, string_view name) {
-    auto modelData = hog.ReadEntry(name);
-    if (!modelData) return {};
-
-    StreamReader reader(*modelData);
+d3::Model ReadModel(const d3::Hog2& hog, span<ubyte> modelData) {
+    StreamReader reader(modelData);
     auto model = d3::Model::Read(reader);
 
-    auto glowIndex = model.textures.size();
+    auto glowIndex = (short)model.textures.size();
     bool addedGlow = false;
 
     for (auto& submodel : model.submodels) {
@@ -398,11 +396,17 @@ void Init() {
     //auto modelName = "fusionblobnewj.oof";
     // auto modelName = "vausstracer.oof";
     auto modelName = "afterburner2.oof";
-    auto model = ReadModel(hog, modelName);
+    //auto modelName = "aliencuplinkhousing.oof";
 
-    _meshid = LoadModel(hog, _gameTable, model, modelName);
-    //mesh.name = modelName;
-    _cameraDistance = std::max(model.radius, 2.5f) * 2;
+    //auto testModelData = fs::ReadAllBytes("D:/dev/neon/src/neon/neon.pof");
+    //auto model = ReadModel(hog, testModelData);
+
+    if (auto modelData = hog.ReadEntry(modelName)) {
+        auto model = ReadModel(hog, *modelData);
+        _meshid = LoadModel(hog, _gameTable, model, modelName);
+        //mesh.name = modelName;
+        _cameraDistance = std::max(model.radius, 2.5f) * 2;
+    }
 
     _d3Hog = std::move(hog);
 }
@@ -449,9 +453,10 @@ void ModelBrowser() {
         if (ImGui::Selectable(entry.name.c_str(), i == _selection)) {
             _selection = i;
 
-            auto model = ReadModel(_d3Hog, entry.name);
-            //auto mesh = LoadModel(_d3Hog, _gameTable, model, entry.name);
-            _meshid = LoadModel(_d3Hog, _gameTable, model, entry.name);
+            if (auto modelData = _d3Hog.ReadEntry(entry.name)) {
+                auto model = ReadModel(_d3Hog, *modelData);
+                //auto mesh = LoadModel(_d3Hog, _gameTable, model, entry.name);
+                _meshid = LoadModel(_d3Hog, _gameTable, model, entry.name);
             //mesh.name = entry.name;
 
             //_meshid++;
@@ -460,6 +465,7 @@ void ModelBrowser() {
             //auto bounds = CalculateModelBounds(mesh);
             //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
             _cameraDistance = std::max(model.radius, 2.5f) * 3;
+            }
         }
     }
 

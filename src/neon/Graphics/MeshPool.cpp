@@ -76,7 +76,7 @@ MeshID MeshPool::Upload(Mesh& mesh) {
 
         auto& gpuSubmesh = gpuMesh.submeshes.emplace_back();
         //gpuSubmesh.model = submesh.model;
-        if (submesh.vertices.size() == 0 || submesh.opaqueIndices.size() == 0) continue;
+        if (submesh.vertices.size() == 0) continue;
 
         // Vertices
         {
@@ -96,7 +96,7 @@ MeshID MeshPool::Upload(Mesh& mesh) {
         }
 
         // Opaque indices
-        {
+        if (submesh.opaqueIndices.size() > 0) {
             auto sizeInBytes = GetVectorSizeInBytes(submesh.opaqueIndices);
 
             // gpuSubmesh.indexBuffer.Create(fmt::format("{} IB{:02}", mesh.name, i), sizeInBytes);
