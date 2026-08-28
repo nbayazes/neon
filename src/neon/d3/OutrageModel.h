@@ -70,13 +70,16 @@ struct Submodel {
         float alpha = 1;
     };
 
+    // Originally keyframe data was stored in separate arrays on the submodel struct
     struct Keyframe {
-        Vector3 axis; // the axis of rotation for each keyframe
-        int angle; // The destination angles for each key frame
-        Vector3 position;
-        int rotStartTime, posStartTime;
+        Vector3 axis; // the axis of rotation for each keyframe (keyframe_axis)
+        float angle; // The destination angles for each key frame (keyframe_angles)
+        int rotStartTime, posStartTime; // related to constant animations (ROTATE or TURRET)
+
+        // runtime values, move them
+        Vector3 position; // interpolated position
         // the combined rotation matrices up to frame n
-        Matrix3x3 transform;
+        Matrix3x3 transform; // (keyframe_matrix)
     };
 
     List<Keyframe> keyframes;

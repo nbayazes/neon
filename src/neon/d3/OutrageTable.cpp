@@ -373,7 +373,7 @@ GameTable GameTable::Read(StreamReader& r) {
 
             case PAGETYPE_GENERIC:
                 // GenericInfo is quite large so emplace and pass by ref to prevent stack size warning
-                ReadGenericPage(r, table.generics.emplace_back());
+                ReadGenericPage(r, table.objects.emplace_back());
                 break;
         }
 

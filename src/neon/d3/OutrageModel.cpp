@@ -55,6 +55,11 @@ std::pair<Vector3, float> GetCentroid(span<Vector3> src) {
     return { centroid, totalArea };
 }
 
+
+float FixedAngleToRadians(int32 angle) {
+    return FixToFloat(angle) * 2 * std::numbers::pi;
+}
+
 void ParseSubmodelProperties(Submodel& sm) {
     const auto& props = sm.props;
     const auto len = props.length();
@@ -420,12 +425,12 @@ Model Model::Read(StreamReader& r) {
                     sm.keyframes.resize(sm.numKeyAngles /*+ 1*/); // why the +1?
 
                     if (timed) {
-                        //int numTicks = sm.RotTrackMax - sm.RotTrackMin;
+                        // allocate fast lookup for tick angles
+                        // int numTicks = sm.rotTrackMax - sm.rotTrackMin;
 
-                        // Some kind of lookup...
-                        //if (numTicks > 0) {
-                        //    sm.TickAngleRemap.resize(numTicks * 2);
-                        //}
+                        // if (numTicks > 0) {
+                        //     sm.tickAngleRemap.resize(numTicks * 2);
+                        // }
                     }
 
                     for (auto& keyframe : sm.keyframes) {
@@ -434,7 +439,7 @@ Model Model::Read(StreamReader& r) {
 
                         keyframe.axis = r.ReadVector3();
                         keyframe.axis.Normalize();
-                        keyframe.angle = r.ReadInt32();
+                        keyframe.angle = FixedAngleToRadians(r.ReadInt32());
 
                         // some stuff here about keyframe angle wrapping?
                     }

@@ -449,8 +449,7 @@ struct GameTable {
 
     List<TextureInfo> textures;
     List<SoundInfo> sounds;
-    List<GenericInfo> generics;
-    List<GenericInfo> animations; // VClips
+    List<GenericInfo> objects;
 
     static GameTable Read(StreamReader&);
 

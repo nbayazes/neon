@@ -943,6 +943,39 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
     }
 }
 
+int16 _keyframe = 0;
+
+void SetKeyframe(int16 keyframe) {
+    _keyframe = keyframe;
+}
+
+// Accumulated transforms for a model
+List<Matrix> _modelTransforms;
+
+void AnimateModel(d3::Model& model, int16 frame) {
+    _modelTransforms.resize(model.submodels.size());
+
+    for (int sm = 0; sm < model.submodels.size(); ++sm) {
+        auto& submodel = model.submodels[sm];
+
+        Matrix rotation = Matrix::Identity;
+
+        if (Seq::inRange(submodel.keyframes, frame)) {
+            auto& keyframe = submodel.keyframes[frame];
+            if (!IsZero(keyframe.axis))
+                rotation = Matrix::CreateFromAxisAngle(keyframe.axis, keyframe.angle);
+        }
+
+        auto translation = Matrix::CreateTranslation(submodel.offset);
+
+        if (submodel.parent >= 0) {
+            _modelTransforms[sm] = rotation * translation * _modelTransforms[submodel.parent];
+        }
+        else {
+            _modelTransforms[sm] = rotation * translation;
+        }
+    }
+}
 
 void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
@@ -978,19 +1011,21 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
             HasFlag(submodel.flags, d3::SubmodelFlag::Glow))
             continue;
 
-        auto submodelOffset = Vector3::Zero;
-        auto* smc = &submodel;
-        while (smc->parent != -1) {
-            submodelOffset += smc->offset;
-            smc = &model.submodels[smc->parent];
-        }
+        //auto submodelOffset = Vector3::Zero;
+        //auto* smc = &submodel;
+        //while (smc->parent != -1) {
+        //    submodelOffset += smc->offset;
+        //    smc = &model.submodels[smc->parent];
+        //}
 
         // todo: these transforms could be shared between both passes. no need to upload twice.
         // the first handle is the object constants
         shaders::model::Constants constants = {};
-        auto translation = Matrix::CreateTranslation(submodelOffset);
+        //auto translation = Matrix::CreateTranslation(submodelOffset);
 
-        constants.world = Matrix::Identity * translation * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
+        //Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
+        //constants.world = Matrix::Identity * translation;
+        constants.world = _modelTransforms[sm];
 
         if (HasFlag(submodel.flags, d3::SubmodelFlag::Facing)) {
             continue;
@@ -1019,6 +1054,7 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
         cmdList->DrawIndexedInstanced(submesh.elementCount, 1, 0, 0, 0);
     }
 }
+
 
 void DrawMesh(GraphicsContext& context, ModelID modelId) {
     auto cmdList = context.GetCommandList();
@@ -1049,19 +1085,22 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         auto& submodel = model.submodels[sm];
         // allocate three handles for the submesh
 
-        auto submodelOffset = Vector3::Zero;
-        auto* smc = &submodel;
-        while (smc->parent != -1) {
-            submodelOffset += smc->offset;
-            smc = &model.submodels[smc->parent];
-        }
+        //auto submodelOffset = Vector3::Zero;
+        //auto* smc = &submodel;
+        //while (smc->parent != -1) {
+        //    submodelOffset += smc->offset;
+        //    smc = &model.submodels[smc->parent];
+        //}
 
         // the first handle is the object constants
-        shaders::model::Constants constants = {};
-        auto translation = Matrix::CreateTranslation(submodelOffset);
+        //auto translation = Matrix::CreateTranslation(submodelOffset);
 
         //constants.world = Matrix::Identity * Matrix::CreateTranslation(submesh.model.offset) * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
-        constants.world = Matrix::Identity * translation * Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds());
+        // Matrix::CreateRotationY((float)Clock.GetTotalTimeSeconds())
+
+        //constants.world = Matrix::Identity * rotation * translation;
+        shaders::model::Constants constants = {};
+        constants.world = _modelTransforms[sm];
 
         if (HasFlag(submodel.flags, d3::SubmodelFlag::Glow)) {
             // glows are basically sprites, but use a hard coded texture (thrustball.ogf)
@@ -1108,7 +1147,6 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
         //    continue;
 
 
-
         //if (HasFlag(submodel.flags, d3::SubmodelFlag::Additive))
         //    context.SetPipelineState(pipelines::modelAdditive);
         //else if (HasFlag(submodel.flags, d3::SubmodelFlag::Alpha))
@@ -1126,7 +1164,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
 
         if (submesh.elementCount > 0) {
             // Set up descriptors
-            auto table = frameDescriptors.AllocateTable(2); 
+            auto table = frameDescriptors.AllocateTable(2);
             device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
             device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.opaqueHandles, table.Offset(1).GetCpuHandle());
             cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
@@ -1160,7 +1198,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
     }
 }
 
-void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
+void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(0.1, 1000);
@@ -1178,11 +1216,15 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     ID3D12DescriptorHeap* heaps[] = { resources.shaderVisibleHeap->Heap(), resources.states->Heap() };
     cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
 
+    if(auto entry = g_ModelCache.Get(modelId)) {
+        AnimateModel(entry->model, _frame);
+    }
+
     // depth prepass
     context.SetRenderTarget(sizedResources.linearDepthBuffer, sizedResources.sceneDepthBuffer);
     context.ClearRenderTarget(sizedResources.linearDepthBuffer, nullptr);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
-    DrawMeshPrepass(context, modelid);
+    DrawMeshPrepass(context, modelId);
 
     // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
@@ -1191,7 +1233,7 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelid) {
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
     //if (Seq::inRange(resources.meshes, meshid))
-    DrawMesh(context, modelid);
+    DrawMesh(context, modelId);
 
     // additive pass
     GetSpriteBatch().Upload();

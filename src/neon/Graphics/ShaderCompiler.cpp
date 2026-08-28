@@ -101,6 +101,9 @@ void AddCommonArgs(std::vector<LPCWSTR>& args, LPCWSTR entryPoint, LPCWSTR profi
 
     args.push_back(L"-I"); // Include directory
     args.push_back(L"shaders");
+
+    args.push_back(L"/Ges"); // Strict mode
+
 #ifdef _DEBUG
 #else
     args.push_back(L"-no-warnings"); // warnings are grouped with errors and cause compilation to abort
@@ -489,11 +492,6 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
 // shaders can be shared across multiple pipelines and should be cached
 ID3D12RootSignature* GetRootSignature(const ShaderInfo* shader, bool ignoreCache) {
     auto shaderAddr = (uintptr_t)shader;
-
-    //if(ignoreCache) {
-    //    auto compiledShader = CompileShader(*shader);
-
-    //}
 
     if (!_shaders.contains(shaderAddr) || ignoreCache)
         _shaders[shaderAddr] = CompileShader(*shader);

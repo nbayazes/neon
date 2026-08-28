@@ -27,11 +27,16 @@ namespace neon {
 gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
 }
 
+namespace neon::gfx {
+void SetKeyframe(int16 keyframe);
+}
+
 namespace neon::app {
 
 namespace {
     Camera _camera;
     Scene _scene;
+    int _objectSelection = 0;
 }
 
 void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
@@ -234,7 +239,8 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
 d3::GameTable _gameTable;
 List<d3::Hog2::Entry> _modelEntries;
 d3::Hog2 _d3Hog;
-auto _meshid = ModelID::None;
+auto _modelId = ModelID::None;
+
 
 d3::Model ReadModel(const d3::Hog2& hog, span<ubyte> modelData) {
     StreamReader reader(modelData);
@@ -256,7 +262,7 @@ d3::Model ReadModel(const d3::Hog2& hog, span<ubyte> modelData) {
         }
     }
 
-    if (!g_TextureRegistry.IsLoaded("thrustball.ogf")) {
+    if (addedGlow && !g_TextureRegistry.IsLoaded("thrustball.ogf")) {
         LoadHogTexture(hog, "thrustball.ogf");
     }
 
@@ -395,17 +401,29 @@ void Init() {
     //auto modelName = "barnswallow.oof";
     //auto modelName = "fusionblobnewj.oof";
     // auto modelName = "vausstracer.oof";
-    auto modelName = "afterburner2.oof";
+    // auto modelName = "afterburner2.oof";
+    auto modelName = "stinger.oof";
+    _objectSelection = 146;
     //auto modelName = "aliencuplinkhousing.oof";
-
-    //auto testModelData = fs::ReadAllBytes("D:/dev/neon/src/neon/neon.pof");
-    //auto model = ReadModel(hog, testModelData);
 
     if (auto modelData = hog.ReadEntry(modelName)) {
         auto model = ReadModel(hog, *modelData);
-        _meshid = LoadModel(hog, _gameTable, model, modelName);
+        _modelId = LoadModel(hog, _gameTable, model, modelName);
         //mesh.name = modelName;
         _cameraDistance = std::max(model.radius, 2.5f) * 2;
+    }
+
+    {
+        //auto testModelData = fs::ReadAllBytes("D:/dev/froge.oof");
+        //auto model = ReadModel(hog, testModelData);
+
+        //auto texture = fs::ReadAllBytes("D:/dev/froge.png");
+        //gfx::Image image;
+        //if (image.LoadWIC(texture, true))
+        //    g_TextureRegistry.Upload("froge", image);
+
+        //_modelId = LoadModel(hog, _gameTable, model, "froge");
+        //_cameraDistance = std::max(model.radius, 1.15f) * 2;
     }
 
     _d3Hog = std::move(hog);
@@ -456,20 +474,173 @@ void ModelBrowser() {
             if (auto modelData = _d3Hog.ReadEntry(entry.name)) {
                 auto model = ReadModel(_d3Hog, *modelData);
                 //auto mesh = LoadModel(_d3Hog, _gameTable, model, entry.name);
-                _meshid = LoadModel(_d3Hog, _gameTable, model, entry.name);
-            //mesh.name = entry.name;
+                _modelId = LoadModel(_d3Hog, _gameTable, model, entry.name);
+                //mesh.name = entry.name;
 
-            //_meshid++;
-            //std::array upload = { mesh };
-            //gfx::UploadMeshes(upload);
-            //auto bounds = CalculateModelBounds(mesh);
-            //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
-            _cameraDistance = std::max(model.radius, 2.5f) * 3;
+                //_meshid++;
+                //std::array upload = { mesh };
+                //gfx::UploadMeshes(upload);
+                //auto bounds = CalculateModelBounds(mesh);
+                //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
+                _cameraDistance = std::max(model.radius, 2.5f) * 3;
             }
         }
     }
 
     ImGui::EndChild();
+
+    ImGui::End();
+}
+
+enum class MovementType {
+    None,
+    Physics,
+    Walking, // Physics data with different physics pipeline
+    AtRest, // Unused or does nothing
+    Shockwave, // Concussive forces, weapon shockwaves? Odd that it is here. Comment says it should have been a control type.
+    Linked, // Sticky objects that can link to polymodels (such as flares)
+};
+
+
+enum class AnimationState {
+    Alert,
+    Death,
+    Birth,
+    Missile1Recoil,
+    Missile2,
+    Missile2Recoil,
+    Melee1,
+    Melee1Recoil,
+    Melee2,
+    Melee2Recoil,
+    Idle,
+    Quirk,
+    Flinch,
+    Taunt,
+    GotoIdleStanding,
+    GotoIdleFlying,
+    GotoIdleRolling,
+    GotoIdleWalking,
+    GotoIdleJumping,
+    GotoAlertStanding,
+    GotoAlertFlying,
+    GotoAlertRolling,
+    GotoAlertWalking,
+    GotoAlertJumping,
+};
+
+constexpr const char* MovementTypeLabels[] = {
+    "Standing", "Flying", "Rolling", "Walking", "Jumping"
+};
+
+constexpr const char* AnimationStateLabels[] = {
+    "Alert",
+    "Death",
+    "Fire Missile 1",
+    "Missile Recoil 1",
+    "Fire Missile 2",
+    "Missile Recoil 2",
+    "Melee 1",
+    "Melee Recoil 1",
+    "Melee 2",
+    "Melee Recoil 2",
+    "Idle",
+    "Quirk",
+    "Flinch",
+    "Taunt",
+    "To Standing Idle",
+    "To Flying Idle",
+    "To Rolling Idle",
+    "To Walking Idle",
+    "To Jumping Idle",
+    "Goto standing",
+    "Goto flying",
+    "Goto rolling",
+    "Goto walking",
+    "Goto jumping"
+};
+
+void ObjectBrowser() {
+    ImGui::Begin("Object Browser");
+
+    // animation movement type specifies which entry in the anim array to use
+    // each sub-entry is a different action (24 total)
+
+    //static int _selection = 0;
+    static List<char> _search;
+    _search.resize(50);
+
+    ImGui::Text("Search");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputText("##Search", _search.data(), _search.capacity());
+    auto searchstr = String::ToLower(string(_search.data()));
+
+    auto height = ImGui::GetWindowHeight();
+    ImGui::BeginChild("models", { -1, height - 400 }, true);
+
+    //static d3::GenericInfo selection;
+
+    for (int i = 0; i < _gameTable.objects.size(); ++i) {
+        auto& object = _gameTable.objects[i];
+
+        if (object.type != ObjectType::Robot) continue;
+
+        if (!searchstr.empty()) {
+            if (!String::Contains(String::ToLower(object.name), searchstr))
+                continue;
+        }
+
+        if (ImGui::Selectable(object.name.c_str(), i == _objectSelection)) {
+            _objectSelection = i;
+
+            if (auto modelData = _d3Hog.ReadEntry(object.modelName)) {
+                auto model = ReadModel(_d3Hog, *modelData);
+                _modelId = LoadModel(_d3Hog, _gameTable, model, object.name);
+
+                _cameraDistance = std::max(model.radius, 2.5f) * 3;
+            }
+        }
+    }
+
+    ImGui::EndChild();
+
+    {
+        ImGui::BeginChild("animations", { -1, -1 });
+        auto& object = _gameTable.objects[_objectSelection];
+        int16 maxKeyframe = 0;
+        static int keyframe = 0;
+
+        for (int m = 0; m < d3::NUM_MOVEMENT_CLASSES; ++m) {
+            auto& anim = object.anim.classes[m];
+            int id = 0;
+            bool addedHeader = false;
+
+            for (int a = 0; a < anim.elems.size(); ++a) {
+                auto& action = anim.elems[a];
+                if (action.from == 0 && action.to == 0) continue;
+
+                if (!addedHeader) {
+                    addedHeader = true;
+                    ImGui::Text(MovementTypeLabels[m]);
+                }
+
+                ImGui::PushID(id++);
+                ImGui::LabelText(AnimationStateLabels[a], "Frames: %i - %i (%.2fs)", action.from, action.to, action.speed);
+                ImGui::PopID();
+
+                maxKeyframe = std::max(maxKeyframe, action.to);
+            }
+        }
+
+        if (maxKeyframe > 0) {
+            if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe)) {
+                gfx::SetKeyframe((int16)keyframe);
+            }
+        }
+
+        ImGui::EndChild();
+    }
 
     ImGui::End();
 }
@@ -530,6 +701,7 @@ void TextureDebugWindow() {
 
 void Update(float /*dt*/) {
     ModelBrowser();
+    ObjectBrowser();
     TextureDebugWindow();
 }
 
@@ -539,7 +711,7 @@ void Render() {
 
     _camera.Position = dir * _cameraDistance;
 
-    gfx::RenderView(_camera, _meshid);
+    gfx::RenderView(_camera, _modelId);
 }
 
 }
