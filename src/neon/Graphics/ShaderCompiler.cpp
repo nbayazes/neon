@@ -189,7 +189,7 @@ ComPtr<ID3DBlob> LoadVertexShader(const filesystem::path& file, string_view entr
 
     auto binaryPath = GetBinaryPath(file, ".vs.bin");
     if (filesystem::exists(binaryPath)) {
-        //SPDLOG_INFO("Loading vertex shader {}", binaryPath.string());
+        SPDLOG_INFO("Loading vertex shader {}", binaryPath.string());
         LoadFile(binaryPath, shader);
     }
     else {
@@ -211,7 +211,7 @@ ComPtr<ID3DBlob> LoadPixelShader(const filesystem::path& file, string_view entry
     ComPtr<ID3DBlob> shader;
     auto binaryPath = GetBinaryPath(file, ".ps.bin");
     if (filesystem::exists(binaryPath)) {
-        //SPDLOG_INFO("Loading pixel shader {}", binaryPath.string());
+        SPDLOG_INFO("Loading pixel shader {}", binaryPath.string());
         LoadFile(binaryPath, shader);
     }
     else {
@@ -329,7 +329,7 @@ constexpr D3D12_DEPTH_STENCIL_DESC DepthEqual = {
         .StencilFailOp = D3D12_STENCIL_OP_KEEP,
         .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
         .StencilPassOp = D3D12_STENCIL_OP_KEEP,
-        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS 
+        .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS
     },
     .BackFace = {
         .StencilFailOp = D3D12_STENCIL_OP_KEEP,
@@ -493,8 +493,16 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
 ID3D12RootSignature* GetRootSignature(const ShaderInfo* shader, bool ignoreCache) {
     auto shaderAddr = (uintptr_t)shader;
 
-    if (!_shaders.contains(shaderAddr) || ignoreCache)
-        _shaders[shaderAddr] = CompileShader(*shader);
+    if (!_shaders.contains(shaderAddr) || ignoreCache) {
+        try {
+            _shaders[shaderAddr] = CompileShader(*shader);
+        }
+        catch (...) {
+            // only throw if wasn't cached
+            if (!_shaders.contains(shaderAddr))
+                throw;
+        }
+    }
 
     return _shaders[shaderAddr].rootSignature.Get();
 }

@@ -4,6 +4,7 @@
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
 #include <spdlog/common.h>
+#include <algorithm>
 #include "CommandContext.h"
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
@@ -943,37 +944,68 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
     }
 }
 
-int16 _keyframe = 0;
-
-void SetKeyframe(int16 keyframe) {
-    _keyframe = keyframe;
-}
+AnimationInstance _animation;
 
 // Accumulated transforms for a model
 List<Matrix> _modelTransforms;
 
-void AnimateModel(d3::Model& model, int16 frame) {
+void AnimateModel(d3::Model& model, AnimationInstance& animation, float dt) {
     _modelTransforms.resize(model.submodels.size());
+
+    if (animation.elapsed >= animation.duration) {
+        // finished playing. don't update
+        return;
+    }
+
+
+    float percent = animation.elapsed / animation.duration;
+    int range = animation.to - animation.from;
+    float frameDuration = animation.duration / range;
+    float alpha = std::fmod(animation.elapsed, frameDuration) / frameDuration;  // percentage of current frame to next
+    
+    int16 startFrame = int16(animation.from + range * percent);
+    int16 endFrame = std::min(int16(startFrame + 1), animation.to);
+
+    SPDLOG_INFO("frame: {} - {} alpha: {}", startFrame, endFrame, alpha);
 
     for (int sm = 0; sm < model.submodels.size(); ++sm) {
         auto& submodel = model.submodels[sm];
 
-        Matrix rotation = Matrix::Identity;
+        Quaternion rotation = Quaternion::Identity;
 
-        if (Seq::inRange(submodel.keyframes, frame)) {
-            auto& keyframe = submodel.keyframes[frame];
-            if (!IsZero(keyframe.axis))
-                rotation = Matrix::CreateFromAxisAngle(keyframe.axis, keyframe.angle);
+        if (Seq::inRange(submodel.keyframes, startFrame) && Seq::inRange(submodel.keyframes, endFrame)) {
+            auto& start = submodel.keyframes[startFrame];
+            auto& end = submodel.keyframes[endFrame];
+            rotation = Quaternion::Slerp(start.rotation, end.rotation, alpha);
         }
 
-        auto translation = Matrix::CreateTranslation(submodel.offset);
+        Vector3 position = Vector3::Zero;
+        if (Seq::inRange(submodel.positionKeyframes, startFrame) && Seq::inRange(submodel.positionKeyframes, endFrame)) {
+            auto& start = submodel.positionKeyframes[startFrame];
+            auto& end = submodel.positionKeyframes[endFrame];
+            position = Vector3::Lerp(start.position, end.position, alpha);
+        }
+        
+        auto translation = Matrix::CreateTranslation(submodel.offset + position);
 
         if (submodel.parent >= 0) {
-            _modelTransforms[sm] = rotation * translation * _modelTransforms[submodel.parent];
+            _modelTransforms[sm] = Matrix::CreateFromQuaternion(rotation) * translation * _modelTransforms[submodel.parent];
         }
         else {
-            _modelTransforms[sm] = rotation * translation;
+            _modelTransforms[sm] = Matrix::CreateFromQuaternion(rotation) * translation;
         }
+    }
+
+    animation.elapsed = std::min(animation.elapsed + dt, animation.duration);
+}
+
+void PlayAnimation(const AnimationInstance& animation) {
+    _animation = animation;
+}
+
+void UpdateAnimations(ModelID modelId, float dt) {
+    if (auto entry = g_ModelCache.Get(modelId)) {
+        AnimateModel(entry->model, _animation, dt);
     }
 }
 
@@ -1215,10 +1247,6 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     auto cmdList = context.GetCommandList();
     ID3D12DescriptorHeap* heaps[] = { resources.shaderVisibleHeap->Heap(), resources.states->Heap() };
     cmdList->SetDescriptorHeaps(std::size(heaps), heaps);
-
-    if(auto entry = g_ModelCache.Get(modelId)) {
-        AnimateModel(entry->model, _frame);
-    }
 
     // depth prepass
     context.SetRenderTarget(sizedResources.linearDepthBuffer, sizedResources.sceneDepthBuffer);

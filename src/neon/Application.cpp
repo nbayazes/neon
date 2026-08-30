@@ -28,7 +28,8 @@ gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
 }
 
 namespace neon::gfx {
-void SetKeyframe(int16 keyframe);
+void PlayAnimation(const AnimationInstance& animation);
+void UpdateAnimations(ModelID modelId, float dt);
 }
 
 namespace neon::app {
@@ -254,6 +255,7 @@ d3::Model ReadModel(const d3::Hog2& hog, span<ubyte> modelData) {
             if (!addedGlow) {
                 // hard code the texture for glowing submodels
                 model.textures.push_back("thrustball.ogf");
+                addedGlow = true;
             }
 
             for (auto& face : submodel.faces) {
@@ -339,6 +341,42 @@ void ExpandTransparentSubmodels(const d3::GameTable& gameTable, d3::Model& model
     }
 }
 
+void ExpandAnimationFrames(d3::Model& model) {
+    // Rotation keyframes
+    for (auto& submodel : model.submodels) {
+        std::vector<d3::Submodel::Keyframe> keyframes;
+
+        for (size_t i = 0; i < submodel.keyframes.size(); i++) {
+            const auto& frame = submodel.keyframes[i];
+            if (frame.startTime > keyframes.size() && i > 0) {
+                keyframes.push_back(submodel.keyframes[i - 1]);
+                SPDLOG_INFO("Duplicating keyframe {}", i - 1);
+            }
+
+            keyframes.push_back(frame);
+        }
+
+        submodel.keyframes = keyframes;
+    }
+
+    // Position keyframes
+    for (auto& submodel : model.submodels) {
+        std::vector<d3::Submodel::PositionKeyframe> keyframes;
+
+        for (size_t i = 0; i < submodel.positionKeyframes.size(); i++) {
+            const auto& frame = submodel.positionKeyframes[i];
+            if (frame.startTime > keyframes.size() && i > 0) {
+                keyframes.push_back(submodel.positionKeyframes[i - 1]);
+                SPDLOG_INFO("Duplicating keyframe {}", i - 1);
+            }
+
+            keyframes.push_back(frame);
+        }
+
+        submodel.positionKeyframes = keyframes;
+    }
+}
+
 // todo: superthiefemitter.oof has no geometry at all?
 ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model& model, string_view name) {
     int64 time = 0;
@@ -348,6 +386,8 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
         return existing;
 
     //ExpandTransparentSubmodels(gameTable, model);
+
+    ExpandAnimationFrames(model);
 
     timer.Start();
     LoadTextures(hog, gameTable, model.textures);
@@ -613,8 +653,9 @@ void ObjectBrowser() {
 
         for (int m = 0; m < d3::NUM_MOVEMENT_CLASSES; ++m) {
             auto& anim = object.anim.classes[m];
-            int id = 0;
             bool addedHeader = false;
+
+            int id = 0;
 
             for (int a = 0; a < anim.elems.size(); ++a) {
                 auto& action = anim.elems[a];
@@ -625,9 +666,19 @@ void ObjectBrowser() {
                     ImGui::Text(MovementTypeLabels[m]);
                 }
 
-                ImGui::PushID(id++);
+                ImGui::PushID(100 * m + id++);
+                if (ImGui::Button("Play")) {
+                    gfx::PlayAnimation({
+                        .from = action.from,
+                        .to = action.to,
+                        .duration = action.speed
+                    });
+                }
+                ImGui::SameLine();
                 ImGui::LabelText(AnimationStateLabels[a], "Frames: %i - %i (%.2fs)", action.from, action.to, action.speed);
+
                 ImGui::PopID();
+
 
                 maxKeyframe = std::max(maxKeyframe, action.to);
             }
@@ -635,7 +686,11 @@ void ObjectBrowser() {
 
         if (maxKeyframe > 0) {
             if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe)) {
-                gfx::SetKeyframe((int16)keyframe);
+                gfx::PlayAnimation({
+                    .from = (int16)keyframe,
+                    .to = (int16)keyframe,
+                    .duration = 0.16f
+                });
             }
         }
 
@@ -699,10 +754,11 @@ void TextureDebugWindow() {
     ImGui::End();
 }
 
-void Update(float /*dt*/) {
+void Update(float dt) {
     ModelBrowser();
     ObjectBrowser();
     TextureDebugWindow();
+    gfx::UpdateAnimations(_modelId, dt);
 }
 
 void Render() {

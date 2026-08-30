@@ -157,7 +157,6 @@ void Postprocess(Submodel& sm) {
     // check if parent equals self
 
     if (sm.numKeyAngles == 0 && HasFlag(sm.flags, SubmodelFlag::Rotate)) {
-        
         SPDLOG_WARN("Submodel is rotator without keyframe");
         ClearFlag(sm.flags, SubmodelFlag::Rotate);
     }
@@ -174,6 +173,14 @@ void Postprocess(Submodel& sm) {
     };
 
     // todo: decode animations
+
+    auto quat = Quaternion::Identity;
+
+    // Convert from incremental to absolute rotations
+    for (auto& frame : sm.keyframes) {
+        quat = quat * frame.rotation;
+        frame.rotation = quat;
+    }
 }
 
 Model Model::Read(StreamReader& r) {
@@ -195,7 +202,7 @@ Model Model::Read(StreamReader& r) {
 
     if (pm.majorVersion >= 21)
         pm.flags |= ModelFlag::LightmapRes;
-        SetFlag(pm.flags, ModelFlag::LightmapRes);
+    SetFlag(pm.flags, ModelFlag::LightmapRes);
 
     bool timed = false;
     if (pm.majorVersion >= 22) {
@@ -357,6 +364,7 @@ Model Model::Read(StreamReader& r) {
 
             case MakeFourCC("PANI"): // positional animation data
             {
+                // all release models use timed mode
                 int nframes = timed ? 0 : r.ReadInt32();
 
                 for (auto& sm : pm.submodels) {
@@ -372,6 +380,7 @@ Model Model::Read(StreamReader& r) {
                         if (sm.posTrackMax < pm.frameMax)
                             pm.frameMax = sm.posTrackMax;
 
+
                         //int numTicks = sm.PosTrackMax - sm.PosTrackMin;
 
                         // lookup
@@ -382,10 +391,16 @@ Model Model::Read(StreamReader& r) {
                         sm.numKeyPos = nframes;
                     }
 
-                    for (auto& key : sm.keyframes) {
-                        if (timed)
-                            key.posStartTime = r.ReadInt32();
+                    if (sm.numKeyPos > 10000 || sm.numKeyPos < 0)
+                        throw Exception("Bad number of key positions");
 
+                    sm.positionKeyframes.resize(sm.numKeyPos);
+
+                    for (auto& key : sm.positionKeyframes) {
+                        if (timed)
+                            key.startTime = r.ReadInt32();
+
+                        // [-angdata[1], -angdata[3], angdata[2]]
                         key.position = r.ReadVector3();
                     }
                 }
@@ -403,6 +418,7 @@ Model Model::Read(StreamReader& r) {
                     // pm.num key angles = nframes
                 }
 
+                int submodel = 0;
                 for (auto& sm : pm.submodels) {
                     if (timed) {
                         sm.numKeyAngles = r.ReadInt32();
@@ -419,7 +435,7 @@ Model Model::Read(StreamReader& r) {
                         sm.numKeyAngles = nframes;
                     }
 
-                    if (sm.numKeyAngles > 10000)
+                    if (sm.numKeyAngles > 10000 || sm.numKeyAngles < 0)
                         throw Exception("Bad number of key angles");
 
                     sm.keyframes.resize(sm.numKeyAngles /*+ 1*/); // why the +1?
@@ -433,15 +449,26 @@ Model Model::Read(StreamReader& r) {
                         // }
                     }
 
+                    // int frame = 0;
+                    // SPDLOG_INFO("SUBMODEL {}", submodel++);
+
                     for (auto& keyframe : sm.keyframes) {
                         if (timed)
-                            keyframe.rotStartTime = r.ReadInt32();
+                            keyframe.startTime = r.ReadInt32();
 
                         keyframe.axis = r.ReadVector3();
                         keyframe.axis.Normalize();
                         keyframe.angle = FixedAngleToRadians(r.ReadInt32());
 
-                        // some stuff here about keyframe angle wrapping?
+                        // angdata[0], angdata[2], -angdata[1]
+                        keyframe.axis = Vector3(keyframe.axis.x,keyframe.axis.y, keyframe.axis.z);
+
+                        // print("frame", frameNum, "facing?", facing, "ang?", int(fix2flshort(angdata[3]) / 256 * 2 * 360) , "science:", fix2flshort(angdata[3]))
+                        if (!IsZero(keyframe.axis))
+                            keyframe.rotation = Quaternion::CreateFromAxisAngle(keyframe.axis, keyframe.angle);
+
+                        //SPDLOG_INFO("frame: {} angle: {} axis: [{}, {}, {}] ", frame++, keyframe.angle, keyframe.axis.x, keyframe.axis.y, keyframe.axis.z);
+                        //SPDLOG_INFO("frame: {} quat: [{}, {}, {}, {}] ", frame++, keyframe.rotation.w, keyframe.rotation.x, keyframe.rotation.y, keyframe.rotation.z);
                     }
                 }
 

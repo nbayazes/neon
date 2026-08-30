@@ -40,4 +40,12 @@ ID3D12Device* GetDevice();
 
 void UpdateTextureInfo(const span<TextureInfo>& textures);
 
+struct AnimationInstance {
+    int16 from; // from keyframe
+    int16 to; // to keyframe
+    float duration; // how long it takes
+    float elapsed;
+    int blend; // linear, ease in, etc
+};
+
 }

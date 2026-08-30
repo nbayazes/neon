@@ -73,8 +73,9 @@ struct Submodel {
     // Originally keyframe data was stored in separate arrays on the submodel struct
     struct Keyframe {
         Vector3 axis; // the axis of rotation for each keyframe (keyframe_axis)
-        float angle; // The destination angles for each key frame (keyframe_angles)
-        int rotStartTime, posStartTime; // related to constant animations (ROTATE or TURRET)
+        float angle = 0; // The destination angles for each key frame (keyframe_angles)
+        int startTime = 0; // related to constant animations (ROTATE or TURRET)
+        Quaternion rotation = Quaternion::Identity;
 
         // runtime values, move them
         Vector3 position; // interpolated position
@@ -83,6 +84,14 @@ struct Submodel {
     };
 
     List<Keyframe> keyframes;
+
+    struct PositionKeyframe {
+        int startTime = 0;
+        Vector3 position;    
+    };
+
+    List<PositionKeyframe> positionKeyframes;
+
     int numKeyAngles = 0;
     int rotTrackMin = 0, rotTrackMax = 0;
     int numKeyPos = 0;
