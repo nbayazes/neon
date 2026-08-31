@@ -949,51 +949,78 @@ AnimationInstance _animation;
 // Accumulated transforms for a model
 List<Matrix> _modelTransforms;
 
-void AnimateModel(d3::Model& model, AnimationInstance& animation, float dt) {
-    _modelTransforms.resize(model.submodels.size());
+// For a given animation frame find the relevant keyframes and interpolate between them
+Quaternion InterpolateRotation(const d3::Submodel& submodel, float frame) {
+    // Assume that keyframes are sorted and exit early if frame is out of range
+    if (frame > submodel.keyframes.back().frame)
+        return submodel.keyframes.back().rotation;
 
-    if (animation.elapsed >= animation.duration) {
-        // finished playing. don't update
-        return;
+    if (frame < submodel.keyframes.front().frame)
+        return submodel.keyframes.front().rotation;
+
+    for (int i = 1; i < submodel.keyframes.size(); ++i) {
+        auto& next = submodel.keyframes[i];
+        if (next.frame > (int)frame) {
+            // found the next keyframe, get the previous keyframe
+            auto& prev = submodel.keyframes[i - 1];
+            float progress = frame - prev.frame;
+            float range = float(next.frame - prev.frame);
+            float alpha = progress / range;
+            //SPDLOG_INFO("rotation frame: {} - {} alpha: {}", i - 1, i, alpha);
+            return Quaternion::Slerp(prev.rotation, next.rotation, alpha);
+        }
     }
 
+    return Quaternion::Identity;
+}
+
+// For a given animation frame find the relevant keyframes and interpolate between them
+Vector3 InterpolatePosition(const d3::Submodel& submodel, float frame) {
+    // Assume that keyframes are sorted and exit early if frame is out of range
+    if (frame > submodel.positionKeyframes.back().frame)
+        return submodel.positionKeyframes.back().position;
+
+    if (frame < submodel.positionKeyframes.front().frame)
+        return submodel.positionKeyframes.front().position;
+
+    for (int i = 1; i < submodel.positionKeyframes.size(); ++i) {
+        auto& next = submodel.positionKeyframes[i];
+        if (next.frame > (int)frame) {
+            // found the next keyframe, get the previous keyframe
+            auto& prev = submodel.positionKeyframes[i - 1];
+            float progress = frame - prev.frame;
+            float range = float(next.frame - prev.frame);
+            float alpha = progress / range;
+            //SPDLOG_INFO("position frame: {} - {} alpha: {}", prev.frame, next.frame, alpha);
+            return Vector3::Lerp(prev.position, next.position, alpha);
+        }
+    }
+
+    return Vector3::Zero;
+}
+
+void AnimateModel(const d3::Model& model, AnimationInstance& animation, float dt) {
+    _modelTransforms.resize(model.submodels.size());
+
+    if (animation.elapsed >= animation.duration)
+        return; // finished playing. don't update
 
     float percent = animation.elapsed / animation.duration;
-    int range = animation.to - animation.from;
-    float frameDuration = animation.duration / range;
-    float alpha = std::fmod(animation.elapsed, frameDuration) / frameDuration;  // percentage of current frame to next
-    
-    int16 startFrame = int16(animation.from + range * percent);
-    int16 endFrame = std::min(int16(startFrame + 1), animation.to);
-
-    SPDLOG_INFO("frame: {} - {} alpha: {}", startFrame, endFrame, alpha);
+    float range = animation.to * animation.timeScale - animation.from * animation.timeScale;
+    float frame = range * percent + animation.from * animation.timeScale;
 
     for (int sm = 0; sm < model.submodels.size(); ++sm) {
         auto& submodel = model.submodels[sm];
 
-        Quaternion rotation = Quaternion::Identity;
+        Quaternion rotation = InterpolateRotation(submodel, frame);
+        Vector3 position = InterpolatePosition(submodel, frame);
 
-        if (Seq::inRange(submodel.keyframes, startFrame) && Seq::inRange(submodel.keyframes, endFrame)) {
-            auto& start = submodel.keyframes[startFrame];
-            auto& end = submodel.keyframes[endFrame];
-            rotation = Quaternion::Slerp(start.rotation, end.rotation, alpha);
-        }
-
-        Vector3 position = Vector3::Zero;
-        if (Seq::inRange(submodel.positionKeyframes, startFrame) && Seq::inRange(submodel.positionKeyframes, endFrame)) {
-            auto& start = submodel.positionKeyframes[startFrame];
-            auto& end = submodel.positionKeyframes[endFrame];
-            position = Vector3::Lerp(start.position, end.position, alpha);
-        }
-        
         auto translation = Matrix::CreateTranslation(submodel.offset + position);
 
-        if (submodel.parent >= 0) {
+        if (submodel.parent >= 0)
             _modelTransforms[sm] = Matrix::CreateFromQuaternion(rotation) * translation * _modelTransforms[submodel.parent];
-        }
-        else {
+        else
             _modelTransforms[sm] = Matrix::CreateFromQuaternion(rotation) * translation;
-        }
     }
 
     animation.elapsed = std::min(animation.elapsed + dt, animation.duration);

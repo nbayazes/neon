@@ -74,19 +74,14 @@ struct Submodel {
     struct Keyframe {
         Vector3 axis; // the axis of rotation for each keyframe (keyframe_axis)
         float angle = 0; // The destination angles for each key frame (keyframe_angles)
-        int startTime = 0; // related to constant animations (ROTATE or TURRET)
+        int frame = 0; // the frame position on the animation track
         Quaternion rotation = Quaternion::Identity;
-
-        // runtime values, move them
-        Vector3 position; // interpolated position
-        // the combined rotation matrices up to frame n
-        Matrix3x3 transform; // (keyframe_matrix)
     };
 
     List<Keyframe> keyframes;
 
     struct PositionKeyframe {
-        int startTime = 0;
+        int frame = 0;
         Vector3 position;    
     };
 

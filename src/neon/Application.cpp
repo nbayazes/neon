@@ -348,7 +348,7 @@ void ExpandAnimationFrames(d3::Model& model) {
 
         for (size_t i = 0; i < submodel.keyframes.size(); i++) {
             const auto& frame = submodel.keyframes[i];
-            if (frame.startTime > keyframes.size() && i > 0) {
+            if (frame.frame > keyframes.size() && i > 0) {
                 keyframes.push_back(submodel.keyframes[i - 1]);
                 SPDLOG_INFO("Duplicating keyframe {}", i - 1);
             }
@@ -365,7 +365,7 @@ void ExpandAnimationFrames(d3::Model& model) {
 
         for (size_t i = 0; i < submodel.positionKeyframes.size(); i++) {
             const auto& frame = submodel.positionKeyframes[i];
-            if (frame.startTime > keyframes.size() && i > 0) {
+            if (frame.frame > keyframes.size() && i > 0) {
                 keyframes.push_back(submodel.positionKeyframes[i - 1]);
                 SPDLOG_INFO("Duplicating keyframe {}", i - 1);
             }
@@ -387,7 +387,7 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
 
     //ExpandTransparentSubmodels(gameTable, model);
 
-    ExpandAnimationFrames(model);
+    //ExpandAnimationFrames(model);
 
     timer.Start();
     LoadTextures(hog, gameTable, model.textures);
@@ -569,6 +569,8 @@ enum class AnimationState {
     GotoAlertJumping,
 };
 
+constexpr int ANIMATION_TIME_SCALE = 1; // makes animations take longer to play
+
 constexpr const char* MovementTypeLabels[] = {
     "Standing", "Flying", "Rolling", "Walking", "Jumping"
 };
@@ -685,11 +687,12 @@ void ObjectBrowser() {
         }
 
         if (maxKeyframe > 0) {
-            if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe)) {
+            if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe * ANIMATION_TIME_SCALE)) {
                 gfx::PlayAnimation({
                     .from = (int16)keyframe,
                     .to = (int16)keyframe,
-                    .duration = 0.16f
+                    .duration = 0.16f,
+                    .timeScale = 1 / (float)ANIMATION_TIME_SCALE
                 });
             }
         }

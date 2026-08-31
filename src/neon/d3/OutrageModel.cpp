@@ -57,7 +57,7 @@ std::pair<Vector3, float> GetCentroid(span<Vector3> src) {
 
 
 float FixedAngleToRadians(int32 angle) {
-    return FixToFloat(angle) * 2 * std::numbers::pi;
+    return FixToFloat(angle) * 2 * (float)std::numbers::pi;
 }
 
 void ParseSubmodelProperties(Submodel& sm) {
@@ -398,7 +398,7 @@ Model Model::Read(StreamReader& r) {
 
                     for (auto& key : sm.positionKeyframes) {
                         if (timed)
-                            key.startTime = r.ReadInt32();
+                            key.frame = r.ReadInt32();
 
                         // [-angdata[1], -angdata[3], angdata[2]]
                         key.position = r.ReadVector3();
@@ -418,7 +418,6 @@ Model Model::Read(StreamReader& r) {
                     // pm.num key angles = nframes
                 }
 
-                int submodel = 0;
                 for (auto& sm : pm.submodels) {
                     if (timed) {
                         sm.numKeyAngles = r.ReadInt32();
@@ -454,7 +453,7 @@ Model Model::Read(StreamReader& r) {
 
                     for (auto& keyframe : sm.keyframes) {
                         if (timed)
-                            keyframe.startTime = r.ReadInt32();
+                            keyframe.frame = r.ReadInt32();
 
                         keyframe.axis = r.ReadVector3();
                         keyframe.axis.Normalize();

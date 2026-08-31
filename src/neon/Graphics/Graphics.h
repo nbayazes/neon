@@ -45,6 +45,7 @@ struct AnimationInstance {
     int16 to; // to keyframe
     float duration; // how long it takes
     float elapsed;
+    float timeScale = 1; // adjust the playback keyframes
     int blend; // linear, ease in, etc
 };
 
