@@ -12,8 +12,10 @@
 #include "Graphics/Graphics.h"
 #include "Graphics/Image.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/ShaderCompiler.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "imgui_local.h"
 #include "ModelCache.h"
 #include "Scene.h"
 #include "ScopedTimer.h"
@@ -804,11 +806,63 @@ void OnMouseButtonUp(uint8_t button) {
     }
 }
 
+float _compilerOutputTimer = 0;
+gfx::CompilerResult _compilerResult;
+
+void CompilerOutputWindow() {
+    bool hasErrors = _compilerResult.errors > 0;
+
+    if (_compilerOutputTimer <= 0 && !hasErrors) return;
+
+    ImVec4 borderColor = hasErrors ? ImVec4(1, 0, 0, 1) : ImVec4(0, 1, 0, 1);
+    ImVec4 backgroundColor = hasErrors ? ImVec4(0.2f, 0, 0, 1) : ImVec4(0, 0.2f, 0, 1);
+
+    auto vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos({ 10, 0 }, ImGuiCond_Always, { 0, 0 });
+    ImGui::SetNextWindowSize({ vp->Size.x - 20, 0 });
+
+    float alpha = hasErrors ? 1 : ImSaturate(_compilerOutputTimer / 0.5f);
+
+    ImGui::SetNextWindowBgAlpha(1);
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+    ImGui::PushStyleColor(ImGuiCol_Border, borderColor);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, backgroundColor);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+
+    if (ImGui::Begin("Debug Overlay", nullptr, flags)) {
+        if (_compilerResult.errors == 0)
+            ImGui::Text("Compiled %i shader(s)", _compilerResult.successes);
+        else
+            ImGui::Text("Compiled %i shader(s) with %i error(s)", _compilerResult.successes, _compilerResult.errors);
+
+        neon::imgui::PushMonospaceFont();
+        for (auto& message : _compilerResult.events) {
+            if (message.message.empty()) continue;
+            ImGui::Dummy({ 0, 1 });
+            ImGui::TextWrapped(message.message.c_str());
+        }
+        ImGui::PopFont();
+    }
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar();
+    ImGui::End();
+}
+
+void ShowCompilerOutput() {
+    _compilerOutputTimer = 2;
+    _compilerResult = gfx::GetCompilerResult();
+}
+
 void Update(float dt) {
     ModelBrowser();
     ObjectBrowser();
     TextureDebugWindow();
+    CompilerOutputWindow();
     gfx::UpdateAnimations(_modelId, dt);
+
+    _compilerOutputTimer -= dt;
 }
 
 void Render() {
@@ -819,5 +873,6 @@ void Render() {
 
     gfx::RenderView(_camera, _modelId);
 }
+
 
 }

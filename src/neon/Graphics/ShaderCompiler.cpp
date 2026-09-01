@@ -21,6 +21,8 @@ namespace {
     constexpr auto VERTEX_SHADER_VERSION = L"vs_6_0";
     constexpr auto PIXEL_SHADER_VERSION = L"ps_6_0";
     constexpr auto COMPUTE_SHADER_VERSION = L"cs_6_0";
+
+    List<CompilerEvent> _events;
 }
 
 void LogComException(const com_exception& e, ID3DBlob* error) {
@@ -284,6 +286,11 @@ CompiledShader CompileShader(const ShaderInfo& shader) {
             SetName(compiled.rootSignature, shader.file);
         }
 
+        _events.push_back({
+            .status = CompilerStatus::Ok,
+            .file = string(shader.file)
+        });
+
         return compiled;
     }
     catch (std::exception& e) {
@@ -291,11 +298,13 @@ CompiledShader CompileShader(const ShaderInfo& shader) {
         SPDLOG_ERROR(msg);
         OutputDebugString(Widen(msg).c_str());
 
-        if (!compiled.vertexShader || !compiled.pixelShader) {
-            throw std::exception(msg.c_str()); // never initialized, crash
-        }
+        _events.push_back({
+            .status = CompilerStatus::Error,
+            .file = string(shader.file),
+            .message = msg
+        });
 
-        throw std::exception(fmt::format("error compiling shader {}", shader.file).c_str());
+        throw std::exception(msg.c_str());
     }
 }
 
@@ -541,6 +550,26 @@ void ClearShaderCache() {
 
     _shaders.clear();
     _pipelines.clear();
+}
+
+void ClearCompilerEvents() {
+    _events.clear();
+}
+
+CompilerResult GetCompilerResult() {
+    uint successes = 0;
+    uint errors = 0;
+
+    for (auto& event : _events) {
+        if (event.status == CompilerStatus::Error) errors++;
+        if (event.status == CompilerStatus::Ok) successes++;
+    }
+
+    return {
+        .successes = successes,
+        .errors = errors,
+        .events = _events
+    };
 }
 
 }

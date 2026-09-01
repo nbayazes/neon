@@ -11,6 +11,7 @@ namespace neon::gfx {
         string_view file;
         string_view vsEntryPoint = "vsmain";
         string_view psEntryPoint = "psmain";
+        string_view csEntryPoint = "main";
         D3D12_INPUT_LAYOUT_DESC inputLayout{};
         // For code defined root signatures. If null the signature is read from the HLSL file.
         const D3D12_ROOT_SIGNATURE_DESC1* rootSignature = nullptr;

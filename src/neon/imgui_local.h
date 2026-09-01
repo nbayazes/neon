@@ -26,6 +26,11 @@ void Draw();
 
 void Shutdown();
 
+// Remember to call ImGui::PopFont() afterwards
+
+void PushDefaultFont(); 
+void PushMonospaceFont();
+
 }
 
 //#pragma warning(pop)

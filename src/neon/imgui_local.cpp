@@ -16,6 +16,8 @@ using Microsoft::WRL::ComPtr;
 
 namespace {
 UINT _backBufferCount = 2;
+ImFont* _defaultFont;
+ImFont* _monospaceFont;
 }
 
 using namespace neon::gfx;
@@ -218,7 +220,7 @@ void CreateFontTexture() {
     //auto copyContext = std::make_unique<CommandContext>(device, copyQueue.get(), "imgui upload context");
 
     auto handle = gfx::UploadTexture(fontImage, "imgui font", true);
-    
+
     // Store the handle
     static_assert(sizeof(ImTextureID) >= sizeof(handle), "Can't pack descriptor handle into TexID");
     io.Fonts->TexID = gfx::GetDeviceResources().reservedDescriptors->GetGpuHandle((int)handle).ptr;
@@ -264,7 +266,9 @@ void Initialize(SDL_Window* window, float fontSize) {
     ImGui_ImplSDL3_InitForD3D(window);
     //static const ImWchar ranges[] = { 0x0020, 0x00FF, 0 };
     /*ImFont* font = */
-    io.Fonts->AddFontFromFileTTF(R"(c:\Windows\Fonts\SegoeUI.ttf)", fontSize * shell::dpiScale, nullptr, nullptr);
+
+    _defaultFont = io.Fonts->AddFontFromFileTTF(R"(c:\Windows\Fonts\SegoeUI.ttf)", fontSize * shell::dpiScale, nullptr, nullptr);
+    _monospaceFont = io.Fonts->AddFontFromFileTTF(R"(c:\Windows\Fonts\consola.ttf)", fontSize * shell::dpiScale * 0.75f, nullptr, nullptr);
 }
 
 //void ImGui_WaitForPendingOperations(ImGuiViewportData* data) {
@@ -328,6 +332,14 @@ void Shutdown() {
     FreeGraphics();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
+}
+
+void PushDefaultFont() {
+    ImGui::PushFont(_defaultFont);
+}
+
+void PushMonospaceFont() {
+    ImGui::PushFont(_monospaceFont);
 }
 
 void SetRenderState(const ImDrawData* drawData, ID3D12GraphicsCommandList* cmdList, const FrameResources* fr) {
