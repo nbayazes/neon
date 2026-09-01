@@ -424,16 +424,23 @@ void Init() {
             _modelEntries.push_back(entry);
     }
 
-    auto tableData = hog.ReadEntry("Table.gam");
-    if (!tableData) return;
+    int64 time = 0;
+
+    {
+        ScopedTimer timer(time);
+        auto tableData = hog.ReadEntry("Table.gam");
+        if (!tableData) return;
 
 
-    StreamReader tableReader(*tableData);
-    _gameTable = d3::GameTable::Read(tableReader);
+        StreamReader tableReader(*tableData);
+        _gameTable = d3::GameTable::Read(tableReader);
 
-    //_textureLoadIndicator.resize(_gameTable.textures.size());
+        //_textureLoadIndicator.resize(_gameTable.textures.size());
 
-    ReadVClips(hog, _gameTable);
+        ReadVClips(hog, _gameTable);
+    }
+
+    SPDLOG_INFO("Table.gam load: {:.2f} ms", time / 1000.0f);
 
     //auto modelName = "shield.OOF"; 
     // auto modelName = "flareyellowbright.oof";
@@ -662,7 +669,7 @@ void ObjectBrowser() {
 
             if (maxKeyframe > 0) {
                 if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe * ANIMATION_TIME_SCALE)) {
-                    gfx::SetKeyframe(keyframe, ANIMATION_TIME_SCALE);
+                    gfx::SetKeyframe((int16)keyframe, ANIMATION_TIME_SCALE);
                 }
             }
         }

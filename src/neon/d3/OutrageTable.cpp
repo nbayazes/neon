@@ -355,6 +355,9 @@ void ReadGenericPage(StreamReader& r, GenericInfo& info) {
 
 GameTable GameTable::Read(StreamReader& r) {
     GameTable table{};
+    table.objects.reserve(1000);
+    table.sounds.reserve(1000);
+    table.textures.reserve(1000);
 
     while (!r.EndOfStream()) {
         auto pageType = r.ReadByte();
@@ -380,6 +383,12 @@ GameTable GameTable::Read(StreamReader& r) {
         //auto readbytes = r.Position() - pageStart;
         r.Seek(pageStart + len); // seek to next chunk (prevents read errors due to individual chunks)
     }
+
+#ifdef NDEBUG
+    table.objects.shrink_to_fit();
+    table.sounds.shrink_to_fit();
+    table.textures.shrink_to_fit();
+#endif
 
     return table;
 }

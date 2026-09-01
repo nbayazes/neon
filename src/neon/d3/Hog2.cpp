@@ -33,7 +33,7 @@ Hog2 Hog2::Read(const filesystem::path& path) {
     auto offset = dataOffset;
     for (uint i = 0; i < nfiles; i++) {
         auto& entry = hog.entries.emplace_back();
-        entry.name = String::ToLower(r.ReadString(PSFILENAME_LEN + 1));
+        entry.name = r.ReadString(PSFILENAME_LEN + 1);
         entry.flags = r.ReadUInt32();
         entry.len = r.ReadUInt32();
         entry.timestamp = r.ReadUInt32();

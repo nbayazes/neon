@@ -45,6 +45,7 @@ class StreamReader {
     std::unique_ptr<std::istream> _stream;
     std::filesystem::path _file;
     List<ubyte> _data;
+    List<char> _buffer = List<char>(512);
 
     template <class T>
     T Read() {
@@ -115,20 +116,22 @@ public:
     }
 
     // Reads a fixed length string
-    string ReadString(size_t length) const {
-        List<char> b(length + 1);
-        _stream->read(b.data(), sizeof(char) * length);
-        return { b.data() };
+    string ReadString(size_t length) {
+        if (length > _buffer.size()) _buffer.resize(length, '\0');
+        _stream->read(_buffer.data(), sizeof(char) * length);
+        return { _buffer.data() };
     }
 
     // Reads a null terminated string up to the max length
-    string ReadCString(size_t maxLen) const {
-        List<char> b(maxLen + 1);
+    string ReadCString(size_t maxLen) {
+        if(maxLen > _buffer.size()) _buffer.resize(maxLen, '\0');
+
         for (size_t i = 0; i < maxLen; i++) {
-            _stream->read(&b[i], sizeof(char));
-            if (b[i] == '\0') break;
+            _stream->read(&_buffer[i], sizeof(char));
+            if (_buffer[i] == '\0') break;
         }
-        return { b.data() };
+
+        return { _buffer.data() };
     }
 
     // Reads a newline terminated string up to the max length
