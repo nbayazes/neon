@@ -951,6 +951,9 @@ List<Matrix> _modelTransforms;
 
 // For a given animation frame find the relevant keyframes and interpolate between them
 Quaternion InterpolateRotation(const d3::Submodel& submodel, float frame) {
+    if (submodel.keyframes.empty()) 
+        return Quaternion::Identity;
+
     // Assume that keyframes are sorted and exit early if frame is out of range
     if (frame > submodel.keyframes.back().frame)
         return submodel.keyframes.back().rotation;
@@ -976,6 +979,9 @@ Quaternion InterpolateRotation(const d3::Submodel& submodel, float frame) {
 
 // For a given animation frame find the relevant keyframes and interpolate between them
 Vector3 InterpolatePosition(const d3::Submodel& submodel, float frame) {
+    if (submodel.positionKeyframes.empty()) 
+        return Vector3::Zero;
+
     // Assume that keyframes are sorted and exit early if frame is out of range
     if (frame > submodel.positionKeyframes.back().frame)
         return submodel.positionKeyframes.back().position;
@@ -1028,6 +1034,15 @@ void AnimateModel(const d3::Model& model, AnimationInstance& animation, float dt
 
 void PlayAnimation(const AnimationInstance& animation) {
     _animation = animation;
+}
+
+void SetKeyframe(int16 keyframe, int timeScale) {
+    PlayAnimation({
+        .from = keyframe,
+        .to = keyframe,
+        .duration = 0.16f,
+        .timeScale = 1 / (float)timeScale
+    });
 }
 
 void UpdateAnimations(ModelID modelId, float dt) {
@@ -1260,7 +1275,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
 void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
-    camera.SetClipPlanes(0.1, 1000);
+    camera.SetClipPlanes(1, 1000);
 
     auto& context = *resources.graphicsContext[_backBufferIndex];
     context.Reset();

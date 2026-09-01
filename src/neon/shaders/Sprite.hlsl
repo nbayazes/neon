@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major)
 #include "Common.hlsli"
 
 struct Constants {
@@ -31,7 +32,7 @@ struct VS_OUT {
     centroid float4 color : COLOR0;
     centroid float3 world : TEXCOORD1;
     nointerpolation uint instance : TEXCOORD2;
-    float depth : DEPTH;
+    float radius : RADIUS;
 };
 
 static const float2 BillboardOffsets[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
@@ -40,7 +41,7 @@ VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     SpriteVertex vertex = Vertices[instance];
     float2 offset = BillboardOffsets[id % 4];
     // float4 viewPos = mul(float4(vertex.position, 1), Frame.ViewProj);
-    float4 viewPos = mul(Frame.View, float4(vertex.position, 1));
+    float4 viewPos = mul(float4(vertex.position, 1), Frame.View);
     // float4 viewPos = mul(Frame.View, float4(vertex.position, 1));
     viewPos.xy += offset * vertex.size; // expand in screen-aligned plane
 
@@ -48,11 +49,11 @@ VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     VS_OUT output;
     output.position = viewPos;
     // output.position = mul(viewPos, Frame.Projection);
-    output.position = mul(Frame.Projection, viewPos);
-    output.depth = output.position.w;
+    output.position = mul(viewPos, Frame.Projection);
     output.color = vertex.color;
     output.uv = offset * 0.5 + 0.5;
     output.instance = instance;
+    output.radius = max(vertex.size.x, vertex.size.y);
     return output;
 }
 
@@ -71,13 +72,6 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     float2 uv = pixel.uv + float2(0, 0) * Frame.Time;
     float4 color = float4(1, 1, 1, 1);
 
-    //float sceneDepth = Depth.Sample(Sampler, (pixel.position.xy + 0.5) / Frame.Size).x;
-    float sceneDepth = Frame.NearClip / Depth.Sample(Sampler, pixel.position.xy / Frame.Size).r;
-    float pixelDepth = Frame.NearClip / pixel.depth;
-
-    //if (sceneDepth <= 0.0f)
-    //    return diffuse; // don't apply softening to particles against the background
-
     if (info.frames > 1) {
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
         color = BlendTextureFrames(info, tex, Sampler, Frame.Time, uv, 0);
@@ -87,25 +81,20 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
         color = tex.Sample(Sampler, float3(uv, 0));
     }
 
-    const float DEPTH_EXPONENT = 1.5;
-    const float softness = 0.25;
-    const float fadeDistance = 0.0005;
-    //if (Args.Softness != 0) {
-    
-    float depthDelta = sceneDepth > 0.99 ? 1 : pixelDepth - sceneDepth;
-    //float depthScale = clamp(1 - softness, 0.05, 1); // sprite turns invisible under 0.05
-    //return float4(pixelDepth.xxx * 10, 1);
-    //return float4(depthDelta.xxx * 1000, 1);
-    
-    // float fade = saturate(depthDelta / fadeDistance);
-    float fade = SaturateSoft(depthDelta / fadeDistance, 1);
-    color.a *= fade;
-    //color.a *= SaturateSoft((sceneDepth - Frame.NearClip / pixel.depth) / 10000, DEPTH_EXPONENT);
-    //color.a *= SaturateSoft(depthDelta * 100, DEPTH_EXPONENT);
-    //}
-    //color.rgb = abs(sceneDepth - (Frame.NearClip / pixel.depth));
-    //color.a *= info.opacity;
+    // Soft particles
+    float sceneDepth = Depth.Sample(Sampler, pixel.position.xy / Frame.Size).r;
+    float pixelDepth = Frame.NearClip / pixel.position.z;
 
+    if (sceneDepth != 0) {
+        const float DEPTH_EXPONENT = 2;
+        const float fadeDistance = 1 * pixel.radius;
+
+        float depthDelta = sceneDepth - pixelDepth;
+        // float fade = saturate(depthDelta / fadeDistance);
+        float fade = SaturateSoft(depthDelta / fadeDistance, DEPTH_EXPONENT);
+        color.a *= fade;
+    }
+    
     color.rgb *= pixel.color.rgb;
     color.rgb = pow(color.rgb, 1 / 2.2);
     return color;

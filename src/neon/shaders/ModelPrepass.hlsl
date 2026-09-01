@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major)
 #include "Common.hlsli"
 #include "ObjectVertex.hlsli"
 
@@ -25,11 +26,10 @@ struct PS_INPUT {
 };
 
 PS_INPUT vsmain(ObjectVertex input) {
-    float4x4 wvp = mul(Frame.ViewProj, Instance.World);
+    float4x4 wvp = mul(Instance.World, mul(Frame.View, Frame.Projection));
     PS_INPUT output;
-    output.position = mul(wvp, float4(input.position, 1));
+    output.position = mul(float4(input.position, 1), wvp);
     output.uv = input.uv;
-    output.depth = output.position.w; // W before perspective divide
     return output;
 }
 
@@ -53,5 +53,7 @@ float psmain(PS_INPUT pixel) : SV_Target {
     //    discard;
 
     //return LinearizeDepth(Frame.NearClip, pixel.depth);
-    return pixel.depth;
+    //return Frame.NearClip / pixel.position.z;
+    return 1 / pixel.position.z; // this isn't actually linear depth, but it makes it easier to use because blank areas = 0
+    // return pixel.position.w;
 }

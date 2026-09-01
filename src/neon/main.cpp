@@ -21,6 +21,7 @@ namespace {
 
 SDL_Window* _window = nullptr;
 //neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
+float _cursorCaptureX = 0, _cursorCaptureY = 0;
 
 }
 
@@ -113,6 +114,36 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
     // Handle input and window events.
     //running = Backend::ProcessEvents(context, &Shell::ProcessKeyDownShortcuts, true);
 
+    auto& io = ImGui::GetIO();
+
+    if (!io.WantCaptureMouse) {
+        if (event->type == SDL_EVENT_MOUSE_MOTION) {
+            neon::app::OnMouseMoved(event->motion.x, event->motion.y, event->motion.xrel, event->motion.yrel);
+        }
+
+        if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+            neon::app::OnMouseButtonDown(event->button.button);
+
+            if(event->button.button == 1) {
+                SDL_SetWindowRelativeMouseMode(_window, true);
+                _cursorCaptureX = event->button.x;
+                _cursorCaptureY = event->button.y;
+            }
+        }
+
+        if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            neon::app::OnMouseButtonUp(event->button.button);
+
+            if (event->button.button == 1) {
+                SDL_SetWindowRelativeMouseMode(_window, false);
+                SDL_WarpMouseInWindow(_window, _cursorCaptureX, _cursorCaptureY);
+            }
+        }
+
+        if (event->type == SDL_EVENT_MOUSE_WHEEL) {
+            neon::app::OnMouseWheel(event->wheel.x, event->wheel.y);
+        }
+    }
 
     if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         UpdateWindowSize();

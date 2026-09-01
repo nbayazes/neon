@@ -1,3 +1,5 @@
+#pragma pack_matrix(row_major)
+
 //#include "Lighting.hlsli"
 #include "Common.hlsli"
 #include "ObjectVertex.hlsli"
@@ -42,16 +44,16 @@ struct VS_OUT {
 };
 
 VS_OUT vsmain(ObjectVertex input) {
-    float4x4 wvp = mul(Frame.ViewProj, Instance.World);
+    float4x4 wvp = mul(Instance.World, Frame.ViewProj);
     VS_OUT output;
-    output.position = mul(wvp, float4(input.position, 1));
+    output.position = mul(float4(input.position, 1), wvp);
     output.color = input.color;
     output.uv = input.uv;
 
     // transform from object space to world space
-    output.normal = normalize(mul((float3x3)Instance.World, input.normal));
-    output.tangent = normalize(mul((float3x3)Instance.World, input.tangent));
-    output.bitangent = normalize(mul((float3x3)Instance.World, input.bitangent));
+    output.normal = normalize(mul(input.normal, (float3x3)Instance.World));
+    output.tangent = normalize(mul(input.tangent, (float3x3)Instance.World));
+    output.bitangent = normalize(mul(input.bitangent, (float3x3)Instance.World));
     output.world = mul(Instance.World, float4(input.position, 1)).xyz;
 
     return output;

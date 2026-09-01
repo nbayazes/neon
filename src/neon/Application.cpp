@@ -30,6 +30,7 @@ gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
 namespace neon::gfx {
 void PlayAnimation(const AnimationInstance& animation);
 void UpdateAnimations(ModelID modelId, float dt);
+void SetKeyframe(int16 keyframe, int timeScale);
 }
 
 namespace neon::app {
@@ -450,7 +451,7 @@ void Init() {
         auto model = ReadModel(hog, *modelData);
         _modelId = LoadModel(hog, _gameTable, model, modelName);
         //mesh.name = modelName;
-        _cameraDistance = std::max(model.radius, 2.5f) * 2;
+        _camera.Position = _camera.GetForward() * std::max(model.radius, 2.5f) * -2;
     }
 
     {
@@ -466,6 +467,7 @@ void Init() {
         //_cameraDistance = std::max(model.radius, 1.15f) * 2;
     }
 
+    gfx::SetKeyframe(0, 1);
     _d3Hog = std::move(hog);
 }
 
@@ -522,7 +524,7 @@ void ModelBrowser() {
                 //gfx::UploadMeshes(upload);
                 //auto bounds = CalculateModelBounds(mesh);
                 //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
-                _cameraDistance = std::max(model.radius, 2.5f) * 3;
+                _camera.Position = _camera.GetForward() * std::max(model.radius, 2.5f) * -2;
             }
         }
     }
@@ -569,7 +571,7 @@ enum class AnimationState {
     GotoAlertJumping,
 };
 
-constexpr int ANIMATION_TIME_SCALE = 1; // makes animations take longer to play
+constexpr int ANIMATION_TIME_SCALE = 4; // makes animations take longer to play
 
 constexpr const char* MovementTypeLabels[] = {
     "Standing", "Flying", "Rolling", "Walking", "Jumping"
@@ -639,6 +641,7 @@ void ObjectBrowser() {
             if (auto modelData = _d3Hog.ReadEntry(object.modelName)) {
                 auto model = ReadModel(_d3Hog, *modelData);
                 _modelId = LoadModel(_d3Hog, _gameTable, model, object.name);
+                gfx::SetKeyframe(0, ANIMATION_TIME_SCALE);
 
                 _cameraDistance = std::max(model.radius, 2.5f) * 3;
             }
@@ -648,10 +651,25 @@ void ObjectBrowser() {
     ImGui::EndChild();
 
     {
+        static int keyframe = 0;
+        if (auto model = g_ModelCache.Get(_modelId)) {
+            int16 maxKeyframe = 0;
+
+            for (auto& submodel : model->model.submodels) {
+                maxKeyframe = std::max(maxKeyframe, (int16)submodel.keyframes.size());
+                maxKeyframe = std::max(maxKeyframe, (int16)submodel.positionKeyframes.size());
+            }
+
+            if (maxKeyframe > 0) {
+                if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe * ANIMATION_TIME_SCALE)) {
+                    gfx::SetKeyframe(keyframe, ANIMATION_TIME_SCALE);
+                }
+            }
+        }
+    }
+    {
         ImGui::BeginChild("animations", { -1, -1 });
         auto& object = _gameTable.objects[_objectSelection];
-        int16 maxKeyframe = 0;
-        static int keyframe = 0;
 
         for (int m = 0; m < d3::NUM_MOVEMENT_CLASSES; ++m) {
             auto& anim = object.anim.classes[m];
@@ -680,20 +698,6 @@ void ObjectBrowser() {
                 ImGui::LabelText(AnimationStateLabels[a], "Frames: %i - %i (%.2fs)", action.from, action.to, action.speed);
 
                 ImGui::PopID();
-
-
-                maxKeyframe = std::max(maxKeyframe, action.to);
-            }
-        }
-
-        if (maxKeyframe > 0) {
-            if (ImGui::SliderInt("Keyframe", &keyframe, 0, maxKeyframe * ANIMATION_TIME_SCALE)) {
-                gfx::PlayAnimation({
-                    .from = (int16)keyframe,
-                    .to = (int16)keyframe,
-                    .duration = 0.16f,
-                    .timeScale = 1 / (float)ANIMATION_TIME_SCALE
-                });
             }
         }
 
@@ -757,6 +761,42 @@ void TextureDebugWindow() {
     ImGui::End();
 }
 
+bool _mouseDown = false;
+POINT _cursorPos = {};
+
+
+void OnMouseMoved(float /*x*/, float /*y*/, float xrel, float yrel) {
+    if (_mouseDown) {
+        // Lock cursor position if held down
+        constexpr float sensitivity = 0.005f;
+        float yaw = xrel * sensitivity;
+        float pitch = yrel * sensitivity;
+        _camera.Orbit(yaw, pitch);
+        //SPDLOG_INFO("move mouse REL: {}, {}", xrel, yrel);
+        //SPDLOG_INFO("Camera position: {}, {}, {}", _camera.Position.x, _camera.Position.y, _camera.Position.z);
+        //SetCursorPos(_cursorPos.x, _cursorPos.y);
+    }
+}
+
+void OnMouseWheel(float /*x*/, float y) {
+    _camera.Zoom(y * 4);
+}
+
+void OnMouseButtonDown(uint8_t button) {
+    if (button == 1) {
+        _mouseDown = true;
+        //ShowCursor(false);
+        //GetCursorPos(&_cursorPos);
+    }
+}
+
+void OnMouseButtonUp(uint8_t button) {
+    if (button == 1) {
+        _mouseDown = false;
+        //ShowCursor(true);
+    }
+}
+
 void Update(float dt) {
     ModelBrowser();
     ObjectBrowser();
@@ -765,10 +805,10 @@ void Update(float dt) {
 }
 
 void Render() {
-    Vector3 dir(5.5, 5.5, 5.5);
-    dir.Normalize();
+    //Vector3 dir(5.5, 5.5, 5.5);
+    //dir.Normalize();
 
-    _camera.Position = dir * _cameraDistance;
+    //_camera.Position = dir * _cameraDistance;
 
     gfx::RenderView(_camera, _modelId);
 }
