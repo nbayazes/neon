@@ -452,7 +452,8 @@ void Init() {
     //auto modelName = "fusionblobnewj.oof";
     // auto modelName = "vausstracer.oof";
     // auto modelName = "afterburner2.oof";
-    auto modelName = "stinger.oof";
+    auto modelName = "scrubber.oof";
+    //auto modelName = "stinger.oof";
     _objectSelection = 146;
     //auto modelName = "aliencuplinkhousing.oof";
 
@@ -665,8 +666,8 @@ void ObjectBrowser() {
             int16 maxKeyframe = 0;
 
             for (auto& submodel : model->model.submodels) {
-                maxKeyframe = std::max(maxKeyframe, (int16)submodel.keyframes.size());
-                maxKeyframe = std::max(maxKeyframe, (int16)submodel.positionKeyframes.size());
+                maxKeyframe = std::max(maxKeyframe, (int16)submodel.rotTrackMax);
+                maxKeyframe = std::max(maxKeyframe, (int16)submodel.posTrackMax);
             }
 
             if (maxKeyframe > 0) {

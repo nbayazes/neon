@@ -951,14 +951,14 @@ List<Matrix> _modelTransforms;
 
 // For a given animation frame find the relevant keyframes and interpolate between them
 Quaternion InterpolateRotation(const d3::Submodel& submodel, float frame) {
-    if (submodel.keyframes.empty()) 
+    if (submodel.keyframes.empty())
         return Quaternion::Identity;
 
     // Assume that keyframes are sorted and exit early if frame is out of range
-    if (frame > submodel.keyframes.back().frame)
+    if (frame >= submodel.keyframes.back().frame)
         return submodel.keyframes.back().rotation;
 
-    if (frame < submodel.keyframes.front().frame)
+    if (frame <= submodel.keyframes.front().frame)
         return submodel.keyframes.front().rotation;
 
     for (int i = 1; i < submodel.keyframes.size(); ++i) {
@@ -979,7 +979,7 @@ Quaternion InterpolateRotation(const d3::Submodel& submodel, float frame) {
 
 // For a given animation frame find the relevant keyframes and interpolate between them
 Vector3 InterpolatePosition(const d3::Submodel& submodel, float frame) {
-    if (submodel.positionKeyframes.empty()) 
+    if (submodel.positionKeyframes.empty())
         return Vector3::Zero;
 
     // Assume that keyframes are sorted and exit early if frame is out of range
@@ -1008,17 +1008,30 @@ Vector3 InterpolatePosition(const d3::Submodel& submodel, float frame) {
 void AnimateModel(const d3::Model& model, AnimationInstance& animation, float dt) {
     _modelTransforms.resize(model.submodels.size());
 
-    if (animation.elapsed >= animation.duration)
-        return; // finished playing. don't update
+    // todo: only update animations when animation is playing - this is complicated by constantly rotating submodels which rely on translations
+    // consider caching rotations and translations separately per submodel
+    float frame = animation.to * animation.timeScale;
 
-    float percent = animation.elapsed / animation.duration;
-    float range = animation.to * animation.timeScale - animation.from * animation.timeScale;
-    float frame = range * percent + animation.from * animation.timeScale;
+    if (animation.elapsed < animation.duration) {
+        float percent = animation.elapsed / animation.duration;
+        float range = animation.to * animation.timeScale - animation.from * animation.timeScale;
+        frame = range * percent + animation.from * animation.timeScale;
+    }
 
     for (int sm = 0; sm < model.submodels.size(); ++sm) {
         auto& submodel = model.submodels[sm];
 
-        Quaternion rotation = InterpolateRotation(submodel, frame);
+        Quaternion rotation = Quaternion::Identity;
+
+        if (HasFlag(submodel.flags, d3::SubmodelFlag::Rotate)) {
+            // original code uses keyframe 1 for the rotation axis
+            if (submodel.keyframes.size() > 1)
+                rotation = Quaternion::CreateFromAxisAngle(submodel.keyframes[1].axis, submodel.rotation * (float)Clock.GetTotalTimeSeconds());
+        }
+        else {
+            rotation = InterpolateRotation(submodel, frame);
+        }
+
         Vector3 position = InterpolatePosition(submodel, frame);
 
         auto translation = Matrix::CreateTranslation(submodel.offset + position);
