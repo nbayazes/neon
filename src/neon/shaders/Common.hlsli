@@ -228,4 +228,25 @@ float4 BlendTextureFrames(TextureInfo info, Texture2DArray tex, SamplerState sam
     return lerp(rgb0, rgb1, blend);
 }
 
+uint PcgRandom(uint input) {
+    // https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+    uint state = input * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float PcgRandomFloat(uint input) {
+    // https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+    uint state = input * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return ((word >> 22u) ^ word) / (float) 0xffffffff;
+}
+
+float3 JitterVertex(float3 vertex, int hashOffset, float strength) {
+    float hash = vertex.x + vertex.y * 2 + vertex.z * 3;
+    float3 dir = normalize(vertex);
+    float distort = PcgRandomFloat(hash + hashOffset);
+    return vertex + distort * dir * strength;
+}
+
 #endif

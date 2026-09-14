@@ -26,8 +26,12 @@ struct PS_INPUT {
 };
 
 PS_INPUT vsmain(ObjectVertex input) {
+    //float distortAmount = 0.5;
+    //float3 position = JitterVertex(input.position, int(Frame.Time * 21), distortAmount);
+
     float4x4 wvp = mul(Instance.World, mul(Frame.View, Frame.Projection));
     PS_INPUT output;
+    //output.position = mul(float4(position, 1), wvp);
     output.position = mul(float4(input.position, 1), wvp);
     output.uv = input.uv;
     return output;

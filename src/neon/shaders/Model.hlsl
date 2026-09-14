@@ -45,7 +45,12 @@ struct VS_OUT {
 
 VS_OUT vsmain(ObjectVertex input) {
     float4x4 wvp = mul(Instance.World, Frame.ViewProj);
+
+    //float distortAmount = 0.5;
+    //float3 position = JitterVertex(input.position, int(Frame.Time * 21), distortAmount);
+
     VS_OUT output;
+    //output.position = mul(float4(position, 1), wvp);
     output.position = mul(float4(input.position, 1), wvp);
     output.color = input.color;
     output.uv = input.uv;
@@ -79,7 +84,10 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
         color = tex.Sample(Sampler, float3(uv, 0));
     }
 
-    color.a *= info.opacity;
+    //color.a *= pow(info.opacity, 2.2);
+    color *= info.opacity;
+    //color *= pow(info.opacity, 2.2);
+    //color.a *= (sin(Frame.Time) + 1) * 0.5;
     color.rgb = pow(color.rgb, 1 / 2.2);
 
     //float3 l = normalize(float3(4, 1, 5));
