@@ -40,16 +40,16 @@ static const float2 BillboardOffsets[4] = { float2(-1, -1), float2(1, -1), float
 VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     SpriteVertex vertex = Vertices[instance];
     float2 offset = BillboardOffsets[id % 4];
-    // float4 viewPos = mul(float4(vertex.position, 1), Frame.ViewProj);
     float4 viewPos = mul(float4(vertex.position, 1), Frame.View);
-    // float4 viewPos = mul(Frame.View, float4(vertex.position, 1));
+    float bias = max(vertex.size.x, vertex.size.y) * 0.75;
     viewPos.xy += offset * vertex.size; // expand in screen-aligned plane
 
-    viewPos.z -= max(vertex.size.x, vertex.size.y); // bias the billboard. todo: only apply when flagged
+
     VS_OUT output;
-    output.position = viewPos;
-    // output.position = mul(viewPos, Frame.Projection);
     output.position = mul(viewPos, Frame.Projection);
+    // bias the billboard. todo: only apply when flagged
+    output.position.z *= output.position.w / (output.position.w - bias);
+
     output.color = vertex.color;
     output.uv = offset * 0.5 + 0.5;
     output.instance = instance;
@@ -87,14 +87,14 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
 
     if (sceneDepth != 0) {
         const float DEPTH_EXPONENT = 2;
-        const float fadeDistance = 1 * pixel.radius;
+        const float fadeDistance = 1 * pixel.radius * .75;
 
         float depthDelta = sceneDepth - pixelDepth;
         // float fade = saturate(depthDelta / fadeDistance);
         float fade = SaturateSoft(depthDelta / fadeDistance, DEPTH_EXPONENT);
         color.a *= fade;
     }
-    
+
     color.rgb *= pixel.color.rgb;
     color.rgb = pow(color.rgb, 1 / 2.2);
     return color;
