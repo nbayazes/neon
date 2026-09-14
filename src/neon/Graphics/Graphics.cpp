@@ -908,7 +908,7 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
             if (pass == RenderPass::Additive)
                 context.SetPipelineState(pipelines::modelAdditive);
             else if (pass == RenderPass::Transparent)
-                context.SetPipelineState(pipelines::modelAlpha);
+                context.SetPipelineState(pipelines::modelAlphaBack);
             else
                 context.SetPipelineState(pipelines::model);
 
@@ -928,6 +928,12 @@ void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, Re
             cmdList->IASetIndexBuffer(&command.indexBuffer);
             cmdList->IASetVertexBuffers(0, 1, &command.vertexBuffer);
             cmdList->DrawIndexedInstanced(command.count, 1, 0, 0, 0);
+
+            if (pass == RenderPass::Transparent) {
+                context.SetPipelineState(pipelines::modelAlphaFront);
+                cmdList->DrawIndexedInstanced(command.count, 1, 0, 0, 0);
+            }
+
             break;
 
         case DrawCommandType::Sprite:
@@ -1266,9 +1272,12 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
             device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
             device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.alphaHandles, table.Offset(1).GetCpuHandle());
             cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
-
-            context.SetPipelineState(pipelines::modelAlpha);
             cmdList->IASetIndexBuffer(&submesh.transparentIbv);
+
+            context.SetPipelineState(pipelines::modelAlphaBack);
+            cmdList->DrawIndexedInstanced(submesh.transparentElementCount, 1, 0, 0, 0);
+
+            context.SetPipelineState(pipelines::modelAlphaFront);
             cmdList->DrawIndexedInstanced(submesh.transparentElementCount, 1, 0, 0, 0);
         }
 
