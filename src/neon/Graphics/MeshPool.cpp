@@ -6,7 +6,7 @@
 
 namespace neon::gfx {
 
-constexpr uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
+uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
     uint64 totalSize = 0;
 
     for (auto& submesh : mesh.submeshes) {
@@ -29,7 +29,7 @@ constexpr uint64 CalculateMeshSize(const Mesh& mesh, uint64 alignment) {
     return totalSize;
 }
 
-constexpr uint64 CalculateTextureIndexSize(const Mesh& mesh) {
+uint64 CalculateTextureIndexSize(const Mesh& mesh) {
     uint64 totalSize = 0;
 
     for (auto& submesh : mesh.submeshes) {

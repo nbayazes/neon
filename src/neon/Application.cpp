@@ -347,7 +347,7 @@ void ExpandTransparentSubmodels(const d3::GameTable& gameTable, d3::Model& model
 void ExpandAnimationFrames(d3::Model& model) {
     // Rotation keyframes
     for (auto& submodel : model.submodels) {
-        std::vector<d3::Submodel::Keyframe> keyframes;
+        List<d3::Submodel::Keyframe> keyframes;
 
         for (size_t i = 0; i < submodel.keyframes.size(); i++) {
             const auto& frame = submodel.keyframes[i];
@@ -364,7 +364,7 @@ void ExpandAnimationFrames(d3::Model& model) {
 
     // Position keyframes
     for (auto& submodel : model.submodels) {
-        std::vector<d3::Submodel::PositionKeyframe> keyframes;
+        List<d3::Submodel::PositionKeyframe> keyframes;
 
         for (size_t i = 0; i < submodel.positionKeyframes.size(); i++) {
             const auto& frame = submodel.positionKeyframes[i];

@@ -6,6 +6,9 @@ template <class T>
 inline constexpr bool is_scoped_enum_v = std::conjunction_v<std::is_enum<T>, std::negation<std::is_convertible<T, int>>>;
 
 template <class T>
+concept IsEnum = is_scoped_enum_v<T>;
+
+template <class T>
 struct is_scoped_enum : std::bool_constant<is_scoped_enum_v<T>> {};
 
 // Templates to enable bitwise operators on all enums. Might be a bad idea.
@@ -50,8 +53,6 @@ constexpr void SetFlag(T& flags, T flag, bool value) {
     else flags &= ~flag;
 }
 
-template <class T>
-concept IsEnum = is_scoped_enum_v<T>;
 
 //// Converts an enum to the underlying type
 //constexpr auto ToUnderlying(IsEnum auto e) {

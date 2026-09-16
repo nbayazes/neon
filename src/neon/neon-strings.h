@@ -4,6 +4,7 @@
 #include <optional>
 #include <sstream>
 #include <charconv>
+#include <EASTL/vector.h>
 
 namespace neon {
 // Helper to allow appending string views to each other. Allocates.
@@ -119,8 +120,8 @@ namespace String {
     }
 
     // Splits a string into a vector. Returns the original string if no separator is found.
-    inline std::vector<std::string> Split(const std::string& str, const char separator = '\n', bool trim = false) {
-        std::vector<std::string> items;
+    inline eastl::vector<std::string> Split(const std::string& str, const char separator = '\n', bool trim = false) {
+        eastl::vector<std::string> items;
         std::stringstream ss(str);
         std::string item;
         while (std::getline(ss, item, separator)) {
@@ -144,8 +145,8 @@ namespace String {
     }
 
     // Splits a string into lines
-    inline std::vector<std::string> ToLines(const std::string& source) {
-        std::vector<std::string> lines;
+    inline eastl::vector<std::string> ToLines(const std::string& source) {
+        eastl::vector<std::string> lines;
         std::stringstream stream(source);
 
         std::string line;

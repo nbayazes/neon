@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "Texture.h"
 #include "DeviceResources.h"
+#include "EASTL/vector.h"
 
 namespace neon::gfx {
 
@@ -21,7 +22,7 @@ IntermediateResource Texture::Create(ID3D12GraphicsCommandList* cmdList, const I
 
     {
         // Copy all mips and slices
-        std::vector<D3D12_SUBRESOURCE_DATA> subresources(metadata.mipLevels * metadata.arraySize);
+        eastl::vector<D3D12_SUBRESOURCE_DATA> subresources(metadata.mipLevels * metadata.arraySize);
 
         for (uint mip = 0; mip < metadata.mipLevels; ++mip) {
             for (uint slice = 0; slice < metadata.arraySize; ++slice) {
@@ -34,9 +35,9 @@ IntermediateResource Texture::Create(ID3D12GraphicsCommandList* cmdList, const I
             }
         }
 
-        std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> layouts(subresources.size());
-        std::vector<UINT> numRows(subresources.size());
-        std::vector<UINT64> rowSizes(subresources.size());
+        eastl::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> layouts(subresources.size());
+        eastl::vector<UINT> numRows(subresources.size());
+        eastl::vector<UINT64> rowSizes(subresources.size());
 
         UINT64 requiredSize;
         GetDevice()->GetCopyableFootprints(&_desc, 0, (UINT)subresources.size(), 0,

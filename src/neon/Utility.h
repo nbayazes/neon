@@ -5,6 +5,7 @@
 #include <future>
 #include <numbers>
 #include <set>
+#include <EASTL/vector.h>
 #include "neon-math.h"
 #include "neon-types.h"
 #include "neon-strings.h"
@@ -28,7 +29,7 @@ consteval uint32 MakeFourCC(const char cc[4]) {
 
 // Helper to get the size of a vector's elements in bytes
 template <typename T>
-constexpr size_t GetVectorSizeInBytes(const std::vector<T>& v) {
+constexpr size_t GetVectorSizeInBytes(const eastl::vector<T>& v) {
     return v.size() * sizeof(T);
 }
 
@@ -303,13 +304,13 @@ namespace Seq {
     // Converts a std::set to a std::vector
     template <class T>
     constexpr auto ofSet(const std::set<T>& set) {
-        return std::vector<T>(set.begin(), set.end());
+        return eastl::vector<T>(set.begin(), set.end());
     }
 
     // Converts a span to a std::vector
     template <class T>
     constexpr auto toList(const std::span<T> xs) {
-        return std::vector<T>(xs.begin(), xs.end());
+        return eastl::vector<T>(xs.begin(), xs.end());
     }
 
     // Returns true if the index is valid for a container

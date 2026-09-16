@@ -720,13 +720,6 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
     resources.sizedDescriptors->AddSRV(sizedResources.linearDepthBuffer);
 }
 
-//struct FrameAllocations {
-//    UINT64 fenceValue = 0; // queue fence value recorded on submit
-//    std::vector<D3D12MA::Allocation*> allocs;
-//};
-
-//FrameAllocations g_frameSlots[BACK_BUFFER_COUNT];
-
 void MoveToNextFrame() {
     _backBufferIndex = sizedResources.swapChain->GetCurrentBackBufferIndex();
     auto& nextFrame = resources.graphicsContext[_backBufferIndex];

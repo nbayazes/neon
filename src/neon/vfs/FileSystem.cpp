@@ -39,14 +39,14 @@ std::string ReadAllText(const filesystem::path& path) {
     return { std::istreambuf_iterator(stream), std::istreambuf_iterator<char>() };
 }
 
-std::vector<std::string> ReadLines(const filesystem::path& path) {
+List<std::string> ReadLines(const filesystem::path& path) {
     std::ifstream stream(path);
     if (!stream) {
         SPDLOG_WARN("Unable to open file `{}`", path.string());
         return {};
     }
 
-    std::vector<std::string> lines;
+    List<std::string> lines;
     std::string line;
 
     while (std::getline(stream, line))

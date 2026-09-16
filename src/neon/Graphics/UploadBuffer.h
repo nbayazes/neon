@@ -92,7 +92,7 @@ public:
         _buffer.clear();
     }
 
-    uintptr_t Copy(span<const T> src) {
+    uintptr_t Copy(const span<const T> src) {
         if (!_inUpdate)
             throw Exception("Must call Begin before Copy");
 
@@ -102,7 +102,7 @@ public:
             return 0;
         }
 
-        _buffer.insert(_buffer.end(), src.begin(), src.end());
+        _buffer.insert(_buffer.end(), src.data(), src.data() + src.size());
         return offset;
     }
 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #define SDL_MAIN_USE_CALLBACKS
+#define EASTL_USER_DEFINED_ALLOCATOR 
 
 //#include <RmlUi/Core/Core.h>
 #include <SDL3/SDL.h>
@@ -16,6 +17,15 @@
 #include "Shell.h"
 #include "Rml/RmlUi_Platform_SDL.h"
 #include "SystemClock.h"
+
+// For EASTL
+void* __cdecl operator new[](size_t size, const char* name, int flags, unsigned debugFlags, const char* file, int line) {
+    return new uint8_t[size];
+}
+
+void* __cdecl operator new[](unsigned __int64 size, unsigned __int64, unsigned __int64, char const*, int, unsigned int, char const*, int) {
+    return new uint8_t[size];
+}
 
 namespace {
 
@@ -124,7 +134,7 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
         if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
             neon::app::OnMouseButtonDown(event->button.button);
 
-            if(event->button.button == 1) {
+            if (event->button.button == 1) {
                 SDL_SetWindowRelativeMouseMode(_window, true);
                 _cursorCaptureX = event->button.x;
                 _cursorCaptureY = event->button.y;

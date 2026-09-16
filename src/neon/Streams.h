@@ -124,7 +124,7 @@ public:
 
     // Reads a null terminated string up to the max length
     string ReadCString(size_t maxLen) {
-        if(maxLen > _buffer.size()) _buffer.resize(maxLen, '\0');
+        if (maxLen > _buffer.size()) _buffer.resize(maxLen, '\0');
 
         for (size_t i = 0; i < maxLen; i++) {
             _stream->read(&_buffer[i], sizeof(char));
@@ -136,17 +136,16 @@ public:
 
     // Reads a newline terminated string up to the max length
     string ReadStringToNewline(size_t maxLen) {
-        std::vector<char> chars;
         for (size_t i = 0; i < maxLen; i++) {
             char c = (char)ReadByte();
             if (c == '\n') {
-                chars.push_back('\0');
+                _buffer[i] = '\0';
                 break;
             }
-            chars.push_back(c);
+            _buffer[i] = c;
         }
 
-        return { chars.data() };
+        return { _buffer.data() };
     }
 
     ubyte ReadByte() { return Read<ubyte>(); }

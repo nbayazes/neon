@@ -133,7 +133,7 @@ public:
     }
 
     template <class TData>
-    bool LoadMipmapped(span<std::vector<TData>> mipData, size_t width, size_t height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) {
+    bool LoadMipmapped(span<List<TData>> mipData, size_t width, size_t height, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB) {
         if (FAILED(Initialize2D(format, width, height, 1, mipData.size())))
             return false;
 

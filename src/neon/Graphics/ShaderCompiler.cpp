@@ -94,7 +94,7 @@ void CheckCompilerResult(IDxcResult* result) {
     }
 }
 
-void AddCommonArgs(std::vector<LPCWSTR>& args, LPCWSTR entryPoint, LPCWSTR profile) {
+void AddCommonArgs(List<LPCWSTR>& args, LPCWSTR entryPoint, LPCWSTR profile) {
     args.push_back(L"-E"); // Entrypoint
     args.push_back(entryPoint);
 

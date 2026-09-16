@@ -212,6 +212,7 @@
     <ClInclude Include="Graphics\GraphicsHandles.h" />
     <ClInclude Include="Graphics\MeshPool.h" />
     <ClInclude Include="Graphics\DrawCommand.h" />
+    <ClInclude Include="Graphics\ParticleSystem.h" />
     <ClInclude Include="Graphics\TextureCache.h" />
     <ClInclude Include="gsl\assert.h" />
     <ClInclude Include="gsl\pointers.h" />

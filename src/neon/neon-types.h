@@ -6,6 +6,7 @@
 #include <string_view>
 #include <span>
 #include <array>
+#include <EASTL/vector.h>
 
 #ifdef _DEBUG
 #define ASSERT(x) (void)( (!!(x)) || (__debugbreak(), 0))
@@ -97,8 +98,8 @@ using uchar = unsigned char;
 using ushort = unsigned short;
 using uint = unsigned int;
 
-template <class T, class TAlloc = std::allocator<T>>
-using List = std::vector<T, TAlloc>;
+template <class T, class TAlloc = EASTLAllocatorType>
+using List = eastl::vector<T, TAlloc>;
 
 template <class T, size_t TSize>
 using Array = std::array<T, TSize>;
