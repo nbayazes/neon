@@ -128,6 +128,7 @@
       <DisableSpecificWarnings>4324</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:__cplusplus /we4715 /w34800 /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(ProjectDir);$(SolutionDir)src\imgui\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -155,6 +156,7 @@
       <DisableSpecificWarnings>4324</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:__cplusplus /we4715 /w34800 /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(ProjectDir);$(SolutionDir)src\imgui\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

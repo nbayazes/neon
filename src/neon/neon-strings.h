@@ -4,7 +4,6 @@
 #include <optional>
 #include <sstream>
 #include <charconv>
-#include <EASTL/vector.h>
 
 namespace neon {
 // Helper to allow appending string views to each other. Allocates.
@@ -26,7 +25,7 @@ namespace String {
         return p;
     }
 
-    //inline string OfBytes(span<ubyte> data) {
+    //inline std::string OfBytes(span<ubyte> data) {
     //    return { data.begin(), data.end() };
     //}
 
@@ -119,11 +118,12 @@ namespace String {
         return buffer;
     }
 
-    // Splits a string into a vector. Returns the original string if no separator is found.
-    inline eastl::vector<std::string> Split(const std::string& str, const char separator = '\n', bool trim = false) {
-        eastl::vector<std::string> items;
+    // Splits a std::string into a vector. Returns the original string if no separator is found.
+    inline std::vector<std::string> Split(const std::string& str, const char separator = '\n', bool trim = false) {
+        std::vector<std::string> items;
         std::stringstream ss(str);
         std::string item;
+
         while (std::getline(ss, item, separator)) {
             std::erase(item, '\r'); // getline() returns \r even on windows
             items.push_back(trim ? String::Trim(item) : item);
@@ -145,14 +145,15 @@ namespace String {
     }
 
     // Splits a string into lines
-    inline eastl::vector<std::string> ToLines(const std::string& source) {
-        eastl::vector<std::string> lines;
-        std::stringstream stream(source);
+    inline std::vector<std::string_view> ToLines(const std::string& text) {
+        std::vector<std::string_view> lines;
+        std::stringstream stream(text);
 
         std::string line;
+        
         while (std::getline(stream, line)) {
             std::erase(line, '\r'); // getline() returns \r even on windows
-            lines.push_back(line);
+            lines.push_back(std::string(line.c_str()));
         }
 
         return lines;

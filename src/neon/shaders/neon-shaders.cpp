@@ -6,7 +6,7 @@
 #include "Model.h"
 #include "ModelPrepass.h"
 #include "Sprite.h"
-#include "rmlui.h"
+//#include "rmlui.h"
 
 namespace neon::app {
 void ShowCompilerOutput();
@@ -19,7 +19,7 @@ void Compile(bool ignoreCache) {
     // todo: invalidate cache command. 
     // ignoreCache incorrectly recompiles the same shader multiple times when it is shared across pipelines
     CompileGraphicsPipeline(pipelines::imgui, ignoreCache);
-    CompileGraphicsPipeline(pipelines::rmlui, ignoreCache);
+    //CompileGraphicsPipeline(pipelines::rmlui, ignoreCache);
     CompileGraphicsPipeline(pipelines::compose, ignoreCache);
     CompileGraphicsPipeline(pipelines::model, ignoreCache);
     CompileGraphicsPipeline(pipelines::modelAdditive, ignoreCache);

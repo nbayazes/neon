@@ -27,9 +27,15 @@ consteval uint32 MakeFourCC(const char cc[4]) {
 //    return cc;
 //}
 
-// Helper to get the size of a vector's elements in bytes
+// Get the total size of a vector in bytes
 template <typename T>
 constexpr size_t GetVectorSizeInBytes(const eastl::vector<T>& v) {
+    return v.size() * sizeof(T);
+}
+
+// Get the total size of a vector in bytes
+template <typename T>
+constexpr size_t GetVectorSizeInBytes(const std::vector<T>& v) {
     return v.size() * sizeof(T);
 }
 
