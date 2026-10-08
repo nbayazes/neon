@@ -34,9 +34,10 @@ struct VClip {
     int frames[30];
 
     // Returns the frame for the vclip based on elapsed time
-    int GetFrame(float time) {
+    int GetFrame(float time, bool clamp = false) {
         //if (NumFrames == 0) return 0;
-        int frame = (int)floor(abs(time) / frameTime) % numFrames;
+        int frame = (int)floor(abs(time) / frameTime);
+        frame = clamp ? min(frame, numFrames - 1) : frame % numFrames;
         return frames[frame];
     }
 };
@@ -169,11 +170,15 @@ struct TextureInfo {
     float opacity;
     // int blendFunc; // frame blend function for animations
 
-    int GetFrame(float time) {
+    // Returns a frame for a given time.
+    int GetFrame(float time, bool clamp = false) {
         if (frames <= 1)
             return 0;
 
         int frame = (int)(abs(time) / frameTime);
+
+        if (clamp)
+            return min(frame, frames - 1);
 
         if (pingpong) {
             frame %= frames * 2;
@@ -215,9 +220,9 @@ struct TextureInfo {
 };
 
 
-float4 BlendTextureFrames(TextureInfo info, Texture2DArray tex, SamplerState samplerState, float time, float2 uv, int mode) {
-    int f0 = info.GetFrame(time);
-    int f1 = info.GetFrame(time + info.frameTime);
+float4 BlendTextureFrames(TextureInfo info, Texture2DArray tex, SamplerState samplerState, float time, float2 uv, int mode, bool clamp = false) {
+    int f0 = info.GetFrame(time, clamp);
+    int f1 = info.GetFrame(time + info.frameTime, clamp);
 
     float4 rgb0 = tex.Sample(samplerState, float3(uv, f0));
     float4 rgb1 = tex.Sample(samplerState, float3(uv, f1));
@@ -236,10 +241,7 @@ uint PcgRandom(uint input) {
 }
 
 float PcgRandomFloat(uint input) {
-    // https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
-    uint state = input * 747796405u + 2891336453u;
-    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return ((word >> 22u) ^ word) / (float) 0xffffffff;
+    return PcgRandom(input) / (float)0xffffffff;
 }
 
 float3 JitterVertex(float3 vertex, int hashOffset, float strength) {

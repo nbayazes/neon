@@ -70,17 +70,13 @@ constexpr uint64 AlignTo(uint64 offset, uint64 alignment) {
     return (offset + (alignment - 1)) & ~(alignment - 1);
 }
 
-// Returns a random value between 0 and 1
-inline float Random() {
-    return (float)rand() / RAND_MAX;
-}
 
 // Modulus division without negative numbers
 constexpr auto ModSafe(std::signed_integral auto k, std::signed_integral auto n) {
     return (k %= n) < 0 ? k + n : k;
 }
 
-// Returns 1 for positive numbers, -1 for negative numbers
+// Returns 1 for positive numbers and 0, -1 for negative numbers
 template <typename T>
 constexpr int Sign(T val) {
     if (val == 0) return 1;
@@ -195,6 +191,37 @@ inline Matrix DirectionToRotationMatrix(const Vector3& direction, float roll = 0
     auto pitch = asin(std::clamp(direction.y, -1.0f, 1.0f));
     auto yaw = atan2(-direction.z, direction.x);
     return Matrix::CreateFromYawPitchRoll(yaw, roll, pitch);
+}
+
+// Creates a world rotation matrix from a vector
+inline Matrix3x3 VectorToRotation(const Vector3& forward, Vector3 up = Vector3::Zero, Vector3 right = Vector3::Zero) {
+    ASSERT(IsNormalized(forward));
+
+    if (up == Vector3::Zero && right == Vector3::Zero) {
+        // neither up or right provided
+        if (forward.x == 0 && forward.z == 0) {
+            // vec is straight up or down
+            right = Vector3(1, 0, 0);
+            up.z = forward.y < 0 ? 1.0f : -1.0f;
+        }
+        else {
+            right = Vector3(forward.z, 0, -forward.x);
+            right.Normalize();
+            up = forward.Cross(right);
+        }
+    }
+    else if (right != Vector3::Zero) {
+        up = forward.Cross(right);
+        up.Normalize();
+        right = up.Cross(forward); // recalculate right vec in case it wasn't perpendicular
+    }
+    else if (up != Vector3::Zero) {
+        right = up.Cross(forward);
+        right.Normalize();
+        up = forward.Cross(right);
+    }
+
+    return Matrix3x3{ right, up, forward };
 }
 
 // Projects a ray onto a plane. What happens if parallel?

@@ -1,5 +1,6 @@
 #pragma once
 #include "Handles.h"
+#include "Scene.h"
 #include "shaders/Model.h"
 #include "shaders/ModelVertex.h"
 #include "Texture.h"
@@ -31,7 +32,7 @@ void Shutdown();
 // Waits for the GPU to become idle
 void WaitForGpu();
 
-void RenderView(Camera& camera, ModelID modelid);
+void RenderView(Camera& camera, const Scene& scene, float tickAlpha);
 
 // Presents to the screen
 void Present();

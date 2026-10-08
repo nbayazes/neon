@@ -20,11 +20,15 @@ class VClipTable {
 public:
     span<d3::VClip> Entries() { return _vclips; }
 
-    void Add(const d3::VClip& vclip) {
+    // Adds a vclip and returns the index to it
+    int Add(const d3::VClip& vclip) {
+        int index = (int)_vclips.size();
         _vclips.push_back(vclip);
         for (auto& frame : vclip.frames) {
             _vclipFrameLookup[frame.name] = vclip.fileName;
         }
+
+        return index;
     }
 
     int FindIndex(string_view name) const {

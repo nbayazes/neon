@@ -66,3 +66,5 @@ Testing/
 /bin
 /src/neon/imgui.ini
 _ReSharper.Caches/
+/src/neon/bin/
+/src/imgui/bin/

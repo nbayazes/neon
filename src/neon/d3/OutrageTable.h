@@ -144,7 +144,7 @@ struct TextureInfo {
     string fileName; // File name in hog or on disk
     Color color;
     Vector2 slide;
-    float speed; // Total time of animation. Used by vclips on non-explosions.
+    float speed; // Total time of animation in seconds. Used by vclips for non-explosions.
     float reflectivity; // For radiosity calcs 
     TextureFlag flags;
     int8 corona;

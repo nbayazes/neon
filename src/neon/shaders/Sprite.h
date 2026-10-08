@@ -71,9 +71,9 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
 
 constexpr D3D12_STATIC_SAMPLER_DESC StaticLinearSampler{
     .Filter = D3D12_FILTER_ANISOTROPIC,
-    .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-    .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-    .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+    .AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+    .AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
     .MipLODBias = 0,
     .MaxAnisotropy = 0,
     .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
@@ -97,6 +97,8 @@ struct Vertex {
     Vector3 position;
     Color color;
     Vector2 size;
+    float percentLife = -1; // how much life is elapsed from 0 to 1. If < 0, uses global time for animations.
+    float rotation = 0;
 
     //static constexpr D3D12_INPUT_ELEMENT_DESC layout[] = {
     //    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },

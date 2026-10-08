@@ -12,6 +12,8 @@ struct SpriteVertex {
     float3 position : POSITION;
     float4 color : COLOR0;
     float2 size : SIZE;
+    float percentLife : ANIMATION;
+    float rotation : ROTATION;
 };
 
 // Common descriptors
@@ -33,6 +35,7 @@ struct VS_OUT {
     centroid float3 world : TEXCOORD1;
     nointerpolation uint instance : TEXCOORD2;
     float radius : RADIUS;
+    float percentLife : PERCENT_LIFE;
 };
 
 static const float2 BillboardOffsets[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
@@ -42,8 +45,17 @@ VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     float2 offset = BillboardOffsets[id % 4];
     float4 viewPos = mul(float4(vertex.position, 1), Frame.View);
     float bias = max(vertex.size.x, vertex.size.y) * 0.75;
-    viewPos.xy += offset * vertex.size; // expand in screen-aligned plane
 
+    // Rotate sprite
+    float2 vertexOffset = offset;
+
+    if (vertex.rotation != 0) {
+        float cosTheta = cos(vertex.rotation);
+        float sinTheta = sin(vertex.rotation);
+        vertexOffset = float2(offset.x * cosTheta - offset.y * sinTheta, offset.x * sinTheta + offset.y * cosTheta);
+    }
+
+    viewPos.xy += vertexOffset * vertex.size; // expand in screen-aligned plane
 
     VS_OUT output;
     output.position = mul(viewPos, Frame.Projection);
@@ -54,6 +66,7 @@ VS_OUT vsmain(uint id : SV_VertexID, uint instance: SV_InstanceID) {
     output.uv = offset * 0.5 + 0.5;
     output.instance = instance;
     output.radius = max(vertex.size.x, vertex.size.y);
+    output.percentLife = vertex.percentLife;
     return output;
 }
 
@@ -74,7 +87,17 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
 
     if (info.frames > 1) {
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
-        color = BlendTextureFrames(info, tex, Sampler, Frame.Time, uv, 0);
+
+        float time = Frame.Time;
+        bool clamp = pixel.percentLife >= 0;
+
+        // fit the animation to match the particle lifespan
+        if (pixel.percentLife >= 0) {
+            float totalDuration = info.frameTime * info.frames;
+            time = pixel.percentLife * totalDuration;
+        }
+
+        color = BlendTextureFrames(info, tex, Sampler, time, uv, 0, clamp);
     }
     else {
         Texture2DArray tex = TextureTable[NonUniformResourceIndex(info.index)];
@@ -96,6 +119,7 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     }
 
     color.rgb *= pixel.color.rgb;
+    color.a *= pixel.color.a;
     color.rgb = pow(color.rgb, 1 / 2.2);
     return color;
 }

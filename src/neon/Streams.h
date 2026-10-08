@@ -55,13 +55,13 @@ class StreamReader {
     }
 
 public:
-    StreamReader(span<ubyte> data, const string& name = "") {
+    StreamReader(span<ubyte> data, string_view name = "") {
         _stream = std::make_unique<MemoryStream>((char*)data.data(), data.size());
         _file = name;
     }
 
     // Takes ownership of data
-    StreamReader(List<ubyte>&& data, const string& name = "") {
+    StreamReader(List<ubyte>&& data, string_view name = "") {
         _data = std::move(data);
         _stream = std::make_unique<MemoryStream>((char*)_data.data(), _data.size());
         _file = name;

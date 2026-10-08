@@ -93,12 +93,14 @@ class SpriteBatch {
 
     List<shaders::sprite::Vertex> _stagingVertexBuffer;
     List<TexID> _stagingTextureHandles;
+    uint64 _capacity = 0;
 
 public:
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
     D3D12_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
 
     void Create(uint64 capacity) {
+        _capacity = capacity;
         _vertices.Create("sprite batch", sizeof(shaders::sprite::Vertex) * capacity, D3D12_HEAP_TYPE_UPLOAD);
         _textureHandles.Create("sprite batch handles", sizeof(int32) * capacity, D3D12_HEAP_TYPE_UPLOAD);
         //_vertices.Unmap();
@@ -117,6 +119,7 @@ public:
     }
 
     void Add(const SpriteBatchInfo& sprite) {
+        if (_sprites.size() + 1 >= _capacity) return; // prevent overflow
         _sprites.push_back(sprite);
     }
 
@@ -1063,7 +1066,7 @@ void UpdateAnimations(ModelID modelId, float dt) {
     }
 }
 
-void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
+void DrawMeshPrepass(GraphicsContext& context, const ModelInstance& instance) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::modelPrepass);
 
@@ -1076,7 +1079,7 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
 
     SetCommonShaderParmeters(cmdList);
 
-    auto entry = g_ModelCache.Get(modelId);
+    auto entry = g_ModelCache.Get(instance.model);
     if (!entry) return;
 
     auto& model = entry->model;
@@ -1142,7 +1145,7 @@ void DrawMeshPrepass(GraphicsContext& context, ModelID modelId) {
 }
 
 
-void DrawMesh(GraphicsContext& context, ModelID modelId) {
+void DrawMesh(GraphicsContext& context, const ModelInstance& instance) {
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::model);
 
@@ -1155,7 +1158,7 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
 
     SetCommonShaderParmeters(cmdList);
 
-    auto entry = g_ModelCache.Get(modelId);
+    auto entry = g_ModelCache.Get(instance.model);
     if (!entry) return;
 
     auto& model = entry->model;
@@ -1287,7 +1290,74 @@ void DrawMesh(GraphicsContext& context, ModelID modelId) {
     }
 }
 
-void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
+constexpr float TICK_RATE = 1.0f / 64; // 64 ticks per second
+
+// Scalar quadratic passing through (0,y0), (tm,ym), (1,y1) at t
+inline float QuadraticInterpolation2D(float t, float y0, float tm, float ym, float y1) {
+    if (t <= 0.0f) return y0;
+    if (t >= 1.0f) return y1;
+
+    // control point
+    float denom_c = 2.0f * tm * (1.0f - tm);
+    float c = 0.0f;
+    if (std::fabs(denom_c) < 1e-12) {
+        // linear fallback
+        float w = (t - 0.0f) / (1.0f - 0.0f);
+        return y0 + w * (y1 - y0);
+    }
+    else {
+        c = (ym - (1.0f - tm) * (1.0f - tm) * y0 - tm * tm * y1) / denom_c;
+    }
+    // evaluate quadratic Bezier at t
+    float mt = 1.0f - t;
+    return mt * mt * y0 + 2.0f * t * mt * c + t * t * y1;
+}
+
+void DrawParticleSystem(GraphicsContext& context, const ParticleSystem& system, float tickAlpha) {
+    auto& spriteBatch = GetSpriteBatch();
+
+    auto offset = tickAlpha * TICK_RATE; // elapsed offset
+    auto& info = system.info;
+
+    for (auto& particle : system.Particles()) {
+        if (Particle::IsDead(particle)) continue;
+
+        SpriteBatchInfo sprite;
+        sprite.vertex.position = Vector3::Lerp(particle.startPosition, particle.endPosition, tickAlpha);
+
+        // interpolate values across the lifespan
+        float t = std::clamp((particle.elapsed + offset) / particle.duration, 0.0f, 1.0f);
+
+        
+        auto size = QuadraticInterpolation2D(t, info.startSize, info.midOffset, info.midSize, info.endSize);
+        sprite.vertex.size = Vector2{ size, size };;
+
+        if (t < info.midOffset) {
+            float segmentLife = t / info.midOffset;
+            sprite.vertex.color = Color::Lerp(info.startColor, info.midColor, segmentLife);
+            //auto size = info.startSize + (info.midSize - info.startSize) * segmentLife;
+            //sprite.vertex.size = Vector2{ size, size };
+        }
+        else {
+            float segmentLife = (t - info.midOffset) / (1 - info.midOffset);
+            sprite.vertex.color = Color::Lerp(info.midColor, info.endColor, segmentLife);
+            //auto size = info.midSize + (info.endSize - info.midSize) * segmentLife;
+            //sprite.vertex.size = Vector2{ size, size };
+        }
+
+        // enable animation stretching
+        if (info.stretchAnimation)
+            sprite.vertex.percentLife = t;
+
+        sprite.vertex.rotation = particle.rotation;
+        sprite.texture = info.texture;
+        // todo: depth is only needed for alpha sprites, not additive
+        sprite.depth = Vector3::DistanceSquared(context.camera->Position, sprite.vertex.position);
+        spriteBatch.Add(sprite);
+    }
+}
+
+void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, float tickAlpha) {
     camera.SetViewport({ shell::width, shell::height });
     camera.UpdatePerspectiveMatrices();
     camera.SetClipPlanes(1, 1000);
@@ -1309,7 +1379,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     context.SetRenderTarget(sizedResources.linearDepthBuffer, sizedResources.sceneDepthBuffer);
     context.ClearRenderTarget(sizedResources.linearDepthBuffer, nullptr);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
-    DrawMeshPrepass(context, modelId);
+
+    for (auto& model : scene.models)
+        DrawMeshPrepass(context, model);
 
     // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
@@ -1317,8 +1389,11 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
-    //if (Seq::inRange(resources.meshes, meshid))
-    DrawMesh(context, modelId);
+    for (auto& model : scene.models)
+        DrawMesh(context, model);
+
+    for (auto& system : scene.particles)
+        DrawParticleSystem(context, system, tickAlpha);
 
     // additive pass
     GetSpriteBatch().Upload();
@@ -1353,9 +1428,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, ModelID modelId) {
     context.Execute();
 }
 
-void RenderView(Camera& camera, ModelID modelid) {
+void RenderView(Camera& camera, const Scene& scene, float tickAlpha) {
     auto& renderTarget = sizedResources.backBuffers[_backBufferIndex];
-    Render(camera, renderTarget, modelid);
+    Render(camera, renderTarget, scene, tickAlpha);
 }
 
 // Present the contents of the swap chain to the screen.
@@ -1392,5 +1467,7 @@ void Present() {
         }
     }
 }
+
+void Update() {}
 
 }

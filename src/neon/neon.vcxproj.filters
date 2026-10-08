@@ -36,6 +36,7 @@
     <ClCompile Include="Graphics\TextureCache.cpp" />
     <ClCompile Include="Graphics\MeshPool.cpp" />
     <ClCompile Include="shaders\neon-shaders.cpp" />
+    <ClCompile Include="Random.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -108,6 +109,8 @@
     <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="shaders\Common.h" />
     <ClInclude Include="Graphics\ParticleSystem.h" />
+    <ClInclude Include="ParticleEditor.h" />
+    <ClInclude Include="Random.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

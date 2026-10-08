@@ -190,7 +190,7 @@ struct ImGuiViewportData {
     //HANDLE FenceEvent = nullptr;
 
     UINT FrameIndex = UINT_MAX;
-    eastl::vector<FrameResources> Resources;
+    std::vector<FrameResources> Resources;
 
     ImGuiViewportData(int backBufferCount) :
         Resources(backBufferCount) {}

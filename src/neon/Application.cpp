@@ -17,6 +17,7 @@
 #include "imgui_internal.h"
 #include "imgui_local.h"
 #include "ModelCache.h"
+#include "ParticleEditor.h"
 #include "Scene.h"
 #include "ScopedTimer.h"
 #include "shaders/Model.h"
@@ -41,19 +42,26 @@ namespace {
     Camera _camera;
     Scene _scene;
     int _objectSelection = 0;
+    ParticleEditor g_particleEditor;
+}
+
+int ReadVClip(const d3::Hog2& hog, string_view fileName, float duration) {
+    if (auto data = hog.ReadEntry(fileName)) {
+        auto reader = StreamReader(std::move(*data), fileName);
+        auto vclip = d3::VClip::Read(reader);
+        vclip.fileName = fileName;
+        vclip.frameTime = duration / vclip.frames.size();
+
+        return g_VClips.Add(vclip);
+    }
+
+    return -1;
 }
 
 void ReadVClips(const d3::Hog2& hog, const d3::GameTable& gameTable) {
     for (auto& tex : gameTable.textures) {
         if (!HasFlag(tex.flags, d3::TextureFlag::Animated)) continue;
-        if (auto data = hog.ReadEntry(tex.fileName)) {
-            auto reader = StreamReader(std::move(*data), tex.fileName);
-            auto vclip = d3::VClip::Read(reader);
-            vclip.fileName = tex.fileName;
-            vclip.frameTime = tex.speed / vclip.frames.size();
-
-            g_VClips.Add(vclip);
-        }
+        ReadVClip(hog, tex.fileName, tex.speed);
     }
 }
 
@@ -175,6 +183,69 @@ void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<stri
                 g_TextureRegistry.Upload(entry.fileName, image, entry.color.w);
 
                 SPDLOG_INFO("Loading texture {} - alpha {}", entry.fileName, entry.color.w);
+            }
+        }
+    }
+
+    auto table = g_TextureRegistry.BuildTextureTable(g_VClips.Entries());
+    gfx::UpdateTextureInfo(table);
+}
+
+// Loads loose textures instead of through the gametable
+void LoadRawTextures(const d3::Hog2& hog, span<string> files) {
+    for (auto& file : files) {
+        if (g_TextureRegistry.IsLoaded(file)) continue;
+
+        if (file.ends_with(".oaf")) {
+            auto vclipIndex = g_VClips.FindIndex(file);
+
+            List<List<span<const uint>>> textureArray;
+
+            if (vclipIndex == -1) {
+                // vclip is not in the gametable, manually insert it into the vclip list
+                vclipIndex = ReadVClip(hog, file, 1.0f);
+                if (vclipIndex == -1) continue; // couldn't load
+            }
+
+            auto vclip = g_VClips.Get(vclipIndex);
+            if (!vclip) continue;
+
+            if (g_TextureRegistry.IsLoaded(vclip->fileName)) {
+                SPDLOG_INFO("vclip `{}` is already loaded", file);
+                continue;
+            }
+
+            SPDLOG_INFO("Loading vclip {} with {} frames", vclip->fileName, vclip->frames.size());
+
+            for (auto& frame : vclip->frames) {
+                auto& fd = textureArray.emplace_back();
+
+                for (auto& mip : frame.mips) {
+                    fd.push_back(mip);
+                }
+
+                // todo: resize if frame sizes don't match (shouldn't happen, but it could for user textures)
+            }
+
+            gfx::Image image;
+            image.LoadArray2D<const uint>(textureArray, vclip->frames[0].width, vclip->frames[0].height);
+            g_TextureRegistry.Upload(vclip->fileName, image, 1, vclipIndex);
+        }
+        else {
+            if (g_TextureRegistry.IsLoaded(file)) {
+                SPDLOG_INFO("texture {} is already loaded", file);
+                continue;
+            }
+
+            if (auto data = hog.ReadEntry(file)) {
+                auto reader = StreamReader(std::move(*data), file);
+                auto bitmap = d3::Bitmap::Read(reader);
+
+                gfx::Image image;
+                image.LoadMipmapped<uint>(bitmap.mips, bitmap.width, bitmap.height);
+                g_TextureRegistry.Upload(file, image, 1);
+
+                SPDLOG_INFO("Loading texture {}", file);
             }
         }
     }
@@ -457,6 +528,9 @@ void Init() {
     _objectSelection = 146;
     //auto modelName = "aliencuplinkhousing.oof";
 
+    _scene.models.emplace_back();
+    _scene.particles.emplace_back();
+
     if (auto modelData = hog.ReadEntry(modelName)) {
         auto model = ReadModel(hog, *modelData);
         _modelId = LoadModel(hog, _gameTable, model, modelName);
@@ -477,8 +551,55 @@ void Init() {
         //_cameraDistance = std::max(model.radius, 1.15f) * 2;
     }
 
+    auto particleTextures = std::to_array<string>({
+        "ExplosionAA.oaf",
+        "ExplosionBB.oaf",
+        "explosionCC.oaf",
+        "explosionDD.oaf",
+        "ExplosionE.oaf",
+        "ExplosionFF.oaf",
+        "explosionG.oaf",
+        "smokepuff.oaf",
+        "black_smoke.oaf",
+        "BlastRingOrange.ogf",
+        "explosionblast2.ogf",
+        "warp.oaf",
+        "Hotspark.ogf",
+        "Coolspark.ogf",
+        "thrustball.ogf",
+        "muzzleflash.ogf",
+        "shiphit.ogf",
+        "BlastRingBlue.ogf",
+        "explosion.oaf",
+        "LightningOriginA.ogf",
+        "LightningOriginB.ogf",
+        "Raindrop.ogf",
+        "Puddle.ogf",
+        "InvulnerabilityHit.ogf",
+        "StarFlare6.ogf",
+        "HeadlightFlare.ogf",
+        "StarFlare.ogf",
+        "SunFlare.ogf",
+        "Whiteball.ogf",
+        "NapalmFire.oaf",
+        "Rocklette1.ogf",
+        "Rocklette2.ogf",
+        "lg.oaf",
+        "ExplosionBlkShrk.oaf",
+        "Napalm.oaf",
+        "NapalmFire.oaf",
+        "NapalmGunBlob.oaf",
+        "TestNapalm.oaf"
+        "SmokePuff.oaf",
+        "SmokeTrailVortex.oaf"
+    });
+
+    LoadRawTextures(hog, particleTextures);
+
     gfx::SetKeyframe(0, 1);
     _d3Hog = std::move(hog);
+
+    g_particleEditor.Show();
 }
 
 DirectX::BoundingBox CalculateModelBounds(const gfx::Mesh& mesh) {
@@ -717,7 +838,6 @@ void ObjectBrowser() {
     ImGui::End();
 }
 
-
 void TextureDebugWindow() {
     ImGui::Begin("Textures");
 
@@ -856,23 +976,51 @@ void ShowCompilerOutput() {
     _compilerResult = gfx::GetCompilerResult();
 }
 
+constexpr float TICK_RATE = 1.0f / 64; // 64 ticks per second
+
+
+void Tick(float dt) {
+    for (auto& particle : _scene.particles) {
+        particle.Simulate(dt);
+    }
+}
+
+// linear interpolation alpha (frame alpha, tick alpha)
+float tickAlpha = 0;
+
 void Update(float dt) {
-    ModelBrowser();
-    ObjectBrowser();
-    TextureDebugWindow();
+    //ModelBrowser();
+    //ObjectBrowser();
+    //TextureDebugWindow();
     CompilerOutputWindow();
+
+    if (g_particleEditor.Draw())
+        g_particleEditor.ApplyTo(_scene.particles[0]);
+
     gfx::UpdateAnimations(_modelId, dt);
 
+    static double accumulator = 0;
+    accumulator += dt;
+    accumulator = std::min(accumulator, 2.0);
+
+    while (accumulator >= TICK_RATE) {
+        //FixedUpdate(TICK_RATE * Game::TimeScale);
+        Tick(TICK_RATE);
+        accumulator -= TICK_RATE;
+    }
+
     _compilerOutputTimer -= dt;
+    tickAlpha = float(accumulator / TICK_RATE);
 }
+
 
 void Render() {
     //Vector3 dir(5.5, 5.5, 5.5);
     //dir.Normalize();
 
     //_camera.Position = dir * _cameraDistance;
-
-    gfx::RenderView(_camera, _modelId);
+    _scene.models[0].model = _modelId;
+    gfx::RenderView(_camera, _scene, tickAlpha);
 }
 
 

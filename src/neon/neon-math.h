@@ -140,8 +140,15 @@ struct Matrix3x3 : DirectX::XMFLOAT3X3 {
         Up(up);
         Right(right);
     }
+
+    static const Matrix3x3 Zero;
 };
 
+inline const Matrix3x3 Matrix3x3::Zero = Matrix3x3(
+    Vector3::Zero,
+    Vector3::Zero,
+    Vector3::Zero
+);
 
 }
 

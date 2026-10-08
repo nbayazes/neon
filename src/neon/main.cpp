@@ -56,6 +56,8 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
     ConfigureLogging("neon.log");
     SPDLOG_INFO("NEON INIT");
 
+    neon::InitRandom();
+
     if (!SDL_Init(SDL_INIT_VIDEO))
         return SDL_APP_FAILURE;
 
