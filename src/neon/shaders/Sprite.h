@@ -69,6 +69,11 @@ constexpr D3D12_ROOT_PARAMETER1 Params[] = {
         .DescriptorTable = { .NumDescriptorRanges = std::size(LinearDepthBuffer), .pDescriptorRanges = LinearDepthBuffer },
         //.Descriptor = { .ShaderRegister = 2 }, // t2, Linear depth buffer
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL
+    },
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
+        .Descriptor = { .ShaderRegister = 0 }, // Instance constants, b0
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
     }
 };
 

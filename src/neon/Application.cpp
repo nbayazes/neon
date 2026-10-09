@@ -990,7 +990,7 @@ float tickAlpha = 0;
 
 void Update(float dt) {
     //ModelBrowser();
-    //ObjectBrowser();
+    ObjectBrowser();
     //TextureDebugWindow();
     CompilerOutputWindow();
 

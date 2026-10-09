@@ -195,10 +195,10 @@ public:
             ImGui::TextDisabled("Direction of (0, 0, 0) spawns in a random direction");
 
             ImGui::SeparatorText("Transform");
-            _changed |= imgui::SliderRow("Position", _info.position, -50.0f, 50.0f);
+            _changed |= imgui::SliderRow("Position", _info.position, -10.0f, 10.0f);
             _changed |= imgui::SliderRow("Direction", _forward, -1.0f, 1.0f);
             _changed |= imgui::SliderRow("Cone Radius", _info.coneRadius, 0.0f, 1.0f);
-            _changed |= imgui::SliderRow("Spawn Radius", _info.spawnRadius, 0.0f, 20.0f);
+            _changed |= imgui::SliderRow("Spawn Radius", _info.spawnRadius, 0.0f, 10.0f);
 
             ImGui::SeparatorText("Appearance");
             _changed |= imgui::SliderRow("Middle offset", _info.midOffset, 0, 1);

@@ -6,6 +6,7 @@ struct Constants {
     float DepthBias;
     float Softness;
     int FilterMode;
+    bool MultiplyMode;
 };
 
 struct SpriteVertex {
@@ -20,6 +21,8 @@ struct SpriteVertex {
 ConstantBuffer<FrameConstants> Frame : register(b0, space1);
 StructuredBuffer<TextureInfo> TextureInfoTable : register(t0, space1); // Texture / material information
 Texture2DArray TextureTable[] : register(t1, space1);
+
+ConstantBuffer<Constants> Instance : register(b0);
 
 StructuredBuffer<int> TextureHandles : register(t0); // mapping to texture table
 StructuredBuffer<SpriteVertex> Vertices : register(t1);
@@ -120,6 +123,11 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
 
     color.rgb *= pixel.color.rgb;
     color.a *= pixel.color.a;
+
+    //color.rgb *= color.a;
+    if (Instance.MultiplyMode)
+        color.rgb = lerp(color.rgb, float3(1, 1, 1), 1 - color.a);
+
     color.rgb = pow(color.rgb, 1 / 2.2);
     return color;
 }

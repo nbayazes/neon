@@ -765,6 +765,13 @@ void DrawSprites(GraphicsContext& context, BlendMode blendMode) {
     cmdList->SetGraphicsRootDescriptorTable(5, sizedResources.linearDepthBuffer.GetSRV());
     //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
 
+    shaders::sprite::Constants constants = {};
+    constants.MultiplyMode = blendMode == BlendMode::Multiply;
+
+    auto& frameBuffer = GetFrameBuffer();
+    auto constantsOffset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    cmdList->SetGraphicsRootConstantBufferView(6, frameBuffer->GetGPUVirtualAddress() + constantsOffset);
+
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     cmdList->IASetVertexBuffers(0, 0, nullptr);
     cmdList->IASetIndexBuffer(nullptr);
@@ -1268,7 +1275,7 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
 
     // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
-    Color background(0.10f, 0.10f, 0.10f);
+    Color background(0.70f, 0.70f, 0.70f);
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
