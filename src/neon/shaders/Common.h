@@ -9,6 +9,8 @@ constexpr auto LINEAR_DEPTH_FORMAT = DXGI_FORMAT_R16_FLOAT;
 
 namespace neon::gfx::shaders {
 
+using HlslBool = int32_t; // For alignment on GPU
+
 constexpr D3D12_ROOT_PARAMETER1 FrameConstantsParameter = {
     .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
     .Descriptor = { .ShaderRegister = 0, .RegisterSpace = 1 }, // Frame constants, b0

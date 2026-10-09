@@ -28,6 +28,7 @@ void Compile(bool ignoreCache) {
     CompileGraphicsPipeline(pipelines::modelPrepass, ignoreCache);
     CompileGraphicsPipeline(pipelines::sprite, ignoreCache);
     CompileGraphicsPipeline(pipelines::spriteAdditive, ignoreCache);
+    CompileGraphicsPipeline(pipelines::spriteMultiply, ignoreCache);
 
     app::ShowCompilerOutput();
 }

@@ -30,6 +30,7 @@
 #include "shaders/imgui.h"
 #include "shaders/ModelPrepass.h"
 #include "shaders/Sprite.h"
+#include "SpriteBatch.h"
 
 namespace neon::gfx {
 
@@ -48,6 +49,8 @@ namespace {
     DWORD m_dxgiFactoryFlags = 0;
 
     DeviceCreationOptions m_options;
+
+    SpriteBatcher _spriteBatcher;
 
     constexpr DXGI_FORMAT StripSRGB(DXGI_FORMAT fmt) noexcept {
         switch (fmt) {
@@ -79,142 +82,6 @@ GpuBuffer& GetFrameBuffer() {
     return resources.frameBuffer[_frame % BACK_BUFFER_COUNT];
 }
 
-
-struct SpriteBatchInfo {
-    shaders::sprite::Vertex vertex;
-    float depth;
-    TexID texture;
-};
-
-class SpriteBatch {
-    List<SpriteBatchInfo> _sprites;
-    GpuBuffer _vertices;
-    GpuBuffer _textureHandles;
-
-    List<shaders::sprite::Vertex> _stagingVertexBuffer;
-    List<TexID> _stagingTextureHandles;
-    uint64 _capacity = 0;
-
-public:
-    D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
-    D3D12_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
-
-    void Create(uint64 capacity) {
-        _capacity = capacity;
-        _vertices.Create("sprite batch", sizeof(shaders::sprite::Vertex) * capacity, D3D12_HEAP_TYPE_UPLOAD);
-        _textureHandles.Create("sprite batch handles", sizeof(int32) * capacity, D3D12_HEAP_TYPE_UPLOAD);
-        //_vertices.Unmap();
-        //auto& resources = GetDeviceResources();
-        //_uploadContext = make_unique<gfx::CommandContext>(GetDevice(), resources.copyQueue.get(), "Sprite upload command list");
-        //_uploadContext->Reset();
-
-        _stagingVertexBuffer.reserve(capacity / 2);
-        _stagingTextureHandles.reserve(capacity / 2);
-        _sprites.reserve(capacity / 2);
-
-        //D3D12_VERTEX_BUFFER_VIEW dummyVBV = {};
-        //dummyVBV.BufferLocation = _vertices->GetGPUVirtualAddress();
-        //dummyVBV.StrideInBytes = 1;
-        //dummyVBV.SizeInBytes = 1;
-    }
-
-    void Add(const SpriteBatchInfo& sprite) {
-        if (_sprites.size() + 1 >= _capacity) return; // prevent overflow
-        _sprites.push_back(sprite);
-    }
-
-    D3D12_GPU_VIRTUAL_ADDRESS GetTextureHandleAddress() {
-        return _textureHandles->GetGPUVirtualAddress();
-    }
-
-    D3D12_GPU_VIRTUAL_ADDRESS GetVerticesAddress() {
-        return _vertices->GetGPUVirtualAddress();
-    }
-
-    //void Clear() {
-    //    _sprites.clear();
-    //}
-
-    //void Sort() {
-    //    Seq::sortBy(_sprites, [](auto& a, auto& b) { return a.depth < b.depth; });
-    //}
-
-    //span<SpriteBatchInfo> Sprites() { return _sprites; }
-
-    void Upload() {
-        Count = (uint)_sprites.size();
-        if (Count == 0) return;
-
-        Seq::sortBy(_sprites, [](auto& a, auto& b) { return a.depth < b.depth; });
-
-        _stagingVertexBuffer.clear();
-        _stagingTextureHandles.clear();
-
-        _stagingVertexBuffer.resize(_sprites.size());
-        _stagingTextureHandles.resize(_sprites.size());
-
-        for (int i = 0; i < _sprites.size(); ++i) {
-            _stagingVertexBuffer[i] = _sprites[i].vertex;
-            _stagingTextureHandles[i] = _sprites[i].texture;
-        }
-
-        _vertices.Clear();
-        _vertices.CopyRange(span{ _stagingVertexBuffer });
-
-        _textureHandles.Clear();
-        _textureHandles.CopyRange(span{ _stagingTextureHandles });
-
-        vertexBufferView = {
-            .BufferLocation = _vertices->GetGPUVirtualAddress(),
-            .SizeInBytes = (uint)GetVectorSizeInBytes(_stagingVertexBuffer) * 4,
-            .StrideInBytes = sizeof(shaders::sprite::Vertex)
-        };
-
-        //vertexBufferView = {
-        //    .BufferLocation = _vertices->GetGPUVirtualAddress(),
-        //    .SizeInBytes = 4,
-        //    .StrideInBytes = 4
-        //};
-
-        textureViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-        textureViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        textureViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        textureViewDesc.Buffer.FirstElement = 0;
-        textureViewDesc.Buffer.NumElements = (uint)_sprites.size();
-        textureViewDesc.Buffer.StructureByteStride = sizeof(int32);
-
-        _sprites.clear();
-    }
-
-    uint Count = 0;
-
-    //void Upload(const shaders::sprite::Vertex& vertex, TexID texture) {
-    //    //_sizeInBytes += 
-    //    _vertices.CopyRaw(vertex, _vertexOffset);
-    //    _vertexOffset += sizeof(vertex);
-
-    //    // todo: texture handles
-    //    _textureHandles.CopyRaw(texture, _handleOffset);
-    //    _handleOffset += sizeof(int);
-    //}
-
-    //D3D12_VERTEX_BUFFER_VIEW CreateView() {
-    //    D3D12_VERTEX_BUFFER_VIEW vbv{};
-    //    vbv.BufferLocation = _vertices->GetGPUVirtualAddress();
-    //    // vbv.BufferLocation = gpuSubmesh.vertexBuffer->GetGPUVirtualAddress();
-    //    vbv.SizeInBytes = GetVectorSizeInBytes(_stagingVertexBuffer);
-    //    vbv.StrideInBytes = sizeof(shaders::sprite::Vertex);
-
-    //    _uploadContext->Reset();
-    //    _sizeInBytes = 0;
-    //}
-};
-
-SpriteBatch g_SpriteBatch[BACK_BUFFER_COUNT];
-
-SpriteBatch& GetSpriteBatch() {
-    return g_SpriteBatch[_frame % BACK_BUFFER_COUNT];
-}
 
 DeviceResources& GetDeviceResources() { return resources; }
 WindowSizeResources& GetWindowSizeResources() { return sizedResources; }
@@ -575,9 +442,7 @@ void CreateDeviceResources() {
     resources.textureInfoUploadBuffer.Create("Texture info upload buffer", 1024 * 1024 * 1, D3D12_HEAP_TYPE_UPLOAD);
     resources.meshPool = std::make_unique<MeshPool>();
 
-    for (auto& batch : g_SpriteBatch) {
-        batch.Create(1024);
-    }
+    _spriteBatcher.Initialize(BACK_BUFFER_COUNT, 1024);
 
     {
         // create white texture
@@ -798,9 +663,7 @@ void ScreenSizeChanged(unsigned int width, unsigned int height) {
 
 void Shutdown() {
     resources.graphicsQueue->WaitForIdle();
-    for (auto& batch : g_SpriteBatch) {
-        batch = {};
-    }
+    _spriteBatcher = {};
 
     FreeShaderCompiler();
     FreeResources();
@@ -871,16 +734,31 @@ void SetCommonShaderParmeters(ID3D12GraphicsCommandList* cmdList) {
     cmdList->SetGraphicsRootDescriptorTable(2, resources.TextureInfoDescriptor.GetGpuHandle());
 }
 
-void DrawSprites(GraphicsContext& context) {
-    auto& sprites = GetSpriteBatch();
-    if (sprites.Count == 0) return;
+void DrawSprites(GraphicsContext& context, BlendMode blendMode) {
+    auto& batch = _spriteBatcher.GetSpriteBatch(blendMode, _frame);
+    bool sort = RequiresSorting(blendMode);
+    auto count = batch.Upload(sort);
+
+    if (count == 0) return;
 
     auto cmdList = context.GetCommandList();
-    context.SetPipelineState(pipelines::spriteAdditive);
+
+    switch (blendMode) {
+        case BlendMode::Multiply:
+            context.SetPipelineState(pipelines::spriteMultiply);
+            break;
+        case BlendMode::Alpha:
+        case BlendMode::StraightAlpha:
+            context.SetPipelineState(pipelines::sprite);
+            break;
+        case BlendMode::Additive:
+        default:
+            context.SetPipelineState(pipelines::spriteAdditive);
+    }
 
     SetCommonShaderParmeters(cmdList);
-    cmdList->SetGraphicsRootShaderResourceView(3, sprites.GetTextureHandleAddress());
-    cmdList->SetGraphicsRootShaderResourceView(4, sprites.GetVerticesAddress());
+    cmdList->SetGraphicsRootShaderResourceView(3, batch.GetTextureHandleAddress());
+    cmdList->SetGraphicsRootShaderResourceView(4, batch.GetVerticesAddress());
 
     sizedResources.linearDepthBuffer.Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     //cmdList->SetGraphicsRootShaderResourceView(5, sizedResources.linearDepthBuffer->GetGPUVirtualAddress());
@@ -890,7 +768,7 @@ void DrawSprites(GraphicsContext& context) {
     cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     cmdList->IASetVertexBuffers(0, 0, nullptr);
     cmdList->IASetIndexBuffer(nullptr);
-    cmdList->DrawInstanced(4, sprites.Count, 0, 0);
+    cmdList->DrawInstanced(4, count, 0, 0);
 }
 
 void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, RenderPass pass) {
@@ -1195,14 +1073,16 @@ void DrawMesh(GraphicsContext& context, const ModelInstance& instance) {
             // glows are basically sprites, but use a hard coded texture (thrustball.ogf)
             // the color and size are read from the submodel name
 
-            GetSpriteBatch().Add({
+            auto& spriteBatch = _spriteBatcher.GetSpriteBatch(BlendMode::Additive, _frame);
+            spriteBatch.Add({
                 .vertex = {
                     .position = constants.world.Translation(),
                     .color = submodel.glow,
                     .size = Vector2(submodel.glowSize * 0.5f, submodel.glowSize * 0.5f),
                 },
                 // todo: depth is only needed for alpha sprites, not additive
-                .depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                //.depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                .depth = 0,
                 .texture = submesh.texture
             });
 
@@ -1216,14 +1096,16 @@ void DrawMesh(GraphicsContext& context, const ModelInstance& instance) {
 
             auto size = submodel.max - submodel.min;
 
-            GetSpriteBatch().Add({
+            auto& spriteBatch = _spriteBatcher.GetSpriteBatch(BlendMode::Additive, _frame);
+            spriteBatch.Add({
                 .vertex = {
                     .position = constants.world.Translation(),
                     .color = Color(1, 1, 1, 1),
                     .size = Vector2(std::max(size.x, size.z) * 0.5f, size.y * 0.5f), // todo: there is a more robust function for this in D3 / D3edit
                 },
                 // todo: depth is only needed for alpha sprites, not additive
-                .depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                //.depth = Vector3::DistanceSquared(context.camera->Position, constants.world.Translation()),
+                .depth = 0,
                 .texture = submesh.texture
             });
             continue;
@@ -1314,7 +1196,7 @@ inline float QuadraticInterpolation2D(float t, float y0, float tm, float ym, flo
 }
 
 void DrawParticleSystem(GraphicsContext& context, const ParticleSystem& system, float tickAlpha) {
-    auto& spriteBatch = GetSpriteBatch();
+    auto& spriteBatch = _spriteBatcher.GetSpriteBatch(system.info.blendMode, _frame);
 
     auto offset = tickAlpha * TICK_RATE; // elapsed offset
     auto& info = system.info;
@@ -1328,7 +1210,6 @@ void DrawParticleSystem(GraphicsContext& context, const ParticleSystem& system, 
         // interpolate values across the lifespan
         float t = std::clamp((particle.elapsed + offset) / particle.duration, 0.0f, 1.0f);
 
-        
         auto size = QuadraticInterpolation2D(t, info.startSize, info.midOffset, info.midSize, info.endSize);
         sprite.vertex.size = Vector2{ size, size };;
 
@@ -1351,8 +1232,10 @@ void DrawParticleSystem(GraphicsContext& context, const ParticleSystem& system, 
 
         sprite.vertex.rotation = particle.rotation;
         sprite.texture = info.texture;
-        // todo: depth is only needed for alpha sprites, not additive
-        sprite.depth = Vector3::DistanceSquared(context.camera->Position, sprite.vertex.position);
+
+        if (RequiresSorting(info.blendMode))
+            sprite.depth = Vector3::DistanceSquared(context.camera->Position, sprite.vertex.position);
+
         spriteBatch.Add(sprite);
     }
 }
@@ -1385,7 +1268,7 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
 
     // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
-    Color background(0.05f, 0.05f, 0.05f);
+    Color background(0.10f, 0.10f, 0.10f);
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
@@ -1396,8 +1279,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
         DrawParticleSystem(context, system, tickAlpha);
 
     // additive pass
-    GetSpriteBatch().Upload();
-    DrawSprites(context);
+    DrawSprites(context, BlendMode::Alpha);
+    DrawSprites(context, BlendMode::Additive);
+    DrawSprites(context, BlendMode::Multiply);
 
     context.SetRenderTarget(sizedResources.uiRenderTarget);
     context.ClearRenderTarget(sizedResources.uiRenderTarget, nullptr);

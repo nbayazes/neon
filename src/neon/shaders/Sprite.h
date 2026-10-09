@@ -1,14 +1,17 @@
 ﻿#pragma once
 
 #include "Graphics/ShaderTypes.h"
+#include "shaders/common.h"
 #include "neon-math.h"
 
 namespace neon::gfx::shaders::sprite {
 
-enum RootParameters : uint {
-    FrameConstants, // b0
-    TextureIndices, // t0
-    TextureInfoTable, // t1
+struct Constants {
+    Color FogColor;
+    float DepthBias;
+    float Softness;
+    int FilterMode;
+    HlslBool MultiplyMode;
 };
 
 // Descriptors shared across many shaders that set up frame constants and the texture tables
@@ -117,11 +120,12 @@ constexpr ShaderInfo info = {
 
 namespace neon::gfx::pipelines {
 
+// Alpha blended sprite
 inline PipelineInfo sprite = {
-    .name = "sprite",
+    .name = "sprite alpha",
     .shader = &shaders::sprite::info,
     .format = DXGI_FORMAT_R11G11B10_FLOAT,
-    .blend = BlendMode::Alpha,
+    .blend = BlendMode::StraightAlpha,
     .culling = CullMode::Clockwise,
     .depth = DepthMode::Read,
     .stencil = StencilMode::PortalRead,
@@ -133,6 +137,17 @@ inline PipelineInfo spriteAdditive = {
     .shader = &shaders::sprite::info,
     .format = DXGI_FORMAT_R11G11B10_FLOAT,
     .blend = BlendMode::Additive,
+    .culling = CullMode::Clockwise,
+    .depth = DepthMode::Read,
+    .stencil = StencilMode::PortalRead,
+    .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+};
+
+inline PipelineInfo spriteMultiply = {
+    .name = "sprite multiply",
+    .shader = &shaders::sprite::info,
+    .format = DXGI_FORMAT_R11G11B10_FLOAT,
+    .blend = BlendMode::Multiply,
     .culling = CullMode::Clockwise,
     .depth = DepthMode::Read,
     .stencil = StencilMode::PortalRead,

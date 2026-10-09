@@ -15,7 +15,7 @@ namespace neon::gfx {
 using Microsoft::WRL::ComPtr;
 
 // Back buffer count is also used as frames as flight, although technically not correct
-constexpr size_t BACK_BUFFER_COUNT = 2;
+constexpr uint16 BACK_BUFFER_COUNT = 2;
 
 // Resources alive for the duration of the device
 struct DeviceResources {

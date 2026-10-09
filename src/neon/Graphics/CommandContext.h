@@ -203,7 +203,7 @@ namespace neon::gfx {
 
         bool SetPipelineState(PipelineInfo& pipeline, bool force = false) {
             if (_activeEffect == (uintptr_t)&pipeline && !force) return false;
-            ASSERT(pipeline.pso); // forgot to compile shader
+            ASSERT(pipeline.pso); // forgot to compile shader using CompileGraphicsPipeline()
             _activeEffect = (uintptr_t)&pipeline;
             _cmdList->SetPipelineState(pipeline.pso);
             _cmdList->SetGraphicsRootSignature(pipeline.rootSignature);

@@ -82,6 +82,41 @@ namespace imgui {
         return changed;
     }
 
+    inline const char* BlendModeName(gfx::BlendMode mode) {
+        switch (mode) {
+        case gfx::BlendMode::Alpha: return "Alpha";
+        case gfx::BlendMode::Additive: return "Additive";
+        case gfx::BlendMode::Multiply: return "Multiply";
+        default: return "Other";
+        }
+    }
+
+    inline bool BlendRow(const char* label, gfx::BlendMode& mode) {
+        const char* current = BlendModeName(mode);
+
+        ImGui::PushID(label);
+        RowLabel(label);
+
+        bool changed = false;
+        if (ImGui::BeginCombo("##value", current)) {
+            for (gfx::BlendMode candidate : { gfx::BlendMode::Alpha, gfx::BlendMode::Additive, gfx::BlendMode::Multiply }) {
+                bool selected = mode == candidate;
+
+                if (ImGui::Selectable(BlendModeName(candidate), selected)) {
+                    mode = candidate;
+                    changed = true;
+                }
+
+                if (selected) ImGui::SetItemDefaultFocus();
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::PopID();
+        return changed;
+    }
+
     inline bool TextureRow(const char* label, TextureRegistry& registry, TexID& texture) {
         const char* current = "None";
 
@@ -174,6 +209,7 @@ public:
             _changed |= imgui::SliderRow("Mid Size", _info.midSize, 0.0f, 10.0f);
             _changed |= imgui::SliderRow("End Size", _info.endSize, 0.0f, 10.0f);
             _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _info.texture);
+            _changed |= imgui::BlendRow("Blend mode", _info.blendMode);
             _changed |= imgui::CheckboxRow("Stretch Animation", _info.stretchAnimation);
             _changed |= imgui::CheckboxRow("Random Rotation", _info.randomRotation);
             _changed |= imgui::RangeRows("Rotation speed", _info.rotationSpeed, -5.0f, 5.0f);

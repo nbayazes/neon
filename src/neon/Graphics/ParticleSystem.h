@@ -4,6 +4,7 @@
 #include "neon-types.h"
 #include "Utility.h"
 #include "Random.h"
+#include "ShaderTypes.h"
 
 namespace neon::gfx {
 
@@ -87,6 +88,10 @@ struct Particle {
     }
 };
 
+constexpr bool RequiresSorting(BlendMode blendMode) {
+    return blendMode == BlendMode::Opaque || blendMode == BlendMode::Alpha || blendMode == BlendMode::StraightAlpha;
+}
+
 struct ParticleSystemInfo {
     Vector3 position; // can be in world or object space depending on attach mode
     //Vector3 direction = Vector3::Up; // uses a random direction if zero
@@ -118,6 +123,8 @@ struct ParticleSystemInfo {
     bool randomRotation = true; // Randomly set particle initial rotation
     NumericRange<float> rotationSpeed = 0; // Rotation per second
 
+    BlendMode blendMode = BlendMode::Additive;
+
     void SetForwardDirection(const Vector3& forward) {
         Vector3 fwd = forward;
         if (IsZero(fwd)) {
@@ -146,7 +153,7 @@ class ParticleSystem {
             auto iter = ranges::find_if(_particles, Particle::IsDead);
 
             if (iter == _particles.end()) {
-                _particles.push_back();
+                _particles.emplace_back();
                 iter = _particles.end() - 1;
             }
 

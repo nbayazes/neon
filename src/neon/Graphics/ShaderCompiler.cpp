@@ -308,7 +308,6 @@ CompiledShader CompileShader(const ShaderInfo& shader) {
     }
 }
 
-
 // Orgb = srgb * Srgb + drgb * Drgb
 constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_DESC_MULTIPLY_RT = {
     .BlendEnable = true,
