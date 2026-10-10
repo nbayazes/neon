@@ -32,7 +32,11 @@ namespace {
 SDL_Window* _window = nullptr;
 //neon::Ptr<SystemInterface_SDL> rmlSystemInterface;
 float _cursorCaptureX = 0, _cursorCaptureY = 0;
-
+bool _appFullscreen = false;
+bool Fullscreen = false;
+neon::uint2 WindowSize;
+neon::uint2 WindowPosition;
+bool Maximized = false;
 }
 
 void ParseCommandLine(int argc, char* argv[]) {
@@ -49,6 +53,86 @@ void UpdateWindowSize() {
     SDL_GetWindowSize(_window, &w, &h);
     neon::shell::width = w;
     neon::shell::height = h;
+}
+
+using neon::uint2;
+using neon::uint;
+
+void ClampWindowPosition(uint2& pos, uint2& size) {
+    // Check if the saved position is still on screen in case the desktop resolution changes
+    auto desktopWidth = (uint)GetSystemMetrics(SM_CXSCREEN);
+    auto desktopHeight = (uint)GetSystemMetrics(SM_CYSCREEN);
+
+    if (pos.x >= desktopWidth || pos.y >= desktopHeight)
+        pos = { 0, 0 };
+
+    if (size.x <= 640 || size.y <= 480)
+        size = uint2(640, 480);
+}
+
+
+void SaveWindowSize() {
+    auto hWnd = neon::shell::hwnd;
+    if (!hWnd) return;
+
+    WINDOWPLACEMENT placement{ .length = sizeof(WINDOWPLACEMENT) };
+    GetWindowPlacement(hWnd, &placement);
+    Maximized = placement.showCmd == SW_SHOWMAXIMIZED;
+
+    // Only update settings if the window isn't maximized - otherwise it will save garbage
+    if (!Maximized) {
+        RECT windowRect{};
+        GetWindowRect(hWnd, &windowRect);
+
+        // account for borders
+        RECT client{};
+        GetClientRect(hWnd, &client);
+
+        WindowPosition = { (uint)windowRect.left, (uint)windowRect.top };
+        WindowSize = { uint(client.right - client.left), uint(client.bottom - client.top) };
+    }
+}
+
+
+// Updates the window fullscreen state based on the app setting
+void UpdateFullscreen() {
+    auto hWnd = neon::shell::hwnd;
+    if (!hWnd) return;
+    if (_appFullscreen == Fullscreen) return;
+
+    _appFullscreen = Fullscreen;
+
+    if (!Fullscreen) {
+        // Restore window position and size
+        SetWindowLongPtr(hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, 0);
+
+        auto size = WindowSize;
+        auto pos = WindowPosition;
+        ClampWindowPosition(pos, size);
+
+        // Account for window borders
+        RECT windowRect = { 0, 0, (long)size.x, (long)size.y };
+        AdjustWindowRectEx(&windowRect, WS_OVERLAPPEDWINDOW, false, 0);
+        auto width = windowRect.right - windowRect.left;
+        auto height = windowRect.bottom - windowRect.top;
+
+        SetWindowPos(hWnd, HWND_TOP, pos.x, pos.y, width, height, SWP_NOZORDER | SWP_FRAMECHANGED);
+        ShowWindow(hWnd, Maximized ? SW_SHOWMAXIMIZED : SW_SHOW);
+
+        RECT client{};
+        GetClientRect(hWnd, &client);
+    }
+    else {
+        // Windowed fullscreen
+        SaveWindowSize();
+
+        SetWindowLongPtr(hWnd, GWL_STYLE, 0);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+
+        SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        ShowWindow(hWnd, SW_SHOWMAXIMIZED);
+    }
 }
 
 // called once on startup
@@ -91,9 +175,10 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
 
 // called as frequently as possible
 SDL_AppResult SDL_AppIterate(void* /*appstate*/) {
+    UpdateFullscreen();
+
     neon::Clock.Update();
     auto dt = neon::Clock.GetFrameTimeSeconds();
-
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     //ImGui::ShowDemoWindow();
@@ -118,6 +203,11 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
     if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.scancode == SDL_SCANCODE_F5) {
             neon::gfx::ReloadShaders();
+        }
+
+        // Stub: ALT+ENTER toggles fullscreen
+        if (event->key.scancode == SDL_SCANCODE_RETURN && (event->key.mod & SDL_KMOD_ALT)) {
+            Fullscreen = !Fullscreen;
         }
     }
 

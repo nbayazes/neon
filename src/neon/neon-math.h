@@ -152,8 +152,6 @@ inline const Matrix3x3 Matrix3x3::Zero = Matrix3x3(
 
 }
 
-
-
 namespace DirectX {
 // https://github.com/microsoft/DirectXMath/pull/334/changes
 

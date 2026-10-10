@@ -555,8 +555,8 @@ void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapC
 
         ThrowIfFailed(swapChain.As(&sizedResources.swapChain));
 
-        // prevent DXGI from responding to the ALT+ENTER shortcut
-        //ThrowIfFailed(m_dxgiFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
+        // prevent DXGI from responding to the ALT+ENTER exclusive fullscreen shortcut
+        ThrowIfFailed(resources.dxgiFactory->MakeWindowAssociation(_hwnd, DXGI_MWA_NO_ALT_ENTER));
     }
 
     // Handle color space settings for HDR
