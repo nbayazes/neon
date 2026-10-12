@@ -659,15 +659,23 @@ void ModelBrowser() {
 void SoundBrowser() {
     ImGui::Begin("Sounds");
 
-    static int _selection = 0;
-    static List<char> _search;
-    _search.resize(50);
+    static int selection = 0;
+    static List<char> search;
+    search.resize(50);
+
+    static float pitch = 1;
+    static float gain = 1;
+    static bool inWorld = false;
 
     ImGui::Text("Search");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
-    ImGui::InputText("##Search", _search.data(), _search.capacity());
-    auto searchstr = String::ToLower(string(_search.data()));
+    ImGui::InputText("##Search", search.data(), search.capacity());
+    auto searchstr = String::ToLower(string(search.data()));
+
+    ImGui::SliderFloat("Pitch", &pitch, 0.1f, 2);
+    ImGui::SliderFloat("Volume", &gain, 0.1f, 2);
+    ImGui::Checkbox("3D", &inWorld);
 
     ImGui::BeginChild("sounds", { -1, -1 }, true);
 
@@ -679,8 +687,8 @@ void SoundBrowser() {
                 continue;
         }
 
-        if (ImGui::Selectable(entry.name.c_str(), i == _selection)) {
-            _selection = i;
+        if (ImGui::Selectable(entry.name.c_str(), i == selection)) {
+            selection = i;
 
             if (!audio::IsSoundLoaded(entry.name)) {
                 if (auto data = _d3Hog.ReadEntry(entry.name)) {
@@ -691,13 +699,16 @@ void SoundBrowser() {
                             .sampleRate = header->sampleRate,
                             .channels = header->channels
                         };
-                        
+
                         audio::LoadWaveform(entry.name, waveform);
                     }
                 }
             }
 
-            audio::Play2D(entry.name);
+            if (inWorld)
+                audio::Play3D(entry.name, Vector3(0, 0, 0), gain, pitch);
+            else
+                audio::Play2D(entry.name, gain, pitch);
         }
     }
 

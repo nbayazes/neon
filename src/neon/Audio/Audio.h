@@ -31,8 +31,8 @@ void Shutdown();
 // Updates the listener used for 3D positional audio. Call once per frame.
 void SetListener(const Vector3& position, const Vector3& forward, const Vector3& up);
 
-void Play2D(string_view sound, float gain = 1.0f);
-void Play3D(string_view sound, const Vector3& position, float gain = 1.0f);
+void Play2D(string_view sound, float gain = 1.0f, float pitch = 1.0f);
+void Play3D(string_view sound, const Vector3& position, float gain = 1.0f, float pitch = 1.0f);
 
 bool IsSoundLoaded(string_view sound);
 

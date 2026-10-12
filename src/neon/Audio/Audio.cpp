@@ -223,7 +223,7 @@ void LoadWaveform(string_view name, const Waveform& waveform) {
     _buffers[name] = { .id = id };
 }
 
-void Play2D(string_view sound, float gain) {
+void Play2D(string_view sound, float gain, float pitch) {
     if (!_context) return;
 
     auto buffer = FindInDictionary(_buffers, sound);
@@ -237,12 +237,13 @@ void Play2D(string_view sound, float gain) {
     alSource3f(source, AL_VELOCITY, 0, 0, 0);
     alSourcef(source, AL_ROLLOFF_FACTOR, 0);
     alSourcef(source, AL_GAIN, gain);
+    alSourcef(source, AL_PITCH, pitch);
     // 2D sounds are dry.
     alSource3i(source, AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
     alSourcePlay(source);
 }
 
-void Play3D(string_view sound, const Vector3& position, float gain) {
+void Play3D(string_view sound, const Vector3& position, float gain, float pitch) {
     if (!_context) return;
 
     auto buffer = FindInDictionary(_buffers, sound);
@@ -259,6 +260,7 @@ void Play3D(string_view sound, const Vector3& position, float gain) {
     alSourcef(source, AL_REFERENCE_DISTANCE, ReferenceDistance);
     alSourcef(source, AL_MAX_DISTANCE, MaxDistance);
     alSourcef(source, AL_GAIN, gain);
+    alSourcef(source, AL_PITCH, pitch);
     // Route 3D sounds through the reverb effect.
     alSource3i(source, AL_AUXILIARY_SEND_FILTER, _efx ? (ALint)_reverbSlot : AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
     alSourcePlay(source);
