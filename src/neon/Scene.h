@@ -7,8 +7,7 @@ namespace neon {
 
 struct ModelInstance {
     ModelID model = ModelID::None;
-    Vector3 position;
-    Matrix3x3 rotation;
+    Matrix transform;
 };
 
 struct Scene {

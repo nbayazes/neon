@@ -48,23 +48,6 @@ constexpr D3D12_DESCRIPTOR_RANGE1 NormalSamplerDescriptor = {
     .BaseShaderRegister = NormalSampler
 };
 
-constexpr D3D12_STATIC_SAMPLER_DESC LinearSampler{
-    .Filter = D3D12_FILTER_ANISOTROPIC,
-    .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-    .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-    .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-    .MipLODBias = 0,
-    .MaxAnisotropy = 0,
-    .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
-    .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
-    .MinLOD = 0,
-    .MaxLOD = 0,
-    .ShaderRegister = Sampler,
-    .RegisterSpace = 0,
-    .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
-    // .Flags = D3D12_SAMPLER_FLAG_NONE
-};
-
 constexpr D3D12_ROOT_SIGNATURE_DESC1 RootSignature = {
     .NumParameters = std::size(Params),
     .pParameters = Params,

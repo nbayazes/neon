@@ -6,6 +6,7 @@
 #include "Model.h"
 #include "ModelPrepass.h"
 #include "Sprite.h"
+#include "Shockwave.h"
 //#include "rmlui.h"
 
 namespace neon::app {
@@ -29,6 +30,7 @@ void Compile(bool ignoreCache) {
     CompileGraphicsPipeline(pipelines::sprite, ignoreCache);
     CompileGraphicsPipeline(pipelines::spriteAdditive, ignoreCache);
     CompileGraphicsPipeline(pipelines::spriteMultiply, ignoreCache);
+    CompileGraphicsPipeline(pipelines::shockwave, ignoreCache);
 
     app::ShowCompilerOutput();
 }

@@ -184,6 +184,7 @@
     <ClCompile Include="Graphics\MeshPool.cpp" />
     <ClCompile Include="Graphics\Render.cpp" />
     <ClCompile Include="Graphics\ShaderCompiler.cpp" />
+    <ClCompile Include="Graphics\Sprite.cpp" />
     <ClCompile Include="Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Graphics\Texture.cpp" />
     <ClCompile Include="Graphics\TextureCache.cpp" />
@@ -206,6 +207,7 @@
     <ClCompile Include="TextureRegistry.cpp" />
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
+    <ClCompile Include="VisualEffect.cpp" />
     <ClCompile Include="Widechar.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -213,6 +215,7 @@
     <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio\Audio.h" />
+    <ClInclude Include="Audio\AudioReverb.h" />
     <ClInclude Include="Audio\Wav.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Graphics\CycleBuffer.h" />
@@ -234,6 +237,7 @@
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="SetWindowsTimePeriod.h" />
     <ClInclude Include="shaders\Common.h" />
+    <ClInclude Include="shaders\Shockwave.h" />
     <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="d3\Hog2.h" />
@@ -280,6 +284,7 @@
     <ClInclude Include="ui\menu.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="VClip.h" />
+    <ClInclude Include="VisualEffect.h" />
     <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />
@@ -375,6 +380,17 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <FileType>Document</FileType>
       <DeploymentContent>true</DeploymentContent>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\Shockwave.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

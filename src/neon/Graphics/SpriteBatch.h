@@ -4,6 +4,7 @@
 #include "shaders/Sprite.h"
 
 namespace neon::gfx {
+class GraphicsContext;
 
 struct SpriteBatchInfo {
     shaders::sprite::Vertex vertex;
@@ -80,7 +81,8 @@ public:
             default: return _additiveBatch[frame % _backBufferCount];
         }
     }
-};
 
+    void Draw(GraphicsContext& context, BlendMode blendMode, uint64 frame);
+};
 
 }

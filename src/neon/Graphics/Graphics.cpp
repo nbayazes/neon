@@ -29,6 +29,7 @@
 #include "ShaderCompiler.h"
 #include "shaders/imgui.h"
 #include "shaders/ModelPrepass.h"
+#include "shaders/Shockwave.h"
 #include "shaders/Sprite.h"
 #include "SpriteBatch.h"
 
@@ -709,73 +710,12 @@ void UpdateFrameConstants(const Camera& camera, float renderScale) {
 
     GetCommonDescriptorTable() = commonTable;
     resources.TextureInfoDescriptor = commonTable.Offset(1);
-
-    // the second handle is the texture indices
-    //device->CreateShaderResourceView(resources.textures.), &submesh.textureIndicesView, commonTable.Offset(1).GetCpuHandle());
-    //cmdList->SetGraphicsRootDescriptorTable(shaders::model::TextureIndices, handle.Offset(1).GetGpuHandle());
-
-    // the third handle is the texture table
-    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, commonTable.Offset(2).GetCpuHandle());
-
-    //frameConstants.GlobalDimming = Game::GlobalDimming;
-    //frameConstants.NewLightMode = Settings::Graphics.NewLightMode && Settings::Editor.RenderMode == RenderMode::Shaded;
-    //frameConstants.FilterMode = Settings::Graphics.FilterMode;
-
-    //dest.ImmediateCopy(frameConstants);
-
-    //dest.Begin();
-    //dest.Copy({ &frameConstants, 1 });
-    //dest.End();
 }
 
 void SetCommonShaderParmeters(ID3D12GraphicsCommandList* cmdList) {
     cmdList->SetGraphicsRootConstantBufferView(0, GetFrameConstants());
     cmdList->SetGraphicsRootDescriptorTable(1, resources.textureDescriptors->GetGpuHandle());
     cmdList->SetGraphicsRootDescriptorTable(2, resources.TextureInfoDescriptor.GetGpuHandle());
-}
-
-void DrawSprites(GraphicsContext& context, BlendMode blendMode) {
-    auto& batch = _spriteBatcher.GetSpriteBatch(blendMode, _frame);
-    bool sort = RequiresSorting(blendMode);
-    auto count = batch.Upload(sort);
-
-    if (count == 0) return;
-
-    auto cmdList = context.GetCommandList();
-
-    switch (blendMode) {
-        case BlendMode::Multiply:
-            context.SetPipelineState(pipelines::spriteMultiply);
-            break;
-        case BlendMode::Alpha:
-        case BlendMode::StraightAlpha:
-            context.SetPipelineState(pipelines::sprite);
-            break;
-        case BlendMode::Additive:
-        default:
-            context.SetPipelineState(pipelines::spriteAdditive);
-    }
-
-    SetCommonShaderParmeters(cmdList);
-    cmdList->SetGraphicsRootShaderResourceView(3, batch.GetTextureHandleAddress());
-    cmdList->SetGraphicsRootShaderResourceView(4, batch.GetVerticesAddress());
-
-    sizedResources.linearDepthBuffer.Transition(cmdList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    //cmdList->SetGraphicsRootShaderResourceView(5, sizedResources.linearDepthBuffer->GetGPUVirtualAddress());
-    cmdList->SetGraphicsRootDescriptorTable(5, sizedResources.linearDepthBuffer.GetSRV());
-    //device->CreateShaderResourceView(resources.textureInfo.Get(), &resources.textureInfoView, handle.Offset(2).GetCpuHandle());
-
-    shaders::sprite::Constants constants = {};
-    constants.MultiplyMode = blendMode == BlendMode::Multiply;
-
-    auto& frameBuffer = GetFrameBuffer();
-    auto constantsOffset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    cmdList->SetGraphicsRootConstantBufferView(6, frameBuffer->GetGPUVirtualAddress() + constantsOffset);
-
-    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    cmdList->IASetVertexBuffers(0, 0, nullptr);
-    cmdList->IASetIndexBuffer(nullptr);
-    cmdList->DrawInstanced(4, count, 0, 0);
 }
 
 void ExecuteDrawCommand(GraphicsContext& context, const DrawCommand& command, RenderPass pass) {
@@ -1179,6 +1119,55 @@ void DrawMesh(GraphicsContext& context, const ModelInstance& instance) {
     }
 }
 
+void DrawShockwave(GraphicsContext& context, const Matrix& transform, TexID texture) {
+    auto cmdList = context.GetCommandList();
+    context.SetPipelineState(pipelines::shockwave);
+
+    auto& frameDescriptors = GetFrameDescriptors();
+    auto& frameBuffer = GetFrameBuffer();
+
+    cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+    auto device = GetDevice();
+
+    SetCommonShaderParmeters(cmdList);
+
+    auto m = resources.meshPool->Get(gfx::shockwaveMesh);
+    if (!m) return;
+    auto& mesh = *m;
+
+    for (int sm = 0; sm < mesh.submeshes.size(); ++sm) {
+        auto& submesh = mesh.submeshes[sm];
+        if (submesh.elementCount == 0 && submesh.transparentElementCount == 0 && submesh.additiveElementCount == 0) continue;
+
+        shaders::shockwave::Constants constants = {
+            .transform = transform,
+            .texture = texture
+        };
+
+        // instance constants
+        auto offset = frameBuffer.Copy(constants, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+
+        D3D12_CONSTANT_BUFFER_VIEW_DESC constantsDesc = {
+            .BufferLocation = frameBuffer->GetGPUVirtualAddress() + offset,
+            .SizeInBytes = (uint)AlignTo(sizeof(shaders::shockwave::Constants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+        };
+
+        cmdList->IASetVertexBuffers(0, 1, &submesh.vbv);
+
+        //if (submesh.additiveElementCount > 0) {
+        auto table = frameDescriptors.AllocateTable(1);
+        device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
+        //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.additiveHandles, table.Offset(1).GetCpuHandle());
+        cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
+
+        cmdList->IASetIndexBuffer(&submesh.additiveIbv);
+        cmdList->DrawIndexedInstanced(submesh.additiveElementCount, 1, 0, 0, 0);
+        //}
+    }
+}
+
+
 constexpr float TICK_RATE = 1.0f / 64; // 64 ticks per second
 
 // Scalar quadratic passing through (0,y0), (tm,ym), (1,y1) at t
@@ -1275,7 +1264,8 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
 
     // opaque pass
     context.SetRenderTarget(sizedResources.sceneColorBuffer, sizedResources.sceneDepthBuffer);
-    Color background(0.70f, 0.70f, 0.70f);
+    //Color background(0.70f, 0.70f, 0.70f);
+    Color background(0.10f, 0.10f, 0.10f);
     context.ClearRenderTarget(sizedResources.sceneColorBuffer, nullptr, &background);
     context.ClearDepth(sizedResources.sceneDepthBuffer);
 
@@ -1286,9 +1276,12 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
         DrawParticleSystem(context, system, tickAlpha);
 
     // additive pass
-    DrawSprites(context, BlendMode::Alpha);
-    DrawSprites(context, BlendMode::Additive);
-    DrawSprites(context, BlendMode::Multiply);
+    //_spriteBatcher.Draw(context, BlendMode::Alpha, _frame);
+    //_spriteBatcher.Draw(context, BlendMode::Additive, _frame);
+    //_spriteBatcher.Draw(context, BlendMode::Multiply, _frame);
+
+    auto shockwaveTransform = Matrix::CreateScale(5, 5, 5);
+    DrawShockwave(context, shockwaveTransform, shockwaveTexture);
 
     context.SetRenderTarget(sizedResources.uiRenderTarget);
     context.ClearRenderTarget(sizedResources.uiRenderTarget, nullptr);
@@ -1312,7 +1305,6 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
 
     shaders::compose::SetSource(cmdList, sizedResources.uiRenderTarget.GetSRV());
     cmdList->DrawInstanced(3, 1, 0, 0);
-
 
     // execute the command list
     renderTarget.Transition(cmdList, D3D12_RESOURCE_STATE_PRESENT);

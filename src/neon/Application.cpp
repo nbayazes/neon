@@ -27,6 +27,7 @@
 #include "SystemClock.h"
 #include "TextureRegistry.h"
 #include "vfs/FileSystem.h"
+#include "VisualEffect.h"
 
 namespace neon {
 gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
@@ -49,6 +50,7 @@ namespace {
     d3::GameTable _gameTable;
     List<d3::Hog2::Entry> _modelEntries;
     List<d3::Hog2::Entry> _soundEntries;
+    List<d3::Hog2::Entry> _oafs;
     d3::Hog2 _d3Hog;
     auto _modelId = ModelID::None;
 }
@@ -495,6 +497,9 @@ void Init() {
 
         if (String::ToLower(entry.name).ends_with(".wav"))
             _soundEntries.push_back(entry);
+
+        if (String::ToLower(entry.name).ends_with(".oaf"))
+            _oafs.push_back(entry);
     }
 
     int64 time = 0;
@@ -537,6 +542,11 @@ void Init() {
         //mesh.name = modelName;
         _camera.Position = _camera.GetForward() * std::max(model.radius, 2.5f) * -2;
     }
+
+    auto shockwaveMesh = gfx::GenerateShockwaveMesh(32, 6);
+    //g_ModelCache.Add
+    auto& resources = gfx::GetDeviceResources();
+    gfx::shockwaveMesh = resources.meshPool->Upload(shockwaveMesh);
 
     {
         //auto testModelData = fs::ReadAllBytes("D:/dev/froge.oof");
@@ -597,6 +607,9 @@ void Init() {
 
     gfx::SetKeyframe(0, 1);
     _d3Hog = std::move(hog);
+
+    if (auto shockwave = g_TextureRegistry.Find("BlastRingBlue.ogf"))
+        gfx::shockwaveTexture = shockwave->texid;
 
     g_particleEditor.Show();
 }

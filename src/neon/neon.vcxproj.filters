@@ -38,6 +38,8 @@
     <ClCompile Include="shaders\neon-shaders.cpp" />
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="Graphics\SpriteBatch.cpp" />
+    <ClCompile Include="Graphics\Sprite.cpp" />
+    <ClCompile Include="VisualEffect.cpp" />
     <ClCompile Include="Audio\Audio.cpp" />
     <ClCompile Include="Audio\Wav.cpp" />
   </ItemGroup>
@@ -115,8 +117,12 @@
     <ClInclude Include="ParticleEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Graphics\SpriteBatch.h" />
+    <ClInclude Include="Graphics\Sprite.h" />
+    <ClInclude Include="VisualEffect.h" />
     <ClInclude Include="Audio\Audio.h" />
     <ClInclude Include="Audio\Wav.h" />
+    <ClInclude Include="Audio\AudioReverb.h" />
+    <ClInclude Include="shaders\Shockwave.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />
@@ -129,5 +135,6 @@
     <None Include="shaders\Common.hlsli" />
     <None Include="Graphics\architecture.md" />
     <None Include="shaders\Sprite.hlsl" />
+    <None Include="shaders\Shockwave.hlsl" />
   </ItemGroup>
 </Project>

@@ -9,7 +9,8 @@ constexpr auto LINEAR_DEPTH_FORMAT = DXGI_FORMAT_R16_FLOAT;
 
 namespace neon::gfx::shaders {
 
-using HlslBool = int32_t; // For alignment on GPU
+using HlslBool = int; // For alignment on GPU
+static_assert(sizeof(HlslBool) == 4);
 
 constexpr D3D12_ROOT_PARAMETER1 FrameConstantsParameter = {
     .ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV,
@@ -46,5 +47,23 @@ constexpr D3D12_ROOT_PARAMETER1 TextureInfoTableParameter = {
     //.Descriptor = {.ShaderRegister = 0 }, // Frame constants, b0
     .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL
 };
+
+constexpr D3D12_STATIC_SAMPLER_DESC LinearSampler{
+    .Filter = D3D12_FILTER_ANISOTROPIC,
+    .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+    .MipLODBias = 0,
+    .MaxAnisotropy = 0,
+    .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
+    .BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+    .MinLOD = 0,
+    .MaxLOD = 0,
+    .ShaderRegister = 0,
+    .RegisterSpace = 0,
+    .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
+    // .Flags = D3D12_SAMPLER_FLAG_NONE
+};
+
 
 }

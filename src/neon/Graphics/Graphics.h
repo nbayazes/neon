@@ -50,4 +50,7 @@ struct AnimationInstance {
     int blend; // linear, ease in, etc
 };
 
+inline auto shockwaveMesh = MeshID::None;
+inline auto shockwaveTexture = TexID::None;
+
 }
