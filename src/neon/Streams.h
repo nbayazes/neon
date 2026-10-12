@@ -55,7 +55,7 @@ class StreamReader {
     }
 
 public:
-    StreamReader(span<ubyte> data, string_view name = "") {
+    StreamReader(span<const ubyte> data, string_view name = "") {
         _stream = std::make_unique<MemoryStream>((char*)data.data(), data.size());
         _file = name;
     }

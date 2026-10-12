@@ -38,6 +38,8 @@
     <ClCompile Include="shaders\neon-shaders.cpp" />
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="Graphics\SpriteBatch.cpp" />
+    <ClCompile Include="Audio\Audio.cpp" />
+    <ClCompile Include="Audio\Wav.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -113,6 +115,8 @@
     <ClInclude Include="ParticleEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Graphics\SpriteBatch.h" />
+    <ClInclude Include="Audio\Audio.h" />
+    <ClInclude Include="Audio\Wav.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

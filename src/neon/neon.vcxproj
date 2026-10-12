@@ -133,7 +133,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;uuid.lib;kernel32.lib;user32.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;runtimeobject.lib;Winmm.lib;Dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;uuid.lib;kernel32.lib;user32.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;runtimeobject.lib;Winmm.lib;Dwmapi.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -161,11 +161,13 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;uuid.lib;kernel32.lib;user32.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;runtimeobject.lib;Winmm.lib;Dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;uuid.lib;kernel32.lib;user32.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;runtimeobject.lib;Winmm.lib;Dwmapi.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Audio\Audio.cpp" />
+    <ClCompile Include="Audio\Wav.cpp" />
     <ClCompile Include="d3\Hog2.cpp" />
     <ClCompile Include="d3\OutrageBitmap.cpp" />
     <ClCompile Include="d3\OutrageModel.cpp" />
@@ -210,6 +212,8 @@
     <ClInclude Include="ankerl\ankerl.h" />
     <ClInclude Include="ankerl\unordered_dense.h" />
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Audio\Audio.h" />
+    <ClInclude Include="Audio\Wav.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Graphics\CycleBuffer.h" />
     <ClInclude Include="Graphics\FrameConstants.h" />
@@ -217,6 +221,7 @@
     <ClInclude Include="Graphics\MeshPool.h" />
     <ClInclude Include="Graphics\DrawCommand.h" />
     <ClInclude Include="Graphics\ParticleSystem.h" />
+    <ClInclude Include="Graphics\Sprite.h" />
     <ClInclude Include="Graphics\SpriteBatch.h" />
     <ClInclude Include="Graphics\TextureCache.h" />
     <ClInclude Include="gsl\assert.h" />

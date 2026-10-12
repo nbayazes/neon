@@ -56,4 +56,12 @@ using Dictionary = ankerl::unordered_dense::detail::table<Key, T, Hash, KeyEqual
 template <class T>
 using CaseInsensitiveDictionary = ankerl::unordered_dense::detail::table<std::string, T, StringHashIgnoreCase, StringEqualsIgnoreCase, std::allocator<std::pair<std::string, T>>, ankerl::unordered_dense::bucket_type::standard, false>;
 
+template <class T>
+std::optional<T> FindInDictionary(CaseInsensitiveDictionary<T>& dictionary, std::string_view key) {
+    if (auto f = dictionary.find(key); f != dictionary.end())
+        return f->second;
+
+    return {};
+}
+
 }

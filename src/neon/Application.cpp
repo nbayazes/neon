@@ -2,6 +2,8 @@
 #include "Application.h"
 #include <spdlog/spdlog.h>
 #include "ankerl/ankerl.h"
+#include "Audio/Audio.h"
+#include "Audio/Wav.h"
 #include "Camera.h"
 #include "d3/Hog2.h"
 #include "d3/OutrageBitmap.h"
@@ -43,6 +45,12 @@ namespace {
     Scene _scene;
     int _objectSelection = 0;
     ParticleEditor g_particleEditor;
+
+    d3::GameTable _gameTable;
+    List<d3::Hog2::Entry> _modelEntries;
+    List<d3::Hog2::Entry> _soundEntries;
+    d3::Hog2 _d3Hog;
+    auto _modelId = ModelID::None;
 }
 
 int ReadVClip(const d3::Hog2& hog, string_view fileName, float duration) {
@@ -115,9 +123,6 @@ int FindGameTableTextureIndex(const d3::GameTable& gameTable, const string& name
 
     return FindVClipFrame(gameTable, name);
 }
-
-//List<gfx::shaders::model::TextureInfo> _textureInfoTable;
-//List<char> _textureLoadIndicator;
 
 void LoadTextures(const d3::Hog2& hog, const d3::GameTable& gameTable, span<string> textures) {
     // locate textures and upload them to the GPU
@@ -311,12 +316,6 @@ void MapTextures(const d3::GameTable& gameTable, d3::Model& model) {
     }
 }
 
-d3::GameTable _gameTable;
-List<d3::Hog2::Entry> _modelEntries;
-d3::Hog2 _d3Hog;
-auto _modelId = ModelID::None;
-
-
 d3::Model ReadModel(const d3::Hog2& hog, span<ubyte> modelData) {
     StreamReader reader(modelData);
     auto model = d3::Model::Read(reader);
@@ -487,14 +486,15 @@ ModelID LoadModel(const d3::Hog2& hog, const d3::GameTable& gameTable, d3::Model
     return modelId;
 }
 
-float _cameraDistance = 5;
-
 void Init() {
     auto hog = d3::Hog2::Read("D:/descent3/d3.hog");
 
     for (auto& entry : hog.entries) {
         if (String::ToLower(entry.name).ends_with(".oof"))
             _modelEntries.push_back(entry);
+
+        if (String::ToLower(entry.name).ends_with(".wav"))
+            _soundEntries.push_back(entry);
     }
 
     int64 time = 0;
@@ -548,7 +548,6 @@ void Init() {
         //    g_TextureRegistry.Upload("froge", image);
 
         //_modelId = LoadModel(hog, _gameTable, model, "froge");
-        //_cameraDistance = std::max(model.radius, 1.15f) * 2;
     }
 
     auto particleTextures = std::to_array<string>({
@@ -646,15 +645,7 @@ void ModelBrowser() {
 
             if (auto modelData = _d3Hog.ReadEntry(entry.name)) {
                 auto model = ReadModel(_d3Hog, *modelData);
-                //auto mesh = LoadModel(_d3Hog, _gameTable, model, entry.name);
                 _modelId = LoadModel(_d3Hog, _gameTable, model, entry.name);
-                //mesh.name = entry.name;
-
-                //_meshid++;
-                //std::array upload = { mesh };
-                //gfx::UploadMeshes(upload);
-                //auto bounds = CalculateModelBounds(mesh);
-                //auto max = std::max({ bounds.Extents.x, bounds.Extents.y , bounds.Extents.z });
                 _camera.Position = _camera.GetForward() * std::max(model.radius, 2.5f) * -2;
             }
         }
@@ -664,6 +655,57 @@ void ModelBrowser() {
 
     ImGui::End();
 }
+
+void SoundBrowser() {
+    ImGui::Begin("Sounds");
+
+    static int _selection = 0;
+    static List<char> _search;
+    _search.resize(50);
+
+    ImGui::Text("Search");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputText("##Search", _search.data(), _search.capacity());
+    auto searchstr = String::ToLower(string(_search.data()));
+
+    ImGui::BeginChild("sounds", { -1, -1 }, true);
+
+    for (int i = 0; i < _soundEntries.size(); ++i) {
+        auto& entry = _soundEntries[i];
+
+        if (!searchstr.empty()) {
+            if (!String::Contains(String::ToLower(entry.name), searchstr))
+                continue;
+        }
+
+        if (ImGui::Selectable(entry.name.c_str(), i == _selection)) {
+            _selection = i;
+
+            if (!audio::IsSoundLoaded(entry.name)) {
+                if (auto data = _d3Hog.ReadEntry(entry.name)) {
+                    if (auto header = ReadWavHeader(*data)) {
+                        audio::Waveform waveform = {
+                            .samples = span{ data->data() + header->dataOffset, header->dataSize },
+                            .bitsPerSample = header->bitsPerSample,
+                            .sampleRate = header->sampleRate,
+                            .channels = header->channels
+                        };
+                        
+                        audio::LoadWaveform(entry.name, waveform);
+                    }
+                }
+            }
+
+            audio::Play2D(entry.name);
+        }
+    }
+
+    ImGui::EndChild();
+
+    ImGui::End();
+}
+
 
 enum class MovementType {
     None,
@@ -773,8 +815,6 @@ void ObjectBrowser() {
                 auto model = ReadModel(_d3Hog, *modelData);
                 _modelId = LoadModel(_d3Hog, _gameTable, model, object.name);
                 gfx::SetKeyframe(0, ANIMATION_TIME_SCALE);
-
-                _cameraDistance = std::max(model.radius, 2.5f) * 3;
             }
         }
     }
@@ -991,6 +1031,7 @@ float tickAlpha = 0;
 void Update(float dt) {
     //ModelBrowser();
     ObjectBrowser();
+    SoundBrowser();
     //TextureDebugWindow();
     CompilerOutputWindow();
 
@@ -1015,11 +1056,8 @@ void Update(float dt) {
 
 
 void Render() {
-    //Vector3 dir(5.5, 5.5, 5.5);
-    //dir.Normalize();
-
-    //_camera.Position = dir * _cameraDistance;
     _scene.models[0].model = _modelId;
+    audio::SetListener(_camera.Position, _camera.GetForward(), _camera.Up);
     gfx::RenderView(_camera, _scene, tickAlpha);
 }
 

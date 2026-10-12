@@ -7,6 +7,7 @@
 #include <SDL3/SDL_main.h>
 #include <string>
 #include "Application.h"
+#include "Audio/Audio.h"
 #include "Graphics/Graphics.h"
 #include "imgui_local.h"
 #include "imgui_impl_sdl3.h"
@@ -163,6 +164,7 @@ SDL_AppResult SDL_AppInit(void** /*appstate*/, int argc, char* argv[]) {
 
     neon::imgui::Initialize(_window);
     neon::gfx::Init(hwnd, neon::shell::width, neon::shell::height, options);
+    neon::audio::Init();
 
     //rmlSystemInterface = std::make_unique<SystemInterface_SDL>(_window);
     //Rml::SetSystemInterface(rmlSystemInterface.get());
@@ -265,5 +267,6 @@ void SDL_AppQuit(void* /*appstate*/, SDL_AppResult /*result*/) {
     SPDLOG_INFO("NEON SHUTDOWN");
     neon::imgui::Shutdown();
     //neon::rml::Shutdown();
+    neon::audio::Shutdown();
     neon::gfx::Shutdown();
 }
