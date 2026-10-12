@@ -666,6 +666,7 @@ void SoundBrowser() {
     static float pitch = 1;
     static float gain = 1;
     static bool inWorld = false;
+    static int reverb = 0;
 
     ImGui::Text("Search");
     ImGui::SameLine();
@@ -676,6 +677,23 @@ void SoundBrowser() {
     ImGui::SliderFloat("Pitch", &pitch, 0.1f, 2);
     ImGui::SliderFloat("Volume", &gain, 0.1f, 2);
     ImGui::Checkbox("3D", &inWorld);
+
+    auto reverbNames = audio::GetReverbPresetNames();
+
+    if (!reverbNames.empty() && ImGui::BeginCombo("Reverb", reverbNames[reverb].data())) {
+        for (int i = 0; i < reverbNames.size(); ++i) {
+            bool selected = i == reverb;
+
+            if (ImGui::Selectable(reverbNames[i].data(), selected)) {
+                reverb = i;
+                audio::SetReverbPreset(reverbNames[i]);
+            }
+
+            if (selected) ImGui::SetItemDefaultFocus();
+        }
+
+        ImGui::EndCombo();
+    }
 
     ImGui::BeginChild("sounds", { -1, -1 }, true);
 

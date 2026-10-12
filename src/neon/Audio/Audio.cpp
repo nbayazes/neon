@@ -2,6 +2,7 @@
 #include "Audio/Audio.h"
 
 #include "Logging.h"
+#include "neon-strings.h"
 
 // Expose the EFX function prototypes directly (OpenAL Soft exports them).
 #define AL_ALEXT_PROTOTYPES
@@ -10,6 +11,7 @@
 #include <AL/efx.h>
 #include <AL/efx-presets.h>
 #include "ankerl/ankerl.h"
+#include "AudioReverb.h"
 
 namespace neon::audio {
 
@@ -17,7 +19,6 @@ namespace {
     struct WaveformBuffer {
         ALuint id = 0;
     };
-
 
     CaseInsensitiveDictionary<WaveformBuffer> _buffers;
 
@@ -103,6 +104,37 @@ namespace {
     }
 
 } // namespace
+
+span<const string_view> GetReverbPresetNames() {
+    static constexpr auto names = [] {
+        std::array<string_view, std::size(REVERB_PRESETS)> result;
+        for (uint i = 0; i < result.size(); i++)
+            result[i] = REVERB_PRESETS[i].name;
+        return result;
+    }();
+
+    return { names.data(), names.size() };
+}
+
+void SetReverbPreset(string_view name) {
+    if (!_context || !_efx)
+        return;
+
+    for (auto& preset : REVERB_PRESETS) {
+        if (String::EqualsIgnoreCase(preset.name, name)) {
+            if (preset.name == REVERB_PRESETS[0].name) {
+                // Detach the effect from the slot so the dry signal passes through clean.
+                alAuxiliaryEffectSloti(_reverbSlot, AL_EFFECTSLOT_EFFECT, AL_EFFECT_NULL);
+                SPDLOG_INFO("Reverb disabled");
+            }
+            else {
+                ApplyReverbPreset(preset.props);
+                SPDLOG_INFO("Reverb preset set to `{}`", name);
+            }
+            return;
+        }
+    }
+}
 
 void Init() {
     if (_context) return;
