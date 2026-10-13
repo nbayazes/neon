@@ -211,6 +211,11 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
         if (event->key.scancode == SDL_SCANCODE_RETURN && (event->key.mod & SDL_KMOD_ALT)) {
             Fullscreen = !Fullscreen;
         }
+        neon::app::OnKeyDown(event->key.scancode);
+    }
+
+    if (event->type == SDL_EVENT_KEY_UP) {
+        neon::app::OnKeyUp(event->key.scancode);
     }
 
     ImGui_ImplSDL3_ProcessEvent(event);

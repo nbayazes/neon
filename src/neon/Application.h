@@ -10,5 +10,7 @@ void OnMouseMoved(float x, float y, float xrel, float yrel);
 void OnMouseWheel(float x, float y);
 void OnMouseButtonDown(uint8_t button);
 void OnMouseButtonUp(uint8_t button);
+void OnKeyDown(int scancode);
+void OnKeyUp(int scancode);
 
 }

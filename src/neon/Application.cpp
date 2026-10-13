@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "Application.h"
+#include <SDL3/SDL_scancode.h>
 #include <spdlog/spdlog.h>
 #include "ankerl/ankerl.h"
 #include "Audio/Audio.h"
@@ -53,6 +54,7 @@ namespace {
     List<d3::Hog2::Entry> _oafs;
     d3::Hog2 _d3Hog;
     auto _modelId = ModelID::None;
+    bool _keys[512] = { false };
 }
 
 int ReadVClip(const d3::Hog2& hog, string_view fileName, float duration) {
@@ -1094,6 +1096,14 @@ void Update(float dt) {
 
     _compilerOutputTimer -= dt;
     tickAlpha = float(accumulator / TICK_RATE);
+
+    const float cameraSpeed = 10.0f * Clock.GetFrameTimeSeconds();
+    if (_keys[SDL_SCANCODE_W]) _camera.MoveForward(cameraSpeed);
+    if (_keys[SDL_SCANCODE_S]) _camera.MoveBack(cameraSpeed);
+    if (_keys[SDL_SCANCODE_A]) _camera.MoveLeft(cameraSpeed);
+    if (_keys[SDL_SCANCODE_D]) _camera.MoveRight(cameraSpeed);
+    if (_keys[SDL_SCANCODE_Q]) _camera.MoveDown(cameraSpeed);
+    if (_keys[SDL_SCANCODE_E]) _camera.MoveUp(cameraSpeed);
 }
 
 
@@ -1101,6 +1111,16 @@ void Render() {
     _scene.models[0].model = _modelId;
     audio::SetListener(_camera.Position, _camera.GetForward(), _camera.Up);
     gfx::RenderView(_camera, _scene, tickAlpha);
+}
+
+void OnKeyDown(int scancode) {
+    if (scancode >= 0 && scancode < 512)
+        _keys[scancode] = true;
+}
+
+void OnKeyUp(int scancode) {
+    if (scancode >= 0 && scancode < 512)
+        _keys[scancode] = false;
 }
 
 
