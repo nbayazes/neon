@@ -321,6 +321,8 @@ void InitializeGraphics(UINT backBufferCount) {
 }
 
 void FreeGraphics() {
+    gfx::WaitForIdle();
+
     ImGuiViewport* mainViewport = ImGui::GetMainViewport();
     if (!mainViewport) return;
     if (auto data = (ImGuiViewportData*)mainViewport->RendererUserData)

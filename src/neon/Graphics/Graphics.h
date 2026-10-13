@@ -29,8 +29,11 @@ void ScreenSizeChanged(unsigned int width, unsigned int height);
 //void CreateDevice(DeviceCreationOptions& options);
 void Shutdown();
 
-// Waits for the GPU to become idle
-void WaitForGpu();
+// Waits for the current frame to become idle
+void WaitForFrame();
+
+// Waits for all frames to become idle
+void WaitForIdle();
 
 void RenderView(Camera& camera, const Scene& scene, float tickAlpha);
 

@@ -323,8 +323,8 @@ D3D_FEATURE_LEVEL CheckFeatureLevel(ID3D12Device* device) {
 }
 
 
-void ConfigureDebugMessages(ID3D12Device* device) {
 #ifndef NDEBUG
+void ConfigureDebugMessages(ID3D12Device* device) {
     // Configure debug device (if active).
     ComPtr<ID3D12InfoQueue> d3dInfoQueue;
 
@@ -346,8 +346,10 @@ void ConfigureDebugMessages(ID3D12Device* device) {
         filter.DenyList.pIDList = hide;
         std::ignore = d3dInfoQueue->AddStorageFilterEntries(&filter);
     }
-#endif
 }
+#else
+void ConfigureDebugMessages(ID3D12Device*) {}
+#endif
 
 void CreateMemoryAllocator(ID3D12Device* device, IDXGIAdapter* adapter) {
     using namespace D3D12MA;
@@ -460,16 +462,21 @@ void CreateDeviceResources() {
     neon::imgui::InitializeGraphics(_backBufferCount);
 }
 
-void WaitForGpu() {
+void WaitForFrame() {
     resources.graphicsContext[_backBufferIndex]->WaitForIdle();
 }
 
+void WaitForIdle() {
+    for (auto& ctx : resources.graphicsContext) {
+        ctx->WaitForIdle();
+    }
+}
 
 void HandleDeviceLost();
 
 
 void CreateWindowSizeDependentResources(uint width, uint height, bool forceSwapChainRebuild = false) {
-    WaitForGpu(); // Wait until all previous GPU work is complete.
+    WaitForFrame();
     _width = width;
     _height = height;
 
