@@ -52,7 +52,7 @@ VS_OUT vsmain(ShockwaveVertex input) {
     return output;
 }
 
-float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
+float4 psmain(VS_OUT pixel) : SV_TARGET {
     // todo: if texture is negative only using flat shading
     // return float4((float) info.frames, (float) info.index, (float) info.frameTime, 1);
     //float4 color = float4(1, 1, 1, 1);
@@ -82,7 +82,7 @@ float4 psmain(VS_OUT pixel, uint primitiveID : SV_PrimitiveID) : SV_TARGET {
     //color.a *= pow(info.opacity, 2.2);
     //color *= pow(info.opacity, 2.2);
     //color.a *= (sin(Frame.Time) + 1) * 0.5;
-        color.rgb = pow(color.rgb, 1 / 2.2);
+    color.rgb = pow(color.rgb, 1 / 2.2);
 
     //float3 l = normalize(float3(4, 1, 5));
     //color.rgb *= 1 + dot(normalize(pixel.normal * 2), l) * 0.5;

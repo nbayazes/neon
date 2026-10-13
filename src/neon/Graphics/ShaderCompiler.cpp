@@ -494,6 +494,8 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC BuildPipelineStateDesc(PipelineInfo& info, Co
 
     psoDesc.SampleDesc.Count = info.enableMultisample ? msaaSamples : 1;
 
+    psoDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
+
     return psoDesc;
 }
 

@@ -33,7 +33,7 @@ namespace neon::gfx {
         void Update(float dt);
     };
 
-    Mesh GenerateShockwaveMesh(uint segments, uint textureRepeat);
+    Mesh GenerateShockwaveMesh(uint16 segments, uint16 textureRepeat, float thickness);
 
 //void DrawShockwave(RenderContext& context, Vector3 position, Vector3 normal);
 }

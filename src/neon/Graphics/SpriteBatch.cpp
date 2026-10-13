@@ -18,10 +18,6 @@ void SpriteBatch::Create(uint64 capacity) {
     _sprites.reserve(capacity / 2);
 }
 
-//void SpriteBatch::Sort() {
-//    Seq::sortBy(_sprites, [](auto& a, auto& b) { return a.depth < b.depth; });
-//}
-
 uint SpriteBatch::Upload(bool sort) {
     auto count = (uint)_sprites.size();
     if (count == 0) return count;

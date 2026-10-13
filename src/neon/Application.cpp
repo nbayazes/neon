@@ -543,7 +543,7 @@ void Init() {
         _camera.Position = _camera.GetForward() * std::max(model.radius, 2.5f) * -2;
     }
 
-    auto shockwaveMesh = gfx::GenerateShockwaveMesh(32, 6);
+    auto shockwaveMesh = gfx::GenerateShockwaveMesh(32, 6, 0.02f);
     //g_ModelCache.Add
     auto& resources = gfx::GetDeviceResources();
     gfx::shockwaveMesh = resources.meshPool->Upload(shockwaveMesh);
