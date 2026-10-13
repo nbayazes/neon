@@ -10,6 +10,7 @@
 #include <AL/alc.h>
 #include <AL/efx.h>
 #include <AL/efx-presets.h>
+#include <AL/alext.h>
 #include "ankerl/ankerl.h"
 #include "AudioReverb.h"
 
@@ -139,13 +140,27 @@ void SetReverbPreset(string_view name) {
 void Init() {
     if (_context) return;
 
+    // todo: iterate devices
     _device = alcOpenDevice(nullptr);
     if (!_device) {
         SPDLOG_WARN("Unable to open an audio device, audio disabled");
         return;
     }
 
-    _context = alcCreateContext(_device, nullptr);
+    //const ALCchar* exts = alcGetString(NULL, ALC_EXTENSIONS);
+    //SPDLOG_INFO("AL extensions {}", exts);
+
+    ALCint attrs[] = {
+        // limit output to 2 channels in debug mode, as 3D processing is too slow for multiple channels without optimizations
+#ifdef _DEBUG
+        ALC_FREQUENCY, 22050,
+        ALC_OUTPUT_MODE_SOFT, ALC_STEREO_SOFT,
+#endif
+        0
+    };
+
+    _context = alcCreateContext(_device, attrs);
+
     if (!_context) {
         SPDLOG_WARN("Unable to create an audio context, audio disabled");
         alcCloseDevice(_device);
@@ -167,7 +182,7 @@ void Init() {
         alEffecti(_reverbEffect, AL_EFFECT_TYPE, AL_EFFECT_EAXREVERB);
 
         alGenAuxiliaryEffectSlots(1, &_reverbSlot);
-        ApplyReverbPreset(EFX_REVERB_PRESET_GENERIC);
+        //ApplyReverbPreset(EFX_REVERB_PRESET_GENERIC);
 
         SPDLOG_INFO("Audio initialized with 3D audio and EFX reverb");
     }
