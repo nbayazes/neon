@@ -13,6 +13,8 @@ struct ShockwaveEffect {
     uint count = 1;
     TexID texture = TexID::None;
     bool randomRotation = false;
+    bool faceCamera = false;
+    float cameraRotation = 0; // When facing the camera, rotates by this amount. Random rotation overrides this.
     Color color = Color(1, 1, 1);
 };
 

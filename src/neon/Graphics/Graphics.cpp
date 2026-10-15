@@ -1150,15 +1150,40 @@ void DrawShockwave(GraphicsContext& context, const ShockwaveEffect& shockwave) {
         auto& submesh = mesh.submeshes[sm];
         if (submesh.elementCount == 0 && submesh.transparentElementCount == 0 && submesh.additiveElementCount == 0) continue;
 
-        Color color(1, 1, 1);
+        Color color = shockwave.color;
         constexpr float shoulder = 0.35f;
 
         float st = (t - shoulder) / (1.0f - shoulder);
-        color.w = std::powf(1 - st, 3);
-        float radius = shockwave.radius * (1.0f - std::powf(1 - t, 3));
+        color.w *= std::powf(1 - st, 2);
+        float radius = shockwave.radius * (1.0f - std::powf(1 - t, 2));
+
+        Matrix3x3 orientation = shockwave.rotation;
+
+        // The mesh is built with Y+ as its normal, point that axis at the camera
+        if (shockwave.faceCamera && context.camera) {
+            Vector3 normal = context.camera->Position - shockwave.position;
+            normal.Normalize();
+
+            // Align the in-plane axes to the camera up so the screen rotation stays stable
+            Vector3 right = context.camera->Up.Cross(normal);
+            if (right.LengthSquared() < 1e-6f)
+                right = context.camera->GetRight().Cross(normal);
+            right.Normalize();
+            Vector3 forward = right.Cross(normal);
+            forward.Normalize();
+
+            // Rotate the camera facing ring
+            if (shockwave.cameraRotation != 0) {
+                auto spin = Quaternion::CreateFromAxisAngle(normal, shockwave.cameraRotation);
+                right = Vector3::Transform(right, spin);
+                forward = Vector3::Transform(forward, spin);
+            }
+
+            orientation = Matrix3x3(right, normal, forward);
+        }
 
         shaders::shockwave::Constants constants = {
-            .transform = Matrix::CreateScale(radius) * shockwave.rotation * Matrix::CreateTranslation(shockwave.position),
+            .transform = Matrix::CreateScale(radius) * orientation * Matrix::CreateTranslation(shockwave.position),
             .color = color,
             .texture = shockwave.texture,
         };

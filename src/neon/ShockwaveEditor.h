@@ -46,6 +46,8 @@ public:
             _changed |= imgui::SliderRow("Count", _effect.count, 1, 10);
             _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _effect.texture);
             _changed |= imgui::CheckboxRow("Random Rotation", _effect.randomRotation);
+            _changed |= imgui::CheckboxRow("Face Camera", _effect.faceCamera);
+            _changed |= imgui::ColorRow("Color", _effect.color);
 
             if (ImGui::Button("Play")) {
                 for (uint i = 0; i < _effect.count; ++i) {
@@ -54,6 +56,7 @@ public:
 
                     if (effect.randomRotation) {
                         effect.rotation = VectorToRotation(RandomDirection());
+                        effect.cameraRotation = RandomFloat(0, DirectX::XM_2PI);
                     }
 
                     for (auto& shockwave : scene.shockwaves) {

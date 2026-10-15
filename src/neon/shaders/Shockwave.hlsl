@@ -48,6 +48,7 @@ VS_OUT vsmain(ShockwaveVertex input) {
     //output.position = mul(float4(position, 1), wvp);
     output.position = mul(float4(input.position, 1), wvp);
     output.color = input.color * Instance.Color;
+    output.color.rgb = pow(output.color.rgb, 2.2);
     output.uv = input.uv;
 
     return output;
