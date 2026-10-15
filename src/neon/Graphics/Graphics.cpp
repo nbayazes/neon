@@ -1126,7 +1126,10 @@ void DrawMesh(GraphicsContext& context, const ModelInstance& instance) {
     }
 }
 
-void DrawShockwave(GraphicsContext& context, const Matrix& transform, TexID texture) {
+void DrawShockwave(GraphicsContext& context, const ShockwaveEffect& shockwave) {
+    float t = shockwave.elapsed / shockwave.duration;
+    if (t > 1) return;
+
     auto cmdList = context.GetCommandList();
     context.SetPipelineState(pipelines::shockwave);
 
@@ -1147,9 +1150,17 @@ void DrawShockwave(GraphicsContext& context, const Matrix& transform, TexID text
         auto& submesh = mesh.submeshes[sm];
         if (submesh.elementCount == 0 && submesh.transparentElementCount == 0 && submesh.additiveElementCount == 0) continue;
 
+        Color color(1, 1, 1);
+        constexpr float shoulder = 0.35f;
+
+        float st = (t - shoulder) / (1.0f - shoulder);
+        color.w = std::powf(1 - st, 3);
+        float radius = shockwave.radius * (1.0f - std::powf(1 - t, 3));
+
         shaders::shockwave::Constants constants = {
-            .transform = transform,
-            .texture = texture
+            .transform = Matrix::CreateScale(radius) * shockwave.rotation * Matrix::CreateTranslation(shockwave.position),
+            .color = color,
+            .texture = shockwave.texture,
         };
 
         // instance constants
@@ -1165,7 +1176,6 @@ void DrawShockwave(GraphicsContext& context, const Matrix& transform, TexID text
         //if (submesh.additiveElementCount > 0) {
         auto table = frameDescriptors.AllocateTable(1);
         device->CreateConstantBufferView(&constantsDesc, table.GetCpuHandle());
-        //device->CreateShaderResourceView(mesh.textureHandles.Get(), &submesh.additiveHandles, table.Offset(1).GetCpuHandle());
         cmdList->SetGraphicsRootDescriptorTable(3, table.GetGpuHandle());
 
         cmdList->IASetIndexBuffer(&submesh.additiveIbv);
@@ -1287,8 +1297,10 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
     //_spriteBatcher.Draw(context, BlendMode::Additive, _frame);
     //_spriteBatcher.Draw(context, BlendMode::Multiply, _frame);
 
-    auto shockwaveTransform = Matrix::CreateScale(5, 5, 5);
-    DrawShockwave(context, shockwaveTransform, shockwaveTexture);
+
+    for (auto& shockwave : scene.shockwaves) {
+        DrawShockwave(context, shockwave);
+    }
 
     context.SetRenderTarget(sizedResources.uiRenderTarget);
     context.ClearRenderTarget(sizedResources.uiRenderTarget, nullptr);

@@ -20,6 +20,7 @@ struct Vertex {
 
 struct Constants {
     Matrix transform;
+    Color color;
     TexID texture = TexID::None;
 };
 

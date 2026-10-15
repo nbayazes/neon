@@ -114,7 +114,9 @@
     <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="shaders\Common.h" />
     <ClInclude Include="Graphics\ParticleSystem.h" />
+    <ClInclude Include="Editor.h" />
     <ClInclude Include="ParticleEditor.h" />
+    <ClInclude Include="ShockwaveEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Graphics\SpriteBatch.h" />
     <ClInclude Include="Graphics\Sprite.h" />

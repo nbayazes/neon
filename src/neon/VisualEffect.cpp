@@ -29,24 +29,27 @@ Mesh GenerateShockwaveMesh(uint16 segments, uint16 textureRepeat, float thicknes
         auto point = Vector3(sin(angle), 0, cos(angle));
 
         auto startIndex = (uint16)vertices.size();
-        
+
         auto& inner = vertices.emplace_back();
         inner.position = point * 0.5f;
-        inner.color.w = 0;
+        inner.color = Color(1, 1, 1, 0);
         inner.uv = Vector2(u, 0);
 
         auto& top = vertices.emplace_back();
         top.position = point * midOffset;
         top.position.y += thickness;
+        top.color = Color(1, 1, 1);
         top.uv = Vector2(u, midV);
 
         auto& bottom = vertices.emplace_back();
         bottom.position = point * midOffset;
         bottom.position.y -= thickness;
+        bottom.color = Color(1, 1, 1);
         bottom.uv = Vector2(u, midV);
 
         auto& outer = vertices.emplace_back();
         outer.position = point;
+        outer.color = Color(1, 1, 1);
         outer.uv = Vector2(u, 1);
 
         // top surface

@@ -25,6 +25,7 @@
 #include "ScopedTimer.h"
 #include "shaders/Model.h"
 #include "shaders/ModelVertex.h"
+#include "ShockwaveEditor.h"
 #include "SystemClock.h"
 #include "TextureRegistry.h"
 #include "vfs/FileSystem.h"
@@ -47,6 +48,7 @@ namespace {
     Scene _scene;
     int _objectSelection = 0;
     ParticleEditor g_particleEditor;
+    ShockwaveEditor g_shockwaveEditor;
 
     d3::GameTable _gameTable;
     List<d3::Hog2::Entry> _modelEntries;
@@ -614,6 +616,7 @@ void Init() {
         gfx::shockwaveTexture = shockwave->texid;
 
     g_particleEditor.Show();
+    g_shockwaveEditor.Show();
 }
 
 DirectX::BoundingBox CalculateModelBounds(const gfx::Mesh& mesh) {
@@ -1072,6 +1075,10 @@ void Tick(float dt) {
 // linear interpolation alpha (frame alpha, tick alpha)
 float tickAlpha = 0;
 
+void UpdateShockwave(gfx::ShockwaveEffect& shockwave, float dt) {
+    shockwave.elapsed += dt;
+}
+
 void Update(float dt) {
     //ModelBrowser();
     ObjectBrowser();
@@ -1082,7 +1089,13 @@ void Update(float dt) {
     if (g_particleEditor.Draw())
         g_particleEditor.ApplyTo(_scene.particles[0]);
 
+    g_shockwaveEditor.Draw(_scene);
+
     gfx::UpdateAnimations(_modelId, dt);
+
+    for (auto& shockwave : _scene.shockwaves) {
+        UpdateShockwave(shockwave, dt);
+    }
 
     static double accumulator = 0;
     accumulator += dt;

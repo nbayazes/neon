@@ -1,7 +1,10 @@
 #pragma once
+#include <algorithm>
 #include <DirectXMath.h>
 #include <DirectXTK12/SimpleMath.h>
 #include <numbers>
+#include "neon-types.h"
+#include "Random.h"
 
 namespace neon {
 using DirectX::SimpleMath::Vector2;
@@ -149,6 +152,254 @@ inline const Matrix3x3 Matrix3x3::Zero = Matrix3x3(
     Vector3::Zero,
     Vector3::Zero
 );
+
+
+
+inline Vector3 AverageVectors(span<Vector3> verts) {
+    Vector3 average;
+
+    for (int i = 0; i < verts.size(); i++)
+        average += verts[i];
+
+    average /= (float)verts.size();
+    return average;
+}
+
+inline Vector3 AverageVectors(span<const Vector3*> verts) {
+    Vector3 average;
+
+    for (int i = 0; i < verts.size(); i++)
+        average += *verts[i];
+
+    average /= (float)verts.size();
+    return average;
+}
+
+
+inline Vector3 VectorMin(const Vector3& a, const Vector3& b) {
+    Vector3 r;
+    r.x = a.x < b.x ? a.x : b.x;
+    r.y = a.y < b.y ? a.y : b.y;
+    r.z = a.z < b.z ? a.z : b.z;
+    return r;
+}
+
+inline Vector3 VectorMax(const Vector3& a, const Vector3& b) {
+    Vector3 r;
+    r.x = a.x > b.x ? a.x : b.x;
+    r.y = a.y > b.y ? a.y : b.y;
+    r.z = a.z > b.z ? a.z : b.z;
+    return r;
+}
+
+constexpr DirectX::XMVECTORF32 UNIT_VECTOR_EPSILON = { { { 1.0e-4f, 1.0e-4f, 1.0e-4f, 1.0e-4f } } };
+
+inline bool IsNormalized(const Vector3& v) {
+    using namespace DirectX;
+    auto difference = XMVectorSubtract(XMVector3Length(v), XMVectorSplatOne());
+    return XMVector4Less(XMVectorAbs(difference), UNIT_VECTOR_EPSILON);
+}
+
+inline bool IsZero(const Vector3& v) {
+    using namespace DirectX;
+    return XMVector4Less(XMVectorAbs(v), UNIT_VECTOR_EPSILON);
+}
+
+// Converts a direction vector into a rotation matrix
+inline Matrix DirectionToRotationMatrix(const Vector3& direction, float roll = 0) {
+    assert(IsNormalized(direction));
+    auto pitch = asin(std::clamp(direction.y, -1.0f, 1.0f));
+    auto yaw = atan2(-direction.z, direction.x);
+    return Matrix::CreateFromYawPitchRoll(yaw, roll, pitch);
+}
+
+// Creates a world rotation matrix from a vector
+inline Matrix3x3 VectorToRotation(const Vector3& forward, Vector3 up = Vector3::Zero, Vector3 right = Vector3::Zero) {
+    ASSERT(IsNormalized(forward));
+
+    if (up == Vector3::Zero && right == Vector3::Zero) {
+        // neither up or right provided
+        if (forward.x == 0 && forward.z == 0) {
+            // vec is straight up or down
+            right = Vector3(1, 0, 0);
+            up.z = forward.y < 0 ? 1.0f : -1.0f;
+        }
+        else {
+            right = Vector3(forward.z, 0, -forward.x);
+            right.Normalize();
+            up = forward.Cross(right);
+        }
+    }
+    else if (right != Vector3::Zero) {
+        up = forward.Cross(right);
+        up.Normalize();
+        right = up.Cross(forward); // recalculate right vec in case it wasn't perpendicular
+    }
+    else if (up != Vector3::Zero) {
+        right = up.Cross(forward);
+        right.Normalize();
+        up = forward.Cross(right);
+    }
+
+    return Matrix3x3{ right, up, forward };
+}
+
+// Projects a ray onto a plane. What happens if parallel?
+inline Vector3 ProjectRayOntoPlane(const Ray& ray, const Vector3& planeOrigin, Vector3 planeNormal) {
+    assert(IsNormalized(planeNormal));
+    auto length = planeNormal.Dot(ray.position - planeOrigin) / planeNormal.Dot(-ray.direction);
+    return ray.position + ray.direction * length;
+}
+
+inline Vector3 ProjectPointOntoPlane(const Vector3& point, const Vector3& planeOrigin, Vector3 planeNormal) {
+    // q - dot(q - p, n) * n
+    assert(IsNormalized(planeNormal));
+    return point - (point - planeOrigin).Dot(planeNormal) * planeNormal;
+}
+
+inline Vector3 ProjectPointOntoPlane(const Vector3& point, const Plane& plane) {
+    // p' = p - (n . p + d) * n
+    return point - (plane.DotNormal(point) + plane.D()) * plane.Normal();
+}
+
+inline float DistanceFromPlane(const Vector3& point, const Vector3& planeOrigin, Vector3 planeNormal) {
+    return planeNormal.Dot(point - planeOrigin);
+}
+
+inline float PointToLineDistance(const Vector3& point, const Vector3& v0, const Vector3& v1) {
+    // normalize all points to vector 1
+    auto A = v0 - point;
+    auto B = v1 - point;
+
+    // use formula from page 505 of "Calculase and Analytical Geometry" Fifth Addition
+    // by Tommas/Finney, Addison-Wesley Publishing Company, June 1981
+    //          B * A
+    // B2 = B - ----- A
+    //          A * A
+
+    float a2 = A.Dot(A);
+    float c = a2 != 0 ? B.Dot(A) / a2 : 0;
+    auto C = B - (A * c);
+    return C.Length();
+}
+
+inline float PointToPlaneDistance(const Vector3& point, const Vector3& planeOrigin, Vector3 planeNormal) {
+    assert(IsNormalized(planeNormal));
+    auto w = point - planeOrigin;
+    auto v = planeNormal;
+    return v.Dot(w) / v.Length();
+}
+
+// v0 and v1 must be normalized. Returns [-PI, PI]
+inline float AngleBetweenVectors(const Vector3& v0, const Vector3& v1, const Vector3& normal) {
+    auto dot = v0.Dot(v1);
+    auto cross = v0.Cross(v1);
+    auto angle = atan2(cross.Length(), dot);
+    if (normal.Dot(cross) < 0) angle = -angle;
+    return angle;
+}
+
+// v0 and v1 must be normalized. Returns [0, PI]
+inline float AngleBetweenVectors(const Vector3& v0, const Vector3& v1) {
+    auto dot = v0.Dot(v1);
+    if (dot <= -0.999f) return (float)std::numbers::pi;
+    return acos(v0.Dot(v1));
+}
+
+// v0 and v1 must be normalized. Returns [0, PI]
+inline float AngleBetweenVectors(const Vector2& v0, const Vector2& v1) {
+    return acos(v0.Dot(v1));
+}
+
+// Rotates vector around 0,0 by an angle in radians.
+inline Vector2 RotateVector(const Vector2& v, float angle) {
+    return {
+        v.x * cos(angle) - v.y * sin(angle),
+        v.x * sin(angle) + v.y * cos(angle)
+    };
+}
+
+// Returns [-PI, PI]
+inline float AngleBetweenPoints(const Vector3& a, const Vector3& b, const Vector3& origin, const Vector3& normal) {
+    auto v0 = a - origin;
+    auto v1 = b - origin;
+    v0.Normalize();
+    v1.Normalize();
+    return AngleBetweenVectors(v0, v1, normal);
+}
+
+// Uniformly distributed direction on the unit sphere
+inline Vector3 RandomDirection() {
+    auto t = RandomFloat() * DirectX::XM_2PI;
+    float u = RandomFloat(-1, 1);
+    auto sqr = sqrt(1 - u * u);
+    return { cos(t) * sqr, sin(t) * sqr, u };
+}
+
+inline Vector3 RandomPointOnHemisphere() {
+    auto a = RandomFloat() * DirectX::XM_2PI;
+    auto z = std::asin(std::sqrt(RandomFloat()));
+    return { sin(z) * cos(a), sin(z) * sin(a), cos(z) };
+}
+
+// Uniformly distributed direction on the unit sphere
+//inline Vector3 RandomDirection() {
+//    float z = RandomN11();
+//    float angle = Random() * DirectX::XM_2PI;
+//    float r = sqrt(1.0f - z * z);
+//    return { r * cos(angle), r * sin(angle), z };
+//}
+
+// Returns a random point on the edge of a circle
+inline Vector3 RandomPointOnCircle(float radius = 1) {
+    auto t = RandomFloat() * DirectX::XM_2PI;
+    return { cos(t) * radius, sin(t) * radius, 0 };
+}
+
+// Random direction inside a cone. A coneRadius of 1 spreads particles 45 degrees off of direction.
+inline Vector3 RandomConeDirection(const Matrix3x3& rotation, float coneRadius) {
+    // sample a disc at a distance of one, tan(45 degrees) is one
+    float spread = tan(std::min(coneRadius, 1.0f) * 45.0f * DegToRad);
+    float r = sqrt(RandomFloat()) * spread;
+    float angle = RandomFloat() * DirectX::XM_2PI;
+
+    auto result = rotation.Right() * (r * cos(angle)) + rotation.Up() * (r * sin(angle)) + rotation.Forward();
+    result.Normalize();
+    return result;
+}
+
+// Uniformly distributed point inside a sphere
+inline Vector3 RandomPointOnSphere(float radius) {
+    // the cube root spreads points evenly by volume instead of clumping them in the center
+    return RandomDirection() * (radius * pow(RandomFloat(), 1.0f / 3.0f));
+}
+
+
+constexpr float FixToFloat(fix f) {
+    return (float)f / (float)(1 << 16);
+}
+
+constexpr int MAX_FIX = 32768; // Maximum fixed point value
+constexpr int MIN_FIX = -32769; // Minimum fixed point value
+
+constexpr fix FloatToFix(float f) {
+    assert(f < MAX_FIX && f > MIN_FIX); // out of range
+    return (fix)(f * (1 << 16));
+}
+
+constexpr float Step(float value, float step) {
+    if (step == 0.0f) return value;
+    return step * std::round(value / step);
+}
+
+// Modulus division without negative numbers
+constexpr auto ModSafe(std::signed_integral auto k, std::signed_integral auto n) {
+    return (k %= n) < 0 ? k + n : k;
+}
+
+inline float Saturate(float v) {
+    return v < 0.0f ? 0.0f : v  > 1.0f ? 1.0f : v;
+}
 
 }
 

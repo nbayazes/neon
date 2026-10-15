@@ -231,7 +231,9 @@
     <ClInclude Include="gsl\pointers.h" />
     <ClInclude Include="Handles.h" />
     <ClInclude Include="ModelCache.h" />
+    <ClInclude Include="Editor.h" />
     <ClInclude Include="ParticleEditor.h" />
+    <ClInclude Include="ShockwaveEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopedTimer.h" />

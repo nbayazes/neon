@@ -5,6 +5,7 @@
 
 struct Constants {
     float4x4 transform;
+    float4 Color;
     int Texture;
 };
 
@@ -46,7 +47,7 @@ VS_OUT vsmain(ShockwaveVertex input) {
     VS_OUT output;
     //output.position = mul(float4(position, 1), wvp);
     output.position = mul(float4(input.position, 1), wvp);
-    output.color = input.color;
+    output.color = input.color * Instance.Color;
     output.uv = input.uv;
 
     return output;
@@ -59,7 +60,8 @@ float4 psmain(VS_OUT pixel) : SV_TARGET {
 
     float2 uv = pixel.uv + float2(0, 0) * Frame.Time;
     //float4 color = float4(1, 1, 1, pixel.color.a);
-    float4 color = float4(1, 1, 1, 1);
+    float4 color = pixel.color;
+    //float4 color = float4(1, 1, 1, 1);
 
     if (Instance.Texture >= 0) {
         TextureInfo info = TextureInfoTable[NonUniformResourceIndex(Instance.Texture)];

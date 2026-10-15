@@ -8,53 +8,6 @@
 
 namespace neon::gfx {
 
-// Uniformly distributed direction on the unit sphere
-inline Vector3 RandomDirection() {
-    auto t = RandomFloat() * DirectX::XM_2PI;
-    float u = RandomFloat(-1, 1);
-    auto sqr = sqrt(1 - u * u);
-    return { cos(t) * sqr, sin(t) * sqr, u };
-}
-
-inline Vector3 RandomPointOnHemisphere() {
-    auto a = RandomFloat() * DirectX::XM_2PI;
-    auto z = std::asin(std::sqrt(RandomFloat()));
-    return { sin(z) * cos(a), sin(z) * sin(a), cos(z) };
-}
-
-// Uniformly distributed direction on the unit sphere
-//inline Vector3 RandomDirection() {
-//    float z = RandomN11();
-//    float angle = Random() * DirectX::XM_2PI;
-//    float r = sqrt(1.0f - z * z);
-//    return { r * cos(angle), r * sin(angle), z };
-//}
-
-// Returns a random point on the edge of a circle
-inline Vector3 RandomPointOnCircle(float radius = 1) {
-    auto t = RandomFloat() * DirectX::XM_2PI;
-    return { cos(t) * radius, sin(t) * radius, 0 };
-}
-
-// Random direction inside a cone. A coneRadius of 1 spreads particles 45 degrees off of direction.
-inline Vector3 RandomConeDirection(const Matrix3x3& rotation, float coneRadius) {
-    // sample a disc at a distance of one, tan(45 degrees) is one
-    float spread = tan(std::min(coneRadius, 1.0f) * 45.0f * DegToRad);
-    float r = sqrt(RandomFloat()) * spread;
-    float angle = RandomFloat() * DirectX::XM_2PI;
-
-    auto result = rotation.Right() * (r * cos(angle)) + rotation.Up() * (r * sin(angle)) + rotation.Forward();
-    result.Normalize();
-    return result;
-}
-
-// Uniformly distributed point inside a sphere
-inline Vector3 RandomPointOnSphere(float radius) {
-    // the cube root spreads points evenly by volume instead of clumping them in the center
-    return RandomDirection() * (radius * pow(RandomFloat(), 1.0f / 3.0f));
-}
-
-
 template <class T>
 struct NumericRange {
     T min{}, max{};
