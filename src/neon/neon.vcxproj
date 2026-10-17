@@ -234,6 +234,7 @@
     <ClInclude Include="Editor.h" />
     <ClInclude Include="ParticleEditor.h" />
     <ClInclude Include="ShockwaveEditor.h" />
+    <ClInclude Include="VisualEffectEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopedTimer.h" />

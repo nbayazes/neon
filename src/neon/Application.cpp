@@ -30,6 +30,7 @@
 #include "TextureRegistry.h"
 #include "vfs/FileSystem.h"
 #include "VisualEffect.h"
+#include "VisualEffectEditor.h"
 
 namespace neon {
 gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
@@ -49,6 +50,7 @@ namespace {
     int _objectSelection = 0;
     ParticleEditor g_particleEditor;
     ShockwaveEditor g_shockwaveEditor;
+    VisualEffectEditor g_visualEffectEditor;
 
     d3::GameTable _gameTable;
     List<d3::Hog2::Entry> _modelEntries;
@@ -617,6 +619,7 @@ void Init() {
 
     g_particleEditor.Show();
     g_shockwaveEditor.Show();
+    g_visualEffectEditor.Show();
 }
 
 DirectX::BoundingBox CalculateModelBounds(const gfx::Mesh& mesh) {
@@ -1090,6 +1093,7 @@ void Update(float dt) {
         g_particleEditor.ApplyTo(_scene.particles[0]);
 
     g_shockwaveEditor.Draw(_scene);
+    g_visualEffectEditor.Draw(_soundEntries);
 
     gfx::UpdateAnimations(_modelId, dt);
 

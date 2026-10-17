@@ -1,6 +1,7 @@
 #pragma once
 #include "Graphics/Mesh.h"
 #include "Graphics/ParticleSystem.h"
+#include <variant>
 
 namespace neon::gfx {
 
@@ -23,18 +24,33 @@ struct ShockwaveEffect {
 //     List<ParticleSystemInfo> particles;
 // };
 
+struct SoundEffect {
+    Vector3 position;
+    string sound;
+    float volume;
+    float pitch;
+    bool looping;
+};
+
+enum class EffectType {
+    None, ParticleSystem, Shockwave, Sound
+};
+
 // When created a visual effect inserts its contents
 // into the world
 struct VisualEffect {
     struct Item {
-        float timeOffset = 0;
-        List<ParticleSystemInfo> particles;
-        // all the other effect types
+        float timeOffset = 0; // offset in the timeline
+        string name; // Name in the effect editor
+        EffectType type = EffectType::None;
+
+        std::variant<ParticleSystemInfo, ShockwaveEffect, SoundEffect> data;
     };
+
 
     // if looped the effect repeats instead of only playing once
     int repeats = 0; // -1 repeats forever
-    float duration = 0;
+    float duration = 0; // used for looping
     float elapsed = 0;
 
     // effect needs to know when to create instances

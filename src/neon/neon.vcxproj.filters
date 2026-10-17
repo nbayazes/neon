@@ -117,6 +117,7 @@
     <ClInclude Include="Editor.h" />
     <ClInclude Include="ParticleEditor.h" />
     <ClInclude Include="ShockwaveEditor.h" />
+    <ClInclude Include="VisualEffectEditor.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Graphics\SpriteBatch.h" />
     <ClInclude Include="Graphics\Sprite.h" />
