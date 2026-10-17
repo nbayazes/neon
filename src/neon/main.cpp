@@ -202,19 +202,23 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
         return SDL_APP_SUCCESS;
     }
 
+    auto& io = ImGui::GetIO();
+
     if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.scancode == SDL_SCANCODE_F5) {
             neon::gfx::ReloadShaders();
         }
 
-        // Stub: ALT+ENTER toggles fullscreen
         if (event->key.scancode == SDL_SCANCODE_RETURN && (event->key.mod & SDL_KMOD_ALT)) {
             Fullscreen = !Fullscreen;
         }
-        neon::app::OnKeyDown(event->key.scancode);
+
+        if (!io.WantCaptureKeyboard) {
+            neon::app::OnKeyDown(event->key.scancode);
+        }
     }
 
-    if (event->type == SDL_EVENT_KEY_UP) {
+    if (event->type == SDL_EVENT_KEY_UP && !io.WantCaptureKeyboard) {
         neon::app::OnKeyUp(event->key.scancode);
     }
 
@@ -223,7 +227,6 @@ SDL_AppResult SDL_AppEvent(void* /*appstate*/, SDL_Event* event) {
     // Handle input and window events.
     //running = Backend::ProcessEvents(context, &Shell::ProcessKeyDownShortcuts, true);
 
-    auto& io = ImGui::GetIO();
 
     if (!io.WantCaptureMouse) {
         if (event->type == SDL_EVENT_MOUSE_MOTION) {
