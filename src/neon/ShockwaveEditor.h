@@ -13,6 +13,7 @@ class ShockwaveEditor {
     gfx::ShockwaveEffect _effect{};
     bool _visible = false;
     bool _changed = false;
+    float _labelColumnWidth = 0;
 
 public:
     gfx::ShockwaveEffect& Effect() noexcept { return _effect; }
@@ -41,13 +42,13 @@ public:
             }
 
             ImGui::SeparatorText("Appearance");
-            _changed |= imgui::SliderRow("Duration", _effect.duration, 0.0f, 2.0f);
-            _changed |= imgui::SliderRow("Radius", _effect.radius, 0.0f, 20.0f);
-            _changed |= imgui::SliderRow("Count", _effect.count, 1, 10);
-            _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _effect.texture);
-            _changed |= imgui::CheckboxRow("Random Rotation", _effect.randomRotation);
-            _changed |= imgui::CheckboxRow("Face Camera", _effect.faceCamera);
-            _changed |= imgui::ColorRow("Color", _effect.color);
+            _changed |= imgui::SliderRow("Duration", _effect.duration, 0.0f, 2.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Radius", _effect.radius, 0.0f, 20.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Count", _effect.count, 1, 10, _labelColumnWidth);
+            _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _effect.texture, _labelColumnWidth);
+            _changed |= imgui::CheckboxRow("Random Rotation", _effect.randomRotation, _labelColumnWidth);
+            _changed |= imgui::CheckboxRow("Face Camera", _effect.faceCamera, _labelColumnWidth);
+            _changed |= imgui::ColorRow("Color", _effect.color, _labelColumnWidth);
 
             if (ImGui::Button("Play")) {
                 for (uint i = 0; i < _effect.count; ++i) {

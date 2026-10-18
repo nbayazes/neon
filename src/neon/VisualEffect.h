@@ -27,9 +27,9 @@ struct ShockwaveEffect {
 struct SoundEffect {
     Vector3 position;
     string sound;
-    float volume;
-    float pitch;
-    bool looping;
+    float volume = 1;
+    float pitch = 1;
+    bool looping = false;
 };
 
 enum class EffectType {

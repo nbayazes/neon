@@ -13,6 +13,7 @@ class ParticleEditor {
     bool _visible = false;
     bool _changed = false;
     Vector3 _forward;
+    float _labelColumnWidth = 0;
 
 public:
     gfx::ParticleSystemInfo& Info() noexcept { return _info; }
@@ -44,37 +45,37 @@ public:
             ImGui::TextDisabled("Direction of (0, 0, 0) spawns in a random direction");
 
             ImGui::SeparatorText("Transform");
-            _changed |= imgui::SliderRow("Position", _info.position, -10.0f, 10.0f);
-            _changed |= imgui::SliderRow("Direction", _forward, -1.0f, 1.0f);
-            _changed |= imgui::SliderRow("Cone Radius", _info.coneRadius, 0.0f, 1.0f);
-            _changed |= imgui::SliderRow("Spawn Radius", _info.spawnRadius, 0.0f, 10.0f);
+            _changed |= imgui::SliderRow("Position", _info.position, -10.0f, 10.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Direction", _forward, -1.0f, 1.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Cone Radius", _info.coneRadius, 0.0f, 1.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Spawn Radius", _info.spawnRadius, 0.0f, 10.0f, _labelColumnWidth);
 
             ImGui::SeparatorText("Appearance");
-            _changed |= imgui::SliderRow("Middle offset", _info.midOffset, 0, 1);
-            _changed |= imgui::ColorRow("Start Color", _info.startColor);
-            _changed |= imgui::ColorRow("Mid Color", _info.midColor);
-            _changed |= imgui::ColorRow("End Color", _info.endColor);
-            _changed |= imgui::SliderRow("Start Size", _info.startSize, 0.0f, 10.0f);
-            _changed |= imgui::SliderRow("Mid Size", _info.midSize, 0.0f, 10.0f);
-            _changed |= imgui::SliderRow("End Size", _info.endSize, 0.0f, 10.0f);
-            _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _info.texture);
-            _changed |= imgui::BlendRow("Blend mode", _info.blendMode);
-            _changed |= imgui::CheckboxRow("Stretch Animation", _info.stretchAnimation);
-            _changed |= imgui::CheckboxRow("Random Rotation", _info.randomRotation);
-            _changed |= imgui::RangeRows("Rotation speed", _info.rotationSpeed, -5.0f, 5.0f);
+            _changed |= imgui::SliderRow("Middle offset", _info.midOffset, 0, 1, _labelColumnWidth);
+            _changed |= imgui::ColorRow("Start Color", _info.startColor, _labelColumnWidth);
+            _changed |= imgui::ColorRow("Mid Color", _info.midColor, _labelColumnWidth);
+            _changed |= imgui::ColorRow("End Color", _info.endColor, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Start Size", _info.startSize, 0.0f, 10.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Mid Size", _info.midSize, 0.0f, 10.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("End Size", _info.endSize, 0.0f, 10.0f, _labelColumnWidth);
+            _changed |= imgui::TextureRow("Texture", g_TextureRegistry, _info.texture, _labelColumnWidth);
+            _changed |= imgui::BlendRow("Blend mode", _info.blendMode, _labelColumnWidth);
+            _changed |= imgui::CheckboxRow("Stretch Animation", _info.stretchAnimation, _labelColumnWidth);
+            _changed |= imgui::CheckboxRow("Random Rotation", _info.randomRotation, _labelColumnWidth);
+            _changed |= imgui::RangeRows("Rotation speed", _info.rotationSpeed, -5.0f, 5.0f, _labelColumnWidth);
 
             ImGui::SeparatorText("Motion");
-            _changed |= imgui::SliderRow("Gravity", _info.gravity, -20.0f, 20.0f);
-            _changed |= imgui::SliderRow("Wind", _info.wind, -20.0f, 20.0f);
-            _changed |= imgui::SliderRow("Drag", _info.drag, 0.0f, 1.0f);
-            _changed |= imgui::RangeRows("Velocity", _info.velocity, 0.0f, 100.0f);
-            _changed |= imgui::SliderRow("Restitution", _info.restitution, 0.0f, 1.0f);
-            _changed |= imgui::CheckboxRow("World Collision", _info.useCollision);
+            _changed |= imgui::SliderRow("Gravity", _info.gravity, -20.0f, 20.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Wind", _info.wind, -20.0f, 20.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Drag", _info.drag, 0.0f, 1.0f, _labelColumnWidth);
+            _changed |= imgui::RangeRows("Velocity", _info.velocity, 0.0f, 100.0f, _labelColumnWidth);
+            _changed |= imgui::SliderRow("Restitution", _info.restitution, 0.0f, 1.0f, _labelColumnWidth);
+            _changed |= imgui::CheckboxRow("World Collision", _info.useCollision, _labelColumnWidth);
 
             ImGui::SeparatorText("Emission");
-            _changed |= imgui::RangeRows("Count", _info.count, 1, 20);
-            _changed |= imgui::RangeRows("Duration", _info.duration, 0.0f, 5.0f);
-            _changed |= imgui::RangeRows("Interval", _info.interval, 0.0f, 1.0f);
+            _changed |= imgui::RangeRows("Count", _info.count, 1, 20, _labelColumnWidth);
+            _changed |= imgui::RangeRows("Duration", _info.duration, 0.0f, 5.0f, _labelColumnWidth);
+            _changed |= imgui::RangeRows("Interval", _info.interval, 0.0f, 1.0f, _labelColumnWidth);
         }
 
         ImGui::End();

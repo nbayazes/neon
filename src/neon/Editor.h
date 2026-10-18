@@ -1,20 +1,32 @@
 #pragma once
+#include <algorithm>
 #include "Graphics/ParticleSystem.h"
 #include "TextureRegistry.h"
 #include "imgui.h"
 
 namespace neon::imgui {
 
-inline void RowLabel(const char* label) {
+// Draws the label of a property row and moves the cursor to the shared value
+// column. The caller owns labelColumnWidth and passes the same variable to
+// every row in a panel so their value widgets line up.
+inline float DrawLabelRow(const char* label, float& labelColumnWidth) {
+    float x = ImGui::GetCursorPosX();
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(label);
-    ImGui::SameLine();
+
+    labelColumnWidth = std::max(labelColumnWidth, ImGui::CalcTextSize(label).x);
+    ImGui::SameLine(x + labelColumnWidth + ImGui::GetStyle().ItemInnerSpacing.x);
+    return x;
+}
+
+inline void RowLabel(const char* label, float& labelColumnWidth) {
+    DrawLabelRow(label, labelColumnWidth);
     ImGui::SetNextItemWidth(-FLT_MIN);
 }
 
-inline bool SliderRow(const char* label, uint& value, uint min, uint max) {
+inline bool SliderRow(const char* label, uint& value, uint min, uint max, float& labelColumnWidth) {
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
 
     int v = (int)value;
     bool changed = ImGui::SliderInt("##value", &v, min, max);
@@ -26,75 +38,67 @@ inline bool SliderRow(const char* label, uint& value, uint min, uint max) {
     return changed;
 }
 
-inline bool SliderRow(const char* label, int& value, int min, int max) {
+inline bool SliderRow(const char* label, int& value, int min, int max, float& labelColumnWidth) {
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
     bool changed = ImGui::SliderInt("##value", &value, min, max);
     ImGui::PopID();
     return changed;
 }
 
-inline bool SliderRow(const char* label, float& value, float min, float max) {
+inline bool SliderRow(const char* label, float& value, float min, float max, float& labelColumnWidth) {
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
     bool changed = ImGui::SliderFloat("##value", &value, min, max);
     ImGui::PopID();
     return changed;
 }
 
-inline bool SliderRow(const char* label, Vector3& value, float min, float max) {
+inline bool SliderRow(const char* label, Vector3& value, float min, float max, float& labelColumnWidth) {
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
     bool changed = ImGui::SliderFloat3("##value", &value.x, min, max);
     ImGui::PopID();
     return changed;
 }
 
-inline bool ColorRow(const char* label, Color& color) {
+inline bool ColorRow(const char* label, Color& color, float& labelColumnWidth) {
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
     bool changed = ImGui::ColorEdit4("##value", &color.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_AlphaBar);
     ImGui::PopID();
     return changed;
 }
 
-inline bool CheckboxRow(const char* label, bool& value) {
+inline bool CheckboxRow(const char* label, bool& value, float& labelColumnWidth) {
     ImGui::PushID(label);
-    bool changed = ImGui::Checkbox(label, &value);
+    DrawLabelRow(label, labelColumnWidth);
+    bool changed = ImGui::Checkbox("##value", &value);
     ImGui::PopID();
     return changed;
 }
 
 // Min and max sliders. Keeps min <= max the way a range picker does.
-inline bool RangeRows(const char* label, gfx::NumericRange<float>& range, float min, float max) {
+inline bool RangeRows(const char* label, gfx::NumericRange<float>& range, float min, float max, float& labelColumnWidth) {
     ImGui::PushID(label);
     ImGui::Dummy({ 0, 5 });
     ImGui::Text(label);
 
-    bool changed = SliderRow("Min", range.min, min, max);
-    changed |= SliderRow("Max", range.max, min, max);
+    bool changed = SliderRow("Min", range.min, min, max, labelColumnWidth);
+    changed |= SliderRow("Max", range.max, min, max, labelColumnWidth);
 
     if (changed && range.min > range.max) std::swap(range.min, range.max);
     ImGui::PopID();
     return changed;
 }
 
-inline bool RangeRows(const char* label, gfx::NumericRange<int>& range, int min, int max) {
+inline bool RangeRows(const char* label, gfx::NumericRange<int>& range, int min, int max, float& labelColumnWidth) {
     ImGui::PushID(label);
     ImGui::Dummy({ 0, 5 });
     ImGui::Text(label);
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Min");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    bool changed = ImGui::SliderInt("##min", &range.min, min, max);
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Max");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    changed |= ImGui::SliderInt("##max", &range.max, min, max);
+    bool changed = SliderRow("Min", range.min, min, max, labelColumnWidth);
+    changed |= SliderRow("Max", range.max, min, max, labelColumnWidth);
 
     if (changed && range.min > range.max) std::swap(range.min, range.max);
     ImGui::PopID();
@@ -110,11 +114,11 @@ inline const char* BlendModeName(gfx::BlendMode mode) {
     }
 }
 
-inline bool BlendRow(const char* label, gfx::BlendMode& mode) {
+inline bool BlendRow(const char* label, gfx::BlendMode& mode, float& labelColumnWidth) {
     const char* current = BlendModeName(mode);
 
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
 
     bool changed = false;
     if (ImGui::BeginCombo("##value", current)) {
@@ -136,7 +140,7 @@ inline bool BlendRow(const char* label, gfx::BlendMode& mode) {
     return changed;
 }
 
-inline bool TextureRow(const char* label, TextureRegistry& registry, TexID& texture) {
+inline bool TextureRow(const char* label, TextureRegistry& registry, TexID& texture, float& labelColumnWidth) {
     const char* current = "None";
 
     for (auto& entry : registry.Entries()) {
@@ -147,7 +151,7 @@ inline bool TextureRow(const char* label, TextureRegistry& registry, TexID& text
     }
 
     ImGui::PushID(label);
-    RowLabel(label);
+    RowLabel(label, labelColumnWidth);
 
     bool changed = false;
     if (ImGui::BeginCombo("##value", current)) {

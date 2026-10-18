@@ -24,6 +24,7 @@ class VisualEffectEditor {
 
     Vector3 _forward; // edit buffer for the selected particle system's direction
     const Item* _syncedItem = nullptr; // item the edit buffers below were loaded from
+    char _itemName[64]{};
     char _soundName[128]{};
     char _soundSearch[64]{};
 
@@ -70,8 +71,11 @@ class VisualEffectEditor {
         _forward = {};
         _soundName[0] = '\0';
 
+        size_t length = item.name.copy(_itemName, sizeof(_itemName) - 1);
+        _itemName[length] = '\0';
+
         if (item.type == gfx::EffectType::Sound) {
-            size_t length = std::get<gfx::SoundEffect>(item.data).sound.copy(
+            length = std::get<gfx::SoundEffect>(item.data).sound.copy(
                 _soundName, sizeof(_soundName) - 1);
             _soundName[length] = '\0';
         }
@@ -79,101 +83,96 @@ class VisualEffectEditor {
         _syncedItem = &item;
     }
 
-    //bool DrawTypeRow(Item& item) {
-    //    ImGui::PushID("Type");
-    //    imgui::RowLabel("Type");
+    // Properties shared by every effect type: the item's name and its
+    // offset in the effect timeline.
+    bool DrawCommonProperties(Item& item) {
+        static float labelColumnWidth = 0;
+        bool changed = false;
 
-    //    bool changed = false;
-    //    if (ImGui::BeginCombo("##value", EffectTypeName(item.type))) {
-    //        for (gfx::EffectType candidate : {
-    //                 gfx::EffectType::ParticleSystem, gfx::EffectType::Shockwave, gfx::EffectType::Sound
-    //             }) {
-    //            bool selected = item.type == candidate;
+        ImGui::PushID("Common");
+        imgui::RowLabel("Name", labelColumnWidth);
+        if (ImGui::InputText("##value", _itemName, sizeof(_itemName))) {
+            item.name = _itemName;
+            changed = true;
+        }
+        ImGui::PopID();
 
-    //            if (ImGui::Selectable(EffectTypeName(candidate), selected) && !selected) {
-    //                SetEffectType(item, candidate);
-    //                SyncBuffers(item);
-    //                changed = true;
-    //            }
+        changed |= imgui::SliderRow("Time Offset", item.timeOffset, 0.0f, 10.0f, labelColumnWidth);
 
-    //            if (selected) ImGui::SetItemDefaultFocus();
-    //        }
-
-    //        ImGui::EndCombo();
-    //    }
-
-    //    ImGui::PopID();
-    //    return changed;
-    //}
+        return changed;
+    }
 
     bool DrawParticleProperties(gfx::ParticleSystemInfo& info) {
         bool changed = false;
+        static float labelColumnWidth = 0;
 
-        ImGui::SeparatorText("Transform");
-        changed |= imgui::SliderRow("Position", info.position, -10.0f, 10.0f);
+        ImGui::SeparatorText("Particle System");
+        changed |= imgui::SliderRow("Position", info.position, -10.0f, 10.0f, labelColumnWidth);
 
-        if (imgui::SliderRow("Direction", _forward, -1.0f, 1.0f)) {
+        if (imgui::SliderRow("Direction", _forward, -1.0f, 1.0f, labelColumnWidth)) {
             info.SetForwardDirection(_forward);
             changed = true;
         }
 
-        changed |= imgui::SliderRow("Cone Radius", info.coneRadius, 0.0f, 1.0f);
-        changed |= imgui::SliderRow("Spawn Radius", info.spawnRadius, 0.0f, 10.0f);
+        changed |= imgui::SliderRow("Cone Radius", info.coneRadius, 0.0f, 1.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Spawn Radius", info.spawnRadius, 0.0f, 10.0f, labelColumnWidth);
 
         ImGui::SeparatorText("Appearance");
-        changed |= imgui::SliderRow("Middle offset", info.midOffset, 0, 1);
-        changed |= imgui::ColorRow("Start Color", info.startColor);
-        changed |= imgui::ColorRow("Mid Color", info.midColor);
-        changed |= imgui::ColorRow("End Color", info.endColor);
-        changed |= imgui::SliderRow("Start Size", info.startSize, 0.0f, 10.0f);
-        changed |= imgui::SliderRow("Mid Size", info.midSize, 0.0f, 10.0f);
-        changed |= imgui::SliderRow("End Size", info.endSize, 0.0f, 10.0f);
-        changed |= imgui::TextureRow("Texture", g_TextureRegistry, info.texture);
-        changed |= imgui::BlendRow("Blend mode", info.blendMode);
-        changed |= imgui::CheckboxRow("Stretch Animation", info.stretchAnimation);
-        changed |= imgui::CheckboxRow("Random Rotation", info.randomRotation);
-        changed |= imgui::RangeRows("Rotation speed", info.rotationSpeed, -5.0f, 5.0f);
+        changed |= imgui::SliderRow("Middle offset", info.midOffset, 0, 1, labelColumnWidth);
+        changed |= imgui::ColorRow("Start Color", info.startColor, labelColumnWidth);
+        changed |= imgui::ColorRow("Mid Color", info.midColor, labelColumnWidth);
+        changed |= imgui::ColorRow("End Color", info.endColor, labelColumnWidth);
+        changed |= imgui::SliderRow("Start Size", info.startSize, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Mid Size", info.midSize, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("End Size", info.endSize, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::TextureRow("Texture", g_TextureRegistry, info.texture, labelColumnWidth);
+        changed |= imgui::BlendRow("Blend mode", info.blendMode, labelColumnWidth);
+        changed |= imgui::CheckboxRow("Stretch Animation", info.stretchAnimation, labelColumnWidth);
+        changed |= imgui::CheckboxRow("Random Rotation", info.randomRotation, labelColumnWidth);
+        changed |= imgui::RangeRows("Rotation speed", info.rotationSpeed, -5.0f, 5.0f, labelColumnWidth);
 
         ImGui::SeparatorText("Motion");
-        changed |= imgui::SliderRow("Gravity", info.gravity, -10.0f, 10.0f);
-        changed |= imgui::SliderRow("Wind", info.wind, -10.0f, 10.0f);
-        changed |= imgui::SliderRow("Drag", info.drag, 0.0f, 1.0f);
-        changed |= imgui::SliderRow("Restitution", info.restitution, 0.0f, 1.0f);
-        changed |= imgui::SliderRow("Spawn Radius", info.spawnRadius, 0.0f, 10.0f);
-        changed |= imgui::CheckboxRow("Use Collision", info.useCollision);
+        changed |= imgui::SliderRow("Gravity", info.gravity, -10.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Wind", info.wind, -10.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Drag", info.drag, 0.0f, 1.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Restitution", info.restitution, 0.0f, 1.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Spawn Radius", info.spawnRadius, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::CheckboxRow("Use Collision", info.useCollision, labelColumnWidth);
 
         ImGui::SeparatorText("Emission");
-        changed |= imgui::RangeRows("Count", info.count, 0, 100);
-        changed |= imgui::RangeRows("Velocity", info.velocity, 0.0f, 50.0f);
-        changed |= imgui::RangeRows("Duration", info.duration, 0.0f, 10.0f);
-        changed |= imgui::RangeRows("Interval", info.interval, 0.0f, 1.0f);
+        changed |= imgui::RangeRows("Count", info.count, 1, 10, labelColumnWidth);
+        changed |= imgui::RangeRows("Velocity", info.velocity, 0.0f, 50.0f, labelColumnWidth);
+        changed |= imgui::RangeRows("Duration", info.duration, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::RangeRows("Interval", info.interval, 0.0f, 1.0f, labelColumnWidth);
 
         return changed;
     }
 
     bool DrawShockwaveProperties(gfx::ShockwaveEffect& effect) {
+        static float _labelColumnWidth = 0;
         bool changed = false;
 
-        ImGui::SeparatorText("Appearance");
-        changed |= imgui::SliderRow("Position", effect.position, -10.0f, 10.0f);
-        changed |= imgui::SliderRow("Duration", effect.duration, 0.0f, 2.0f);
-        changed |= imgui::SliderRow("Radius", effect.radius, 0.0f, 20.0f);
-        changed |= imgui::SliderRow("Count", effect.count, 1, 10);
-        changed |= imgui::TextureRow("Texture", g_TextureRegistry, effect.texture);
-        changed |= imgui::CheckboxRow("Random Rotation", effect.randomRotation);
-        changed |= imgui::CheckboxRow("Face Camera", effect.faceCamera);
-        changed |= imgui::ColorRow("Color", effect.color);
+        ImGui::SeparatorText("Shockwave");
+        changed |= imgui::SliderRow("Position", effect.position, -10.0f, 10.0f, _labelColumnWidth);
+        changed |= imgui::SliderRow("Duration", effect.duration, 0.0f, 2.0f, _labelColumnWidth);
+        changed |= imgui::SliderRow("Radius", effect.radius, 0.0f, 20.0f, _labelColumnWidth);
+        changed |= imgui::SliderRow("Count", effect.count, 1, 10, _labelColumnWidth);
+        changed |= imgui::ColorRow("Color", effect.color, _labelColumnWidth);
+        changed |= imgui::TextureRow("Texture", g_TextureRegistry, effect.texture, _labelColumnWidth);
+        changed |= imgui::CheckboxRow("Random Rotation", effect.randomRotation, _labelColumnWidth);
+        changed |= imgui::CheckboxRow("Face Camera", effect.faceCamera, _labelColumnWidth);
 
         return changed;
     }
 
     bool DrawSoundProperties(gfx::SoundEffect& sound, const List<d3::Hog2::Entry>& sounds) {
+        static float _labelColumnWidth = 0;
         bool changed = false;
 
         ImGui::PushID("Sound");
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("Name");
-        ImGui::SameLine();
+        ImGui::SeparatorText("Sound");
+
+        imgui::RowLabel("File", _labelColumnWidth);
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeightWithSpacing());
         if (ImGui::InputText("##value", _soundName, sizeof(_soundName))) {
             sound.sound = _soundName;
@@ -213,9 +212,9 @@ class VisualEffectEditor {
 
         ImGui::PopID();
 
-        changed |= imgui::SliderRow("Volume", sound.volume, 0.0f, 2.0f);
-        changed |= imgui::SliderRow("Pitch", sound.pitch, 0.0f, 4.0f);
-        changed |= imgui::CheckboxRow("Looping", sound.looping);
+        changed |= imgui::SliderRow("Volume", sound.volume, 0.0f, 2.0f, _labelColumnWidth);
+        changed |= imgui::SliderRow("Pitch", sound.pitch, 0.0f, 4.0f, _labelColumnWidth);
+        changed |= imgui::CheckboxRow("Looping", sound.looping, _labelColumnWidth);
 
         return changed;
     }
@@ -286,7 +285,13 @@ public:
                 for (int i = 0; i < (int)_items.size(); ++i) {
                     ImGui::PushID(i);
                     bool selected = i == _selection;
-                    if (ImGui::Selectable(EffectTypeName(_items[i].type), selected))
+                    const Item& entry = _items[i];
+                    const char* name = entry.name.empty() ? EffectTypeName(entry.type) : entry.name.c_str();
+
+                    char label[160];
+                    std::snprintf(label, sizeof(label), "%s (%.2fs)", name, entry.timeOffset);
+
+                    if (ImGui::Selectable(label, selected))
                         _selection = i;
                     if (selected) ImGui::SetItemDefaultFocus();
                     ImGui::PopID();
@@ -300,10 +305,7 @@ public:
                 if (_syncedItem != item)
                     SyncBuffers(*item);
 
-                //_changed |= DrawTypeRow(*item);
-
-                ImGui::SeparatorText("Timeline");
-                _changed |= imgui::SliderRow("Time Offset", item->timeOffset, 0.0f, 10.0f);
+                _changed |= DrawCommonProperties(*item);
 
                 switch (item->type) {
                     case gfx::EffectType::ParticleSystem:
