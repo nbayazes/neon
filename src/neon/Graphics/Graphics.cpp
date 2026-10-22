@@ -1318,10 +1318,9 @@ void Render(Camera& camera, RenderTarget& renderTarget, const Scene& scene, floa
         DrawParticleSystem(context, system, tickAlpha);
 
     // additive pass
-    //_spriteBatcher.Draw(context, BlendMode::Alpha, _frame);
-    //_spriteBatcher.Draw(context, BlendMode::Additive, _frame);
-    //_spriteBatcher.Draw(context, BlendMode::Multiply, _frame);
-
+    _spriteBatcher.Draw(context, BlendMode::Alpha, _frame);
+    _spriteBatcher.Draw(context, BlendMode::Additive, _frame);
+    _spriteBatcher.Draw(context, BlendMode::Multiply, _frame);
 
     for (auto& shockwave : scene.shockwaves) {
         DrawShockwave(context, shockwave);

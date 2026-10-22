@@ -540,7 +540,6 @@ void Init() {
     //auto modelName = "aliencuplinkhousing.oof";
 
     _scene.models.emplace_back();
-    _scene.particles.emplace_back();
 
     if (auto modelData = hog.ReadEntry(modelName)) {
         auto model = ReadModel(hog, *modelData);
@@ -677,6 +676,23 @@ void ModelBrowser() {
     ImGui::End();
 }
 
+void LoadSound(string_view fileName) {
+    if (!audio::IsSoundLoaded(fileName)) {
+        if (auto data = _d3Hog.ReadEntry(fileName)) {
+            if (auto header = ReadWavHeader(*data)) {
+                audio::Waveform waveform = {
+                    .samples = span{ data->data() + header->dataOffset, header->dataSize },
+                    .bitsPerSample = header->bitsPerSample,
+                    .sampleRate = header->sampleRate,
+                    .channels = header->channels
+                };
+
+                audio::LoadWaveform(fileName, waveform);
+            }
+        }
+    }
+}
+
 void SoundBrowser() {
     ImGui::Begin("Sounds");
 
@@ -729,20 +745,7 @@ void SoundBrowser() {
         if (ImGui::Selectable(entry.name.c_str(), i == selection)) {
             selection = i;
 
-            if (!audio::IsSoundLoaded(entry.name)) {
-                if (auto data = _d3Hog.ReadEntry(entry.name)) {
-                    if (auto header = ReadWavHeader(*data)) {
-                        audio::Waveform waveform = {
-                            .samples = span{ data->data() + header->dataOffset, header->dataSize },
-                            .bitsPerSample = header->bitsPerSample,
-                            .sampleRate = header->sampleRate,
-                            .channels = header->channels
-                        };
-
-                        audio::LoadWaveform(entry.name, waveform);
-                    }
-                }
-            }
+            LoadSound(entry.name);
 
             if (inWorld)
                 audio::Play3D(entry.name, Vector3(0, 0, 0), gain, pitch);
@@ -1082,6 +1085,36 @@ void UpdateShockwave(gfx::ShockwaveEffect& shockwave, float dt) {
     shockwave.elapsed += dt;
 }
 
+// modifying a particle system should immediately affect the preview, however there are two different modes
+// when the particle system is infinite, the existing particles should be cleared and played immediately.
+// when the particle system has a duration, changes won't be seen until it repeats.
+//
+// the disconnect comes from a VFX potentially having multiple systems
+void UpdateVisualEffect(gfx::VisualEffect& vfx, float dt) {
+    for (auto& item : vfx.items) {
+        bool shouldAdd = vfx.elapsed <= item.timeOffset && vfx.elapsed + dt > item.timeOffset;
+        if (!shouldAdd) continue;
+
+        switch (item.type) {
+            case gfx::EffectType::ParticleSystem: {
+                _scene.AddParticleSystem(std::get<gfx::ParticleSystem>(item.data));
+                break;
+            }
+            case gfx::EffectType::Shockwave:
+                _scene.AddShockwave(std::get<gfx::ShockwaveEffect>(item.data));
+                break;
+            case gfx::EffectType::Sound: {
+                auto& effect = std::get<gfx::SoundEffect>(item.data);
+                LoadSound(effect.sound);
+                audio::Play3D(effect.sound, effect.position, effect.volume, effect.pitch);
+                break;
+            }
+        }
+    }
+
+    vfx.elapsed += dt;
+}
+
 void Update(float dt) {
     //ModelBrowser();
     ObjectBrowser();
@@ -1089,11 +1122,15 @@ void Update(float dt) {
     //TextureDebugWindow();
     CompilerOutputWindow();
 
-    if (g_particleEditor.Draw())
-        g_particleEditor.ApplyTo(_scene.particles[0]);
+    //if (g_particleEditor.Draw())
+    //    g_particleEditor.ApplyTo(_scene.particles[0]);
 
-    g_shockwaveEditor.Draw(_scene);
-    g_visualEffectEditor.Draw(_soundEntries);
+    //g_shockwaveEditor.Draw(_scene);
+    g_visualEffectEditor.Draw(_scene, _soundEntries);
+
+    for (auto& effect : _scene.effects) {
+        UpdateVisualEffect(effect, dt);
+    }
 
     gfx::UpdateAnimations(_modelId, dt);
 
@@ -1114,7 +1151,7 @@ void Update(float dt) {
     _compilerOutputTimer -= dt;
     tickAlpha = float(accumulator / TICK_RATE);
 
-    const float cameraSpeed = 10.0f * Clock.GetFrameTimeSeconds();
+    const float cameraSpeed = 15.0f * dt;
     if (_keys[SDL_SCANCODE_W]) _camera.MoveForward(cameraSpeed);
     if (_keys[SDL_SCANCODE_S]) _camera.MoveBack(cameraSpeed);
     if (_keys[SDL_SCANCODE_A]) _camera.MoveLeft(cameraSpeed);

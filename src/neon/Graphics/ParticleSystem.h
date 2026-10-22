@@ -46,6 +46,8 @@ constexpr bool RequiresSorting(BlendMode blendMode) {
 }
 
 struct ParticleSystemInfo {
+    float lifespan = 0; // When zero the system lives forever
+
     Vector3 position; // can be in world or object space depending on attach mode
     //Vector3 direction = Vector3::Up; // uses a random direction if zero
     Matrix3x3 orientation = Matrix3x3::Zero;
@@ -57,7 +59,7 @@ struct ParticleSystemInfo {
 
     float startSize = 5;
     float midSize = 5;
-    float endSize = 0;
+    float endSize = 5;
 
     Vector3 gravity; // Constant force applied each update
     Vector3 wind; // Constant force applied each update
@@ -141,12 +143,16 @@ public:
     span<const Particle> Particles() const { return _particles; }
 
     ParticleSystemInfo info = {};
+    float elapsed = 0;
 
     // Simulate is called at a fixed tick rate
     void Simulate(float dt) {
         _nextInterval -= dt;
 
-        if (_nextInterval <= 0) {
+        // constantly spawn particles if lifespan is 0 (infinite), or if there is life left
+        bool shouldSpawn = info.lifespan == 0 || elapsed < info.lifespan;
+
+        if (_nextInterval <= 0 && shouldSpawn) {
             // spawn particles once the interval passes
             SpawnParticles();
 
@@ -172,6 +178,8 @@ public:
             particle.endPosition = position + particle.velocity * dt;
             particle.elapsed += dt;
         }
+
+        elapsed += dt;
     }
 };
 

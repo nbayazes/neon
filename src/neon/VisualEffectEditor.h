@@ -5,6 +5,7 @@
 #include "d3/Hog2.h"
 #include "Editor.h"
 #include "neon-strings.h"
+#include "Scene.h"
 #include "TextureRegistry.h"
 #include "imgui.h"
 #include "VisualEffect.h"
@@ -37,8 +38,9 @@ class VisualEffectEditor {
         }
     }
 
-    // Replaces the data of an item with a fresh value of the given type.
-    static void SetEffectType(Item& item, gfx::EffectType type) {
+    static Item CreateItem(gfx::EffectType type) {
+        Item item = { .type = type };
+
         switch (type) {
             case gfx::EffectType::Shockwave:
                 item.data = gfx::ShockwaveEffect{};
@@ -46,29 +48,26 @@ class VisualEffectEditor {
             case gfx::EffectType::Sound:
                 item.data = gfx::SoundEffect{};
                 break;
-            default:
-                item.data = gfx::ParticleSystemInfo{};
+            case gfx::EffectType::ParticleSystem:
+                item.data = gfx::ParticleSystem{};
                 break;
+            default:
+                throw Exception("CreateItem: Effect type is not defined");
         }
 
-        item.type = type;
-    }
-
-    static Item CreateItem(gfx::EffectType type) {
-        Item item;
-        SetEffectType(item, type);
         return item;
     }
 
     Item* Selected() noexcept {
-        return _selection >= 0 && _selection < (int)_items.size()
+        return Seq::tryItem(_items, _selection);
+        /*return _selection >= 0 && _selection < (int)_items.size()
             ? &_items[_selection]
-            : nullptr;
+            : nullptr;*/
     }
 
     // Reloads the edit buffers from the given item.
     void SyncBuffers(const Item& item) {
-        _forward = {};
+        _forward = Vector3();
         _soundName[0] = '\0';
 
         size_t length = item.name.copy(_itemName, sizeof(_itemName) - 1);
@@ -102,12 +101,15 @@ class VisualEffectEditor {
         return changed;
     }
 
-    bool DrawParticleProperties(gfx::ParticleSystemInfo& info) {
+    bool DrawParticleSystemProperties(gfx::ParticleSystem& system) {
         bool changed = false;
         static float labelColumnWidth = 0;
 
+        auto& info = system.info;
+
         ImGui::SeparatorText("Particle System");
-        changed |= imgui::SliderRow("Position", info.position, -10.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Lifespan", info.lifespan, 0.0f, 10.0f, labelColumnWidth);
+        changed |= imgui::SliderRow("Offset", info.position, -10.0f, 10.0f, labelColumnWidth);
 
         if (imgui::SliderRow("Direction", _forward, -1.0f, 1.0f, labelColumnWidth)) {
             info.SetForwardDirection(_forward);
@@ -219,6 +221,26 @@ class VisualEffectEditor {
         return changed;
     }
 
+    void Play(Scene& scene) {
+        if (_items.empty()) return;
+
+        scene.effects.clear();
+        scene.shockwaves.clear();
+        scene.particles.clear();
+
+        gfx::VisualEffect effect;
+        effect.items = _items;
+
+        for (auto& existing : scene.effects) {
+            if (existing.elapsed > existing.duration) {
+                existing = effect;
+                return;
+            }
+        }
+
+        scene.effects.push_back(effect);
+    }
+
 public:
     span<const Item> Items() const noexcept { return _items; }
 
@@ -242,21 +264,29 @@ public:
         if (_selection >= (int)_items.size()) _selection = (int)_items.size() - 1;
     }
 
-    void ListActions() {
-        if (ImGui::Button("Add", { 100, 0 }))
+    void ListActions(Scene& scene) {
+        float buttonWidth = (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
+
+        if (ImGui::Button("Add", { buttonWidth, 0 }))
             ImGui::OpenPopup("AddEffect");
 
         ImGui::SameLine();
         bool hasSelection = Selected() != nullptr;
         ImGui::BeginDisabled(!hasSelection);
-        if (ImGui::Button("Delete", { 100, 0 }))
+        if (ImGui::Button("Delete", { buttonWidth, 0 }))
             Delete(_selection);
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(_items.empty());
+        if (ImGui::Button("Play", { buttonWidth, 0 }))
+            Play(scene);
         ImGui::EndDisabled();
 
         if (ImGui::BeginPopup("AddEffect")) {
             for (gfx::EffectType type : {
-                gfx::EffectType::ParticleSystem, gfx::EffectType::Shockwave, gfx::EffectType::Sound
-            }) {
+                     gfx::EffectType::ParticleSystem, gfx::EffectType::Shockwave, gfx::EffectType::Sound
+                 }) {
                 if (ImGui::Selectable(EffectTypeName(type)))
                     Add(type);
             }
@@ -265,7 +295,7 @@ public:
     }
 
     // Draws the window. Returns true when a property changed since the last draw.
-    bool Draw(const List<d3::Hog2::Entry>& sounds, const char* title = "Visual Effect Editor") {
+    bool Draw(Scene& scene, const List<d3::Hog2::Entry>& sounds, const char* title = "Visual Effect Editor") {
         _changed = false;
         if (!_visible) return false;
 
@@ -273,7 +303,7 @@ public:
             constexpr auto EFFECT_COLUMN_WIDTH = 220;
             {
                 ImGui::BeginChild("actions", { EFFECT_COLUMN_WIDTH, 35 });
-                ListActions();
+                ListActions(scene);
                 ImGui::EndChild();
             }
 
@@ -309,7 +339,7 @@ public:
 
                 switch (item->type) {
                     case gfx::EffectType::ParticleSystem:
-                        _changed |= DrawParticleProperties(std::get<gfx::ParticleSystemInfo>(item->data));
+                        _changed |= DrawParticleSystemProperties(std::get<gfx::ParticleSystem>(item->data));
                         break;
                     case gfx::EffectType::Shockwave:
                         _changed |= DrawShockwaveProperties(std::get<gfx::ShockwaveEffect>(item->data));

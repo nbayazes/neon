@@ -44,9 +44,10 @@ struct VisualEffect {
         string name; // Name in the effect editor
         EffectType type = EffectType::None;
 
-        std::variant<ParticleSystemInfo, ShockwaveEffect, SoundEffect> data;
+        std::variant<ParticleSystem, ShockwaveEffect, SoundEffect> data;
     };
 
+    List<Item> items;
 
     // if looped the effect repeats instead of only playing once
     int repeats = 0; // -1 repeats forever
