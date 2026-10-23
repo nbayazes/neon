@@ -64,6 +64,7 @@ Testing/
 .cache/
 /.vs
 /bin
+/x64
 /src/neon/imgui.ini
 _ReSharper.Caches/
 /src/neon/bin/
