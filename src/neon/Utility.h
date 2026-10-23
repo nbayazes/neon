@@ -90,54 +90,6 @@ void StartAsync(auto&& fun) {
     }); // future disposes itself on exit
 }
 
-inline float Desaturate(const Color& color) {
-    Color desaturate;
-    color.AdjustSaturation(0, desaturate);
-    return desaturate.x;
-}
-
-constexpr void ClampColor(Color& color, float min = 0.0f, float max = 1.0f) {
-    color.x = std::clamp(color.x, min, max);
-    color.y = std::clamp(color.y, min, max);
-    color.z = std::clamp(color.z, min, max);
-    color.w = std::clamp(color.w, min, max);
-}
-
-constexpr void ClampColor(Color& color, const Color& min = { 0, 0, 0, 0 }, const Color max = { 1, 1, 1, 1 }) {
-    color.x = std::clamp(color.x, min.x, max.x);
-    color.y = std::clamp(color.y, min.y, max.y);
-    color.z = std::clamp(color.z, min.z, max.z);
-    color.w = std::clamp(color.w, min.w, max.w);
-}
-
-constexpr Color ColorFromRGB(uint8 r, uint8 g, uint8 b, uint8 a = 255) {
-    return { (float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, float(a) / 255.0f };
-}
-
-inline Color AverageColors(span<Color> colors) {
-    Vector4 average;
-
-    for (int i = 0; i < colors.size(); i++)
-        average += colors[i].ToVector4();
-
-    average /= (float)colors.size();
-    return Color(average);
-}
-
-constexpr float PaletteToRGB(int16 color) {
-    return color >= 31 ? 1.0f : float(color) / 31.0f;
-}
-
-// Unpacks a 16 bpp palette value to a color
-constexpr Color UnpackColor(uint16 color) {
-    int16 r = ((color >> 10) & 31) * 2;
-    int16 g = ((color >> 5) & 31) * 2;
-    int16 b = (color & 31) * 2;
-
-    return { PaletteToRGB(r), PaletteToRGB(g), PaletteToRGB(b) };
-}
-
-
 namespace Seq {
     // Converts a std::set to a std::vector
     template <class T>

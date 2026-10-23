@@ -869,7 +869,7 @@ void AnimateModel(const d3::Model& model, AnimationInstance& animation, float dt
         Vector3 position = InterpolatePosition(submodel, frame);
 
         auto translation = Matrix::CreateTranslation(submodel.offset + position);
-
+        
         if (submodel.parent >= 0)
             _modelTransforms[sm] = Matrix::CreateFromQuaternion(rotation) * translation * _modelTransforms[submodel.parent];
         else

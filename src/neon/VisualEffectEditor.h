@@ -12,6 +12,26 @@
 
 namespace neon {
 
+constexpr gfx::VisualEffect::Item CreateItem(gfx::EffectType type) {
+    gfx::VisualEffect::Item item = { .type = type };
+
+    switch (type) {
+        case gfx::EffectType::Shockwave:
+            item.data = gfx::ShockwaveEffect{};
+            break;
+        case gfx::EffectType::Sound:
+            item.data = gfx::SoundEffect{};
+            break;
+        case gfx::EffectType::ParticleSystem:
+            item.data = gfx::ParticleSystem{};
+            break;
+        default:
+            throw Exception("CreateItem: Effect type is not defined");
+    }
+
+    return item;
+}
+
 // Window with a list of visual effect items (particle systems, shockwaves
 // and sounds). Each item has a timeline offset, can be added or deleted
 // and selecting one shows its properties in the panel on the right.
@@ -38,25 +58,8 @@ class VisualEffectEditor {
         }
     }
 
-    static Item CreateItem(gfx::EffectType type) {
-        Item item = { .type = type };
-
-        switch (type) {
-            case gfx::EffectType::Shockwave:
-                item.data = gfx::ShockwaveEffect{};
-                break;
-            case gfx::EffectType::Sound:
-                item.data = gfx::SoundEffect{};
-                break;
-            case gfx::EffectType::ParticleSystem:
-                item.data = gfx::ParticleSystem{};
-                break;
-            default:
-                throw Exception("CreateItem: Effect type is not defined");
-        }
-
-        return item;
-    }
+    void SaveWithDialog() const;
+    void LoadWithDialog();
 
     Item* Selected() noexcept {
         return Seq::tryItem(_items, _selection);
@@ -256,6 +259,15 @@ public:
         _selection = (int)_items.size() - 1;
     }
 
+    void Duplicate(int index) {
+        if (index < 0 || index >= (int)_items.size()) return;
+
+        Item copy = _items[index];
+        _items.insert(_items.begin() + index + 1, std::move(copy));
+        _selection = index + 1;
+        _syncedItem = nullptr;
+    }
+
     void Delete(int index) {
         if (index < 0 || index >= (int)_items.size()) return;
 
@@ -265,13 +277,20 @@ public:
     }
 
     void ListActions(Scene& scene) {
-        float buttonWidth = (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
+        //float buttonWidth = (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3;
+        float buttonWidth = 100;
 
         if (ImGui::Button("Add", { buttonWidth, 0 }))
             ImGui::OpenPopup("AddEffect");
 
         ImGui::SameLine();
         bool hasSelection = Selected() != nullptr;
+        ImGui::BeginDisabled(!hasSelection);
+        if (ImGui::Button("Copy", { buttonWidth, 0 }))
+            Duplicate(_selection);
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
         ImGui::BeginDisabled(!hasSelection);
         if (ImGui::Button("Delete", { buttonWidth, 0 }))
             Delete(_selection);
@@ -282,6 +301,17 @@ public:
         if (ImGui::Button("Play", { buttonWidth, 0 }))
             Play(scene);
         ImGui::EndDisabled();
+
+        ImGui::SameLine();
+        float actionsWidth = buttonWidth * 2 + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - actionsWidth);
+
+        if (ImGui::Button("Save", { buttonWidth, 0 }))
+            SaveWithDialog();
+
+        ImGui::SameLine();
+        if (ImGui::Button("Load", { buttonWidth, 0 }))
+            LoadWithDialog();
 
         if (ImGui::BeginPopup("AddEffect")) {
             for (gfx::EffectType type : {
@@ -300,12 +330,14 @@ public:
         if (!_visible) return false;
 
         if (ImGui::Begin(title, &_visible)) {
-            constexpr auto EFFECT_COLUMN_WIDTH = 220;
             {
-                ImGui::BeginChild("actions", { EFFECT_COLUMN_WIDTH, 35 });
+                float actionsHeight = ImGui::GetFrameHeight() * 1 + ImGui::GetStyle().ItemSpacing.y /*+ ImGui::GetStyle().WindowPadding.y * 1*/;
+                ImGui::BeginChild("actions", { 0, actionsHeight });
                 ListActions(scene);
                 ImGui::EndChild();
             }
+
+            constexpr auto EFFECT_COLUMN_WIDTH = 220;
 
             {
                 // Effect list

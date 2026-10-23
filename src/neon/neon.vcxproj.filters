@@ -40,8 +40,10 @@
     <ClCompile Include="Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Graphics\Sprite.cpp" />
     <ClCompile Include="VisualEffect.cpp" />
+    <ClCompile Include="VisualEffectEditor.cpp" />
     <ClCompile Include="Audio\Audio.cpp" />
     <ClCompile Include="Audio\Wav.cpp" />
+    <ClCompile Include="WindowsDialogs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\GpuResource.h" />
@@ -126,6 +128,8 @@
     <ClInclude Include="Audio\Wav.h" />
     <ClInclude Include="Audio\AudioReverb.h" />
     <ClInclude Include="shaders\Shockwave.h" />
+    <ClInclude Include="Yaml.h" />
+    <ClInclude Include="WindowsDialogs.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\imgui.hlsl" />

@@ -153,8 +153,6 @@ inline const Matrix3x3 Matrix3x3::Zero = Matrix3x3(
     Vector3::Zero
 );
 
-
-
 inline Vector3 AverageVectors(span<Vector3> verts) {
     Vector3 average;
 
@@ -374,6 +372,64 @@ inline Vector3 RandomPointOnSphere(float radius) {
     return RandomDirection() * (radius * pow(RandomFloat(), 1.0f / 3.0f));
 }
 
+// Converts an HDR RGB color to a normalized RGB color with intensity as the alpha
+inline void ColorRGBToRGBV(Color& color) {
+    if (color.w != 0) return;
+    auto value = Vector3(DirectX::XMColorRGBToHSV(color)).z;
+    if (value <= 0) value = 1;
+    color.x /= value;
+    color.y /= value;
+    color.z /= value;
+    color.w = value;
+}
+
+inline float Desaturate(const Color& color) {
+    Color desaturate;
+    color.AdjustSaturation(0, desaturate);
+    return desaturate.x;
+}
+
+constexpr void ClampColor(Color& color, float min = 0.0f, float max = 1.0f) {
+    color.x = std::clamp(color.x, min, max);
+    color.y = std::clamp(color.y, min, max);
+    color.z = std::clamp(color.z, min, max);
+    color.w = std::clamp(color.w, min, max);
+}
+
+constexpr void ClampColor(Color& color, const Color& min = { 0, 0, 0, 0 }, const Color max = { 1, 1, 1, 1 }) {
+    color.x = std::clamp(color.x, min.x, max.x);
+    color.y = std::clamp(color.y, min.y, max.y);
+    color.z = std::clamp(color.z, min.z, max.z);
+    color.w = std::clamp(color.w, min.w, max.w);
+}
+
+constexpr Color ColorFromRGB(uint8 r, uint8 g, uint8 b, uint8 a = 255) {
+    return { (float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, float(a) / 255.0f };
+}
+
+inline Color AverageColors(span<Color> colors) {
+    Vector4 average;
+
+    for (int i = 0; i < colors.size(); i++)
+        average += colors[i].ToVector4();
+
+    average /= (float)colors.size();
+    return Color(average);
+}
+
+constexpr float PaletteToRGB(int16 color) {
+    return color >= 31 ? 1.0f : float(color) / 31.0f;
+}
+
+// Unpacks a 16 bpp palette value to a color
+constexpr Color UnpackColor(uint16 color) {
+    int16 r = ((color >> 10) & 31) * 2;
+    int16 g = ((color >> 5) & 31) * 2;
+    int16 b = (color & 31) * 2;
+
+    return { PaletteToRGB(r), PaletteToRGB(g), PaletteToRGB(b) };
+}
+
 
 constexpr float FixToFloat(fix f) {
     return (float)f / (float)(1 << 16);
@@ -398,7 +454,7 @@ constexpr auto ModSafe(std::signed_integral auto k, std::signed_integral auto n)
 }
 
 inline float Saturate(float v) {
-    return v < 0.0f ? 0.0f : v  > 1.0f ? 1.0f : v;
+    return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
 }
 
 }
@@ -422,8 +478,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZLH
 
 #if defined(_XM_NO_INTRINSICS_)
 
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;
@@ -463,8 +519,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZLH
     return M;
 
 #elif defined(_XM_ARM_NEON_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;
@@ -480,8 +536,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZLH
     M.r[3] = vsetq_lane_f32(NearZ, Zero, 2);
     return M;
 #elif defined(_XM_SSE_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;
@@ -531,8 +587,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZRH
 
 #if defined(_XM_NO_INTRINSICS_)
 
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;
@@ -565,8 +621,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZRH
     return M;
 
 #elif defined(_XM_ARM_NEON_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;
@@ -582,8 +638,8 @@ inline XMMATRIX XM_CALLCONV XMMatrixPerspectiveFovInfiniteReverseZRH
     M.r[3] = vsetq_lane_f32(-NearZ, Zero, 2);
     return M;
 #elif defined(_XM_SSE_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float SinFov;
+    float CosFov;
     XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
     float Height = CosFov / SinFov;

@@ -208,7 +208,9 @@
     <ClCompile Include="vfs\FileSystem.cpp" />
     <ClCompile Include="vfs\VirtualFileSystem.cpp" />
     <ClCompile Include="VisualEffect.cpp" />
+    <ClCompile Include="VisualEffectEditor.cpp" />
     <ClCompile Include="Widechar.cpp" />
+    <ClCompile Include="WindowsDialogs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ankerl\ankerl.h" />
@@ -288,11 +290,13 @@
     <ClInclude Include="Utility.h" />
     <ClInclude Include="VClip.h" />
     <ClInclude Include="VisualEffect.h" />
+    <ClInclude Include="WindowsDialogs.h" />
     <ClInclude Include="WorkerThread.h" />
     <ClInclude Include="vfs\FileSystem.h" />
     <ClInclude Include="neon-strings.h" />
     <ClInclude Include="vfs\VirtualFileSystem.h" />
     <ClInclude Include="Widechar.h" />
+    <ClInclude Include="Yaml.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\imgui\imgui.vcxproj">
