@@ -2,7 +2,6 @@
 
 #include "CommandContext.h"
 #include "GpuResource.h"
-#include "DeviceResources.h"
 
 namespace neon::gfx {
 

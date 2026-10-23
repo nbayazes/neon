@@ -5,7 +5,7 @@
 #include <DirectXTK12/SimpleMath.h>
 #include <imgui_internal.h>
 #include <wrl/client.h>
-#include "Graphics/DeviceResources.h"
+#include "Graphics/Device.h"
 #include "Graphics/UploadBuffer.h"
 #include "Graphics/Graphics.h"
 #include "imgui_impl_sdl3.h"

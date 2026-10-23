@@ -11,7 +11,7 @@
 #include "d3/OutrageModel.h"
 #include "d3/OutrageTable.h"
 #include "Graphics/CommandContext.h"
-#include "Graphics/DeviceResources.h"
+#include "Graphics/Device.h"
 #include "Graphics/Graphics.h"
 #include "Graphics/Image.h"
 #include "Graphics/Mesh.h"
@@ -31,16 +31,6 @@
 #include "vfs/FileSystem.h"
 #include "VisualEffect.h"
 #include "VisualEffectEditor.h"
-
-namespace neon {
-gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
-}
-
-namespace neon::gfx {
-void PlayAnimation(const AnimationInstance& animation);
-void UpdateAnimations(ModelID modelId, float dt);
-void SetKeyframe(int16 keyframe, int timeScale);
-}
 
 namespace neon::app {
 

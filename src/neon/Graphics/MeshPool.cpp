@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "MeshPool.h"
-#include "DeviceResources.h"
+#include "Device.h"
 #include "ScopedTimer.h"
 #include "Utility.h"
 

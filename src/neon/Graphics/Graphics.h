@@ -44,14 +44,8 @@ ID3D12Device* GetDevice();
 
 void UpdateTextureInfo(const span<TextureInfo>& textures);
 
-struct AnimationInstance {
-    int16 from; // from keyframe
-    int16 to; // to keyframe
-    float duration; // how long it takes
-    float elapsed;
-    float timeScale = 1; // adjust the playback keyframes
-    int blend; // linear, ease in, etc
-};
+// Binds frame constants, the texture table and texture info
+void SetCommonShaderParameters(ID3D12GraphicsCommandList* cmdList);
 
 inline auto shockwaveMesh = MeshID::None;
 inline auto shockwaveTexture = TexID::None;

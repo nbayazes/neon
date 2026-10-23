@@ -2,7 +2,7 @@
 #include "ShaderCompiler.h"
 #include <dxcapi.h>
 #include "ankerl/ankerl.h"
-#include "Graphics/DeviceResources.h"
+#include "Graphics/Device.h"
 #include "Logging.h"
 
 // Most of this code is based on https://simoncoenen.com/blog/programming/graphics/DxcCompiling

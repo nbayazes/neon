@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "UploadBuffer.h"
-#include "DeviceResources.h"
+#include "Device.h"
 
 namespace neon::gfx {
     void CreateUploadHeap(ComPtr<ID3D12Resource>& resource, uint64 bufferSize) {

@@ -2,7 +2,8 @@
 #include "SpriteBatch.h"
 #include "Utility.h"
 #include "CommandContext.h"
-#include "DeviceResources.h"
+#include "Device.h"
+#include "Graphics.h"
 #include "ParticleSystem.h"
 #include "ShaderTypes.h"
 
@@ -59,9 +60,6 @@ uint SpriteBatch::Upload(bool sort) {
     return count;
 }
 
-void SetCommonShaderParmeters(ID3D12GraphicsCommandList* cmdList);
-GpuBuffer& GetFrameBuffer();
-
 void SpriteBatcher::Draw(GraphicsContext& context, BlendMode blendMode, uint64 frame) {
     auto& batch = GetSpriteBatch(blendMode, frame);
     bool sort = RequiresSorting(blendMode);
@@ -84,7 +82,7 @@ void SpriteBatcher::Draw(GraphicsContext& context, BlendMode blendMode, uint64 f
             context.SetPipelineState(pipelines::spriteAdditive);
     }
 
-    SetCommonShaderParmeters(cmdList);
+    SetCommonShaderParameters(cmdList);
     cmdList->SetGraphicsRootShaderResourceView(3, batch.GetTextureHandleAddress());
     cmdList->SetGraphicsRootShaderResourceView(4, batch.GetVerticesAddress());
 

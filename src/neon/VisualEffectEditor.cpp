@@ -5,10 +5,7 @@
 #include <iterator>
 
 #include "WindowsDialogs.h"
-#pragma warning(push)
-#pragma warning(disable: 4702) // unreachable code in c4/ext/fast_float_all.h
 #include "Yaml.h"
-#pragma warning(pop)
 
 namespace neon {
 

@@ -1,10 +1,12 @@
 #pragma once
 
+#pragma warning(push)
+#pragma warning(disable: 4702) // unreachable code in c4/ext/fast_float_all.h
 #include <c4/substr.hpp>
 #include <ryml/ryml_std.hpp>
 #include <ryml/ryml.hpp>
+#pragma warning(pop)
 #include <fmt/format.h>
-#include "Utility.h"
 #include "neon-types.h"
 #include "neon-math.h"
 #include "scoped-enum.h"

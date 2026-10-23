@@ -1,10 +1,22 @@
 ﻿#pragma once
 #include "GpuResource.h"
 #include "GraphicsHandles.h"
+#include "Handles.h"
 #include "neon-types.h"
 #include "shaders/ModelVertex.h"
 
+namespace neon {
+struct ModelInstance;
+}
+
+namespace neon::d3 {
+struct Model;
+enum class TextureFlag;
+}
+
 namespace neon::gfx {
+
+class GraphicsContext;
 
 struct GpuSubmesh {
     D3D12_VERTEX_BUFFER_VIEW vbv{};
@@ -43,14 +55,34 @@ struct Mesh {
     bool IsTransparent = false; // contains transparent textures
 };
 
-//gfx::Mesh CreateMesh(d3::Model& model);
-
-
 //void UploadMeshes(span<Mesh> meshes);
 
 //void UploadModel(ModelID id);
 
 // todo: must have a way to reassign textures without stalling
 //void UpdateMeshTextures(Mesh& mesh);
+
+struct AnimationInstance {
+    int16 from; // from keyframe
+    int16 to; // to keyframe
+    float duration; // how long it takes
+    float elapsed;
+    float timeScale = 1; // adjust the playback keyframes
+    int blend; // linear, ease in, etc
+};
+
+void PlayAnimation(const AnimationInstance& animation);
+void SetKeyframe(int16 keyframe, int timeScale);
+void UpdateAnimations(ModelID modelId, float dt);
+
+void DrawMeshPrepass(GraphicsContext& context, const ModelInstance& instance);
+void DrawMesh(GraphicsContext& context, const ModelInstance& instance);
+
+}
+
+namespace neon {
+
+// Converts a model into a mesh split into opaque, alpha and additive submeshes for upload
+gfx::Mesh CreateMesh(d3::Model& model, span<d3::TextureFlag> flags);
 
 }

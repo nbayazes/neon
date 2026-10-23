@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "TextureRegistry.h"
-#include "Graphics/DeviceResources.h"
+#include "Graphics/Device.h"
 
 namespace neon {
 

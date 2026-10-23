@@ -2,10 +2,11 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Graphics\Render.cpp" />
+    <ClCompile Include="Graphics\Particles.cpp" />
+    <ClCompile Include="Graphics\Shockwave.cpp" />
     <ClCompile Include="Graphics\GpuResource.cpp" />
     <ClCompile Include="Graphics\DescriptorTable.cpp" />
-    <ClCompile Include="Graphics\DeviceResources.cpp" />
+    <ClCompile Include="Graphics\Device.cpp" />
     <ClCompile Include="Graphics\Graphics.cpp" />
     <ClCompile Include="Logging.cpp" />
     <ClCompile Include="pch.cpp" />
@@ -56,7 +57,7 @@
     <ClInclude Include="Graphics\DescriptorTable.h" />
     <ClInclude Include="vfs\VirtualFileSystem.h" />
     <ClInclude Include="Graphics\Image.h" />
-    <ClInclude Include="Graphics\DeviceResources.h" />
+    <ClInclude Include="Graphics\Device.h" />
     <ClInclude Include="Graphics\Graphics.h" />
     <ClInclude Include="Logging.h" />
     <ClInclude Include="pch.h" />
@@ -116,6 +117,8 @@
     <ClInclude Include="shaders\Sprite.h" />
     <ClInclude Include="shaders\Common.h" />
     <ClInclude Include="Graphics\ParticleSystem.h" />
+    <ClInclude Include="Graphics\Particles.h" />
+    <ClInclude Include="Graphics\Shockwave.h" />
     <ClInclude Include="Editor.h" />
     <ClInclude Include="ParticleEditor.h" />
     <ClInclude Include="ShockwaveEditor.h" />

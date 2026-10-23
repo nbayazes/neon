@@ -1,6 +1,5 @@
 ﻿#include "pch.h"
 #include "DescriptorTable.h"
-//#include "DeviceResources.h"
 
 namespace neon::gfx {
     D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::AddRTV(GpuResource& resource, uint index) const {

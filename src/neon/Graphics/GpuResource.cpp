@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "GpuResource.h"
-#include "DeviceResources.h"
+#include "Device.h"
 #include "neon.h"
 #include "neon-strings.h"
 

@@ -5,7 +5,7 @@
 #include <RmlUi/Core.h>
 #include <RmlUi/Debugger.h>
 #include "DirectoryWatcher.h"
-#include "Graphics/DeviceResources.h"
+#include "Graphics/Device.h"
 #include "Graphics/Image.h"
 #include "Graphics/UploadBuffer.h"
 #include "shaders/rmlui.h"

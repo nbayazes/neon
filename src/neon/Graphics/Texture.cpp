@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 #include "Texture.h"
-#include "DeviceResources.h"
+#include "Device.h"
 #include "EASTL/vector.h"
 
 namespace neon::gfx {

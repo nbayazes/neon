@@ -1,12 +1,9 @@
 #pragma once
-#include <dxgi1_6.h>
 #include <directxtk12/CommonStates.h>
 #include "CommandContext.h"
 #include "CommandQueue.h"
 #include "DescriptorTable.h"
-#include "Mesh.h"
 #include "MeshPool.h"
-#include "neon-graphics.h"
 #include "Texture.h"
 //#include "UploadBuffer.h"
 
@@ -80,6 +77,8 @@ struct WindowSizeResources {
 };
 
 
+class SpriteBatcher;
+
 D3D12MA::Allocator* GetMemoryAllocator();
 
 // Gets the graphics context for the current frame
@@ -87,5 +86,14 @@ GraphicsContext* GetGraphicsContext();
 ID3D12Device* GetDevice();
 DeviceResources& GetDeviceResources();
 WindowSizeResources& GetWindowSizeResources();
+
+// Per-frame resources
+RenderTarget& GetBackBuffer();
+D3D12_GPU_VIRTUAL_ADDRESS& GetFrameConstants();
+DescriptorRange& GetFrameDescriptors();
+DescriptorHandle& GetCommonDescriptorTable();
+GpuBuffer& GetFrameBuffer();
+uint64 GetFrameIndex();
+SpriteBatcher& GetSpriteBatcher();
 
 }
